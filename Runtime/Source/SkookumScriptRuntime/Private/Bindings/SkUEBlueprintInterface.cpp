@@ -573,7 +573,7 @@ UFunction * SkUEBlueprintInterface::build_ue_function(UClass * ue_class_p, SkInv
   qualified_invokable_name.append(invokable_name_p);
 
   // Make UFunction object
-  UFunction * ue_function_p = NewObject<UFunction>(ue_class_p, qualified_invokable_name.as_cstr(), RF_Public | RF_RootSet);
+  UFunction * ue_function_p = NewObject<UFunction>(ue_class_p, qualified_invokable_name.as_cstr(), RF_Public);
 
   ue_function_p->FunctionFlags |= FUNC_Public;
   if (sk_invokable_p->is_class_member())

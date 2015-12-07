@@ -31,9 +31,8 @@ namespace SkUEActor_Impl
     SK_ASSERTX(uclass_p, a_cstr_format("Class '%s' not found. All actor classes must be present.", class_p->get_name_cstr_dbg()));
     if (uclass_p)
       {
-      EObjectFlags exclude_flags = RF_ClassDefaultObject | RF_PendingKill;
       object_array_p->Reserve(1024);
-      GetObjectsOfClass(uclass_p, *object_array_p, true, exclude_flags);
+      GetObjectsOfClass(uclass_p, *object_array_p, true, RF_ClassDefaultObject);
       }
     return uclass_p;
     }
