@@ -1,0 +1,38 @@
+{
+  "FileVersion" : 3,
+  
+  "FriendlyName" : "SkookumScript",
+  "Version" : 1,
+  "VersionName" : "3.0.2079",
+  "CreatedBy" : "Agog Labs Inc.",
+  "CreatedByURL" : "http://SkookumScript.com",
+  "DocsURL" : "http://skookumscript.com/docs/integrations/ue4plugin/",
+  "EngineVersion" : "4.12",
+  "Description" : "The powerful text-based gameplay scripting language with full IDE. Use as a turbo-charged command console on *any* project, or author your entire gameplay!",
+  "Category" : "Scripting",
+  "EnabledByDefault" : true,
+  "CanContainContent" : false,
+  "IsBetaVersion" : true,
+  "Installed" : true,
+  "CanBeUsedWithUnrealHeaderTool" : true,
+  
+  "Modules" :
+  [
+    {
+      "Name" : "SkookumScriptGenerator",
+      "Type" : "Program",
+      "LoadingPhase" : "PostConfigInit"
+    },
+    {
+      "Name": "SkookumScriptRuntime",
+      "Type": "Runtime",
+      "LoadingPhase": "PreDefault",
+      "BlacklistPlatforms" : [ "HTML5" ]
+    },
+    {
+      "Name" : "SkookumScriptEditor",
+      "Type" : "Editor",
+      "BlacklistPlatforms" : [ "HTML5" ]
+    }
+  ]
+}
