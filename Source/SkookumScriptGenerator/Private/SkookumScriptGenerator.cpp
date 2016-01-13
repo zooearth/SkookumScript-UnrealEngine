@@ -1427,8 +1427,9 @@ bool FSkookumScriptGenerator::can_export_method(UClass * class_p, UFunction * fu
     return false;
     }
 
-  // HACK - custom thunk
-  if (function_p->GetName() == TEXT("StackTrace"))
+  // custom thunk
+  const bool bIsCustomThunk = function_p->GetBoolMetaData(TEXT("CustomThunk"));
+  if (bIsCustomThunk)
     {
     return false;
     }
