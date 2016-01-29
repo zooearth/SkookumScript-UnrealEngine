@@ -574,7 +574,7 @@ void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const
 
   if (!m_overlay_path.IsEmpty() && asset_data.AssetClass == s_blueprint_class_name)
     {
-    UBlueprint * blueprint_p = FindObjectChecked<UBlueprint>(ANY_PACKAGE, *asset_data.AssetName.GetPlainNameString());
+    UBlueprint * blueprint_p = FindObjectChecked<UBlueprint>(ANY_PACKAGE, *asset_data.AssetName.ToString());
     if (blueprint_p)
       {
       rename_class_script_files(blueprint_p->GeneratedClass, FPaths::GetBaseFilename(old_object_path));
