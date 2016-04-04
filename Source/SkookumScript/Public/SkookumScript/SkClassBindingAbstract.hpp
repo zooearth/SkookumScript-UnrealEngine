@@ -69,5 +69,12 @@ inline void SkClassBindingAbstract<_BindingClass>::initialize(ASymbol class_name
   // Initialize class information
   ms_class_p = SkBrain::get_class(class_name);
   SK_ASSERTX(ms_class_p, a_str_format("Tried to initialize class bindings for '%s' but it is unknown!", class_name.as_cstr_dbg()));
+  // Try to recover from class not found situation
+  #ifdef SK_RUNTIME_RECOVER
+    if (!ms_class_p)
+      {
+      ms_class_p = SkBrain::ms_object_class_p;
+      }
+  #endif
   }
 

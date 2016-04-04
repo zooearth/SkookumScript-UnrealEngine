@@ -258,7 +258,8 @@ namespace SkUEActor_Impl
     };
 
   #ifdef _MSC_VER
-  #pragma warning(disable : 4127) // Function below contains constant conditionals on purpose
+    #pragma warning(push)
+    #pragma warning(disable : 4127) // Function below contains constant conditionals on purpose
   #endif
 
   template<class tEventHandler, bool do_until>
@@ -335,7 +336,7 @@ namespace SkUEActor_Impl
     }
 
   #ifdef _MSC_VER
-  #pragma warning(default : 4127)
+    #pragma warning(pop)
   #endif
 
   //---------------------------------------------------------------------------------------

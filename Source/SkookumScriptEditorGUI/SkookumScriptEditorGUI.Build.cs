@@ -46,6 +46,7 @@ namespace UnrealBuildTool.Rules
           "SlateCore",
           "Slate",
           "EditorStyle",
+          "Projects",
           // ... add private dependencies that you statically link with here ...
         }
         );

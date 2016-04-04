@@ -199,7 +199,7 @@ bool SkUERuntime::content_file_exists(const TCHAR * file_name_p, FString * folde
   if (game_name.IsEmpty())
     {
     // No game, look for default project binaries
-    folder_path = FPaths::EngineContentDir() / TEXT("skookumscript") /*TEXT(SK_BITS_ID)*/;
+    folder_path = FPaths::EngineContentDir() / TEXT("SkookumScript") /*TEXT(SK_BITS_ID)*/;
     if (!FPaths::FileExists(folder_path / file_name_p))
       {
       return false;
@@ -208,12 +208,12 @@ bool SkUERuntime::content_file_exists(const TCHAR * file_name_p, FString * folde
   else
     {
     // We have a game, so first check if it exists in the game content folder
-    folder_path = FPaths::GameContentDir() / TEXT("skookumscript") /*TEXT(SK_BITS_ID)*/;
+    folder_path = FPaths::GameContentDir() / TEXT("SkookumScript") /*TEXT(SK_BITS_ID)*/;
     if (!FPaths::FileExists(folder_path / file_name_p))
       {
       #if WITH_EDITORONLY_DATA
         // If not found in game, check in temp location
-        folder_path = FPaths::GameIntermediateDir() / TEXT("SkookumScript/Content/skookumscript");
+        folder_path = FPaths::GameIntermediateDir() / TEXT("SkookumScript/Content/SkookumScript");
         if (!FPaths::FileExists(folder_path / file_name_p))
           {
           return false;

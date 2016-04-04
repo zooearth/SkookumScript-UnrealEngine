@@ -30,7 +30,6 @@ namespace UnrealBuildTool.Rules
             "Core",
             "CoreUObject",
             "Engine",
-            "UMG",
           }
         );
 
@@ -43,17 +42,49 @@ namespace UnrealBuildTool.Rules
       PrivateDependencyModuleNames.AddRange(
         new string[]
           {
+            //"CoreUObject",
             "InputCore",
+            "SlateCore",
+            "Slate",
+            "MessagingRpc",
+            "PortalRpc",
+            "PortalServices",
+            "EngineMessages",
+            "EngineSettings",
+            //"Engine",
+            "MediaAssets",
+            "MoviePlayer",
+            "Serialization",
+            "HeadMountedDisplay",
+            "AutomationMessages",
+            "MovieScene",
+            "LevelSequence",
+            "GameplayTags",
+            "GameplayTasks",
+            "AIModule",
+            "JsonUtilities",
+            "MovieSceneTracks",
+            "MovieSceneCapture",
+            "SessionMessages",
+            "UMG",
+            "MaterialShaderQualitySettings",
+            "Foliage",
+            "Landscape",
+            "VectorVM",
+            "Niagara",
+            "AnimGraphRuntime",
+            "OnlineSubsystem",
+            "OnlineSubsystemUtils",
+            "WebBrowser",
+            "GameplayAbilities",
+
             "Sockets",
             "HTTP",
             "Networking",
             "NetworkReplayStreaming",
-            "OnlineSubsystem",
-            "MovieScene",
-            "SlateCore",
-            "Slate",
+            "Projects",
             "AgogCore",
-            "SkookumScript"
+            "SkookumScript",
           }
         );
 

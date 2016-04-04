@@ -476,7 +476,7 @@ const ASymbol & ASymbol::get_null()
 
 //---------------------------------------------------------------------------------------
 // Parses symbol table binary and allows for non-Agog style (ASymbolTable)
-//             symbol/string database - modified from AgogCore\ASymbolTable::assign_binary()
+//             symbol/string database - modified from AgogCore/ASymbolTable::assign_binary()
 // Arg         binary_pp - Pointer to address to read from and increment.
 // Notes:      Binary composition:
 //               The data in the binary byte stream is in the form:

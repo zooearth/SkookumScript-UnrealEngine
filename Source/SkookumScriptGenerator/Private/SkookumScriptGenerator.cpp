@@ -85,6 +85,8 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
   static const FName    ms_meta_data_key_custom_structure_param;
   static const FName    ms_meta_data_key_array_parm;
   static const FName    ms_meta_data_key_module_relative_path;
+  static const FName    ms_meta_data_key_custom_thunk;
+  static const FName    ms_meta_data_key_cannot_implement_interface_in_blueprint;
 
 #ifdef USE_DEBUG_LOG_FILE
   FILE *                m_debug_log_file; // Quick file handle to print debug stuff to, generates log file in output folder
@@ -164,6 +166,9 @@ void FSkookumScriptGenerator::ShutdownModule()
 const FName FSkookumScriptGenerator::ms_meta_data_key_custom_structure_param(TEXT("CustomStructureParam"));
 const FName FSkookumScriptGenerator::ms_meta_data_key_array_parm(TEXT("ArrayParm"));
 const FName FSkookumScriptGenerator::ms_meta_data_key_module_relative_path(TEXT("ModuleRelativePath"));
+const FName FSkookumScriptGenerator::ms_meta_data_key_custom_thunk(TEXT("CustomThunk"));
+const FName FSkookumScriptGenerator::ms_meta_data_key_cannot_implement_interface_in_blueprint(TEXT("CannotImplementInterfaceInBlueprint"));
+
 
 //---------------------------------------------------------------------------------------
 
@@ -181,6 +186,9 @@ void FSkookumScriptGenerator::Initialize(const FString & root_local_path, const 
   // Clear contents of scripts folder for a fresh start
   FString directory_to_delete(m_overlay_path / TEXT("Object"));
   IFileManager::Get().DeleteDirectory(*directory_to_delete, false, true);
+  // Create folder for class "Enum" as the folder will not get automagically created when m_overlay_path_depth <= 1
+  FString directory_to_create(m_overlay_path / TEXT("Object") / TEXT("Enum"));
+  IFileManager::Get().MakeDirectory(*directory_to_create, true);
 
   // Fetch from ini file which classes to skip during script generation
   // [SkookumScriptGenerator]
@@ -605,7 +613,7 @@ void FSkookumScriptGenerator::generate_enum(UEnum * enum_p)
 void FSkookumScriptGenerator::generate_enum_script_files(UEnum * enum_p)
   {
   FString enum_type_name = enum_p->GetName();
-  FString enum_path = m_overlay_path / TEXT("Object/Enum") / enum_type_name;
+  FString enum_path = m_overlay_path / (m_overlay_path_depth > 1 ? TEXT("Object/Enum") / enum_type_name : TEXT("Object/Enum.") + enum_type_name);
 
   // Class meta information
   FString meta_file_path = enum_path / TEXT("!Class.sk-meta");
@@ -807,8 +815,9 @@ FString FSkookumScriptGenerator::generate_method_binding_code(const FString & cl
   // Generate code for the function body
   FString function_body;
   if (function_p->HasAnyFunctionFlags(FUNC_Public) 
-   && !function_p->HasMetaData(ms_meta_data_key_custom_structure_param)  // Never call custom thunks directly
-   && !function_p->HasMetaData(ms_meta_data_key_array_parm))             // Never call custom thunks directly
+   && !function_p->HasMetaData(ms_meta_data_key_custom_structure_param)   // Never call custom thunks directly
+   && !function_p->HasMetaData(ms_meta_data_key_array_parm)               // Never call custom thunks directly
+   && !class_p->HasMetaData(ms_meta_data_key_cannot_implement_interface_in_blueprint)) // Never call UINTERFACE methods directly
     {
     // Public function, might be called via direct call
     if (function_p->HasAnyFunctionFlags(FUNC_RequiredAPI) || class_p->HasAnyClassFlags(CLASS_RequiredAPI))
@@ -1429,8 +1438,7 @@ bool FSkookumScriptGenerator::can_export_method(UClass * class_p, UFunction * fu
     }
 
   // Skip custom thunks
-  const bool bIsCustomThunk = function_p->GetBoolMetaData(TEXT("CustomThunk"));
-  if (bIsCustomThunk)
+  if (function_p->GetBoolMetaData(ms_meta_data_key_custom_thunk))
     {
     return false;
     }

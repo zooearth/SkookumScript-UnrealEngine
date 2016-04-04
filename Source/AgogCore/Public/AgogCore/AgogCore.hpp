@@ -676,7 +676,9 @@ const uint32_t ADef_no_change = ADef_uint32;  // Indicates that no change should
 
 //---------------------------------------------------------------------------------------
 // Misc. Common Constants
+//---------------------------------------------------------------------------------------
 
+//---------------------------------------------------------------------------------------
 enum eAFlag
   {
   AFlag_off       = 0x0,
@@ -684,6 +686,7 @@ enum eAFlag
   AFlag__toggle   = 1 << 1
   };
 
+//---------------------------------------------------------------------------------------
 // Used for a Boolean flag/value over a collection of elements where they could all have
 // it set, they could all have it not set or they could be mixed with some set and some
 // not.
@@ -695,6 +698,7 @@ enum eAGroupFlag
   AGroupFlag_mixed         = AGroupFlag_present | AGroupFlag_absent  // Some in group with flag set and flag cleared
   };
 
+//---------------------------------------------------------------------------------------
 enum eAConfirm
   {
   AConfirm_abort = -1,
@@ -702,6 +706,7 @@ enum eAConfirm
   AConfirm_yes   =  1
   };
 
+//---------------------------------------------------------------------------------------
 enum eAProgess
   {
   AProgess_skip,
@@ -710,6 +715,7 @@ enum eAProgess
   AProgess_processed
   };
 
+//---------------------------------------------------------------------------------------
 // Comparison result value - also see a_compare() below and A_INT*_AS_EQUATE() macros above.
 enum eAEquate
   {
@@ -718,6 +724,7 @@ enum eAEquate
   AEquate_greater = 1
   };
 
+//---------------------------------------------------------------------------------------
 // Used to specify lifetime of an argument or task.
 // Commonly used with memory buffers like strings and serialization.
 enum eATerm
@@ -730,6 +737,7 @@ enum eATerm
   ATerm_long  = 1
   };
 
+//---------------------------------------------------------------------------------------
 // Used to specify whether something should be remembered/archived in some sort of a
 // history/memory or not.  [Used in the place of bool to give more obvious context.]
 enum eAHistory
@@ -738,6 +746,16 @@ enum eAHistory
   AHistory_remember = 1
   };
 
+//---------------------------------------------------------------------------------------
+// Specifies whether a user should be prompted or no prompt and proceed with action.
+// [Used in the place of `bool` to give more obvious context.]
+enum eAPrompt
+  {
+  APrompt_none,  // Ask user if action should proceed
+  APrompt_user   // Proceed with action without prompting user
+  };
+
+//---------------------------------------------------------------------------------------
 // Indicates whether an iteration or operation did full span or action or quit early.
 // [Often used in the place of bool to give more obvious context.]
 enum eAIterateResult
@@ -746,6 +764,7 @@ enum eAIterateResult
   AIterateResult_early_exit = 1   // [implicitly coercible to true]
   };
 
+//---------------------------------------------------------------------------------------
 enum eAHorizAlign
   {
   AHorizAlign_left      = 0,
@@ -754,6 +773,7 @@ enum eAHorizAlign
   AHorizAlign_justified = 3
   };
 
+//---------------------------------------------------------------------------------------
 enum eAVertAlign
   {
   AVertAlign_top      = 0,
@@ -761,6 +781,7 @@ enum eAVertAlign
   AVertAlign_centered = 2
   };
 
+//---------------------------------------------------------------------------------------
 // Flags for iterating through a hierarchy
 enum eAHierarchy
   {
@@ -774,6 +795,7 @@ enum eAHierarchy
   AHierarchy__all     = AHierarchy_current | AHierarchy_recurse
   };
 
+//---------------------------------------------------------------------------------------
 // Used to control information / logging / tracing output.
 // If some levels are skipped for a particular function try to use relative operators <>
 // to ensure that all verbosity levels may be used.
@@ -787,6 +809,7 @@ enum eAVerbosity
   AVerbosity_full       // Display both major/minor high/low-level info in all its glory
   };
 
+//---------------------------------------------------------------------------------------
 // What measure to take after an error
 enum eAErrAction
   {
@@ -794,7 +817,7 @@ enum eAErrAction
 
   AErrAction_quit,        // Quit application
   AErrAction_retry,       // Retry last command
-  AErrAction_continue,    // Skip currnent command and continue with next command
+  AErrAction_continue,    // Skip current command and continue with next command
 
                           // Go to next line of code - usually unstable
 
@@ -807,6 +830,11 @@ enum eAErrAction
 
   AErrAction__action_mask = 0x0FF
   };
+
+
+//=======================================================================================
+// Global Functions
+//=======================================================================================
 
 //---------------------------------------------------------------------------------------
 // Interface for AgogCore to interact with its app
@@ -842,22 +870,29 @@ class AAppInfoCore
     virtual void debug_print(const char * cstr_p) = 0;
 
     //---------------------------------------------------------------------------------------
-    // Called whenever an error occurs but *before* a choice has been made as to
-    //             how it should be resolved.  It optionally creates an error output object
-    //             that will have its determine_choice() called if 'nested' is false.
-    // Returns:    an AErrorOutputBase object to call determine_choice() on or nullptr if a
-    //             default resolve error choice is to be made without prompting the user with
-    //             output to the debug output window.
-    // Arg         nested - Indicates whether the error is nested inside another error - i.e.
-    //             an additional error happened before a prior error was fully resolved
-    //             (while unwinding the stack on a 'continue' exception throw for example).
-    //             determine_choice() will *not* be called if 'nested' is true.
+    // Called whenever an error occurs but *before* a choice has been made as to how it
+    // should be resolved.  It optionally creates an error output object that will have its
+    // determine_choice() called if 'nested' is false.
+    // 
+    // Returns:
+    //   an AErrorOutputBase object to call determine_choice() on or nullptr if a default
+    //   resolve error choice is to be made without prompting the user with output to the
+    //   debug output window.
+    //   
+    // Params:
+    //   nested:
+    //     Indicates whether the error is nested inside another error - i.e. an additional
+    //     error happened before a prior error was fully resolved (while unwinding the stack
+    //     on a 'continue' exception throw for example). `determine_choice()` will *not* be
+    //     called if 'nested' is true.
     virtual AErrorOutputBase * on_error_pre(bool nested) = 0;
 
     //---------------------------------------------------------------------------------------
-    // Called whenever an error occurs and *after* a choice has been made as to
-    //             how it should be resolved.
-    // Arg         action - the action that will be taken to attempt resolve the error.
+    // Called whenever an error occurs and *after* a choice has been made as to how it should
+    // be resolved.
+    // 
+    // Params:
+    //   action: the action that will be taken to attempt resolve the error.
     virtual void on_error_post(eAErrAction action) = 0;
 
     //---------------------------------------------------------------------------------------
@@ -882,10 +917,6 @@ class AAppInfoCoreDefault : public AAppInfoCore
 
   };
 
-//=======================================================================================
-// Global Functions
-//=======================================================================================
-
 namespace AgogCore
   {
 
@@ -900,8 +931,8 @@ namespace AgogCore
 
 //---------------------------------------------------------------------------------------
 // Compares two types and returns the result as an eAEquate
-// Returns:    AEquate_less, AEquate_equal or AEquate_greater
-// Author(s):   Conan Reis
+// 
+// Returns: AEquate_less, AEquate_equal or AEquate_greater
 template<class _Type>
 inline eAEquate a_compare(_Type lhs, _Type rhs)
   {
@@ -952,28 +983,38 @@ inline void operator delete[](void * buffer_p, const char * desc_cstr_p)
 
 //---------------------------------------------------------------------------------------
 // Allows the creation of objects in place using supplied memory
-// Arg         size_t size - [ignored] 'memory_p' is assumed to be large enough
-// Arg         void * buffer_p - memory to create instance in
-// Examples:   AString str_p = new (memory_p) AString("In place AString");
-// See:        placement delete below
-// Notes:      This function should be completely optimized out by the compiler and
-//             simply become 'memory_p'.
-// Author(s):   Conan Reis
+// 
+// Params:
+//   size:     [ignored] 'memory_p' is assumed to be large enough
+//   buffer_p: memory to create instance in
+//   
+// Examples:
+//   AString str_p = new (memory_p) AString("In place AString");
+//   
+// Notes:
+//   This function should be completely optimized out by the compiler and simply become
+//   `buffer_p`.
+//   
+// See: placement delete below
 inline void * operator new(size_t, void * buffer_p)
   {
   return buffer_p;
   }
 
 //---------------------------------------------------------------------------------------
-// This is the placement delete to mirror the placement new.  It serves no
-//             purpose other than to prevent a compiler warning since all operator new
-//             functions expect a matching operator delete function.
-// Arg         void * obj_p - [ignored] pointer to object
-// Arg         void * memory_p - [ignored] memory instance was created in
-// Examples:   str_p->~AString();
-// See:        placement new above
-// Notes:      This function should be completely optimized out by the compiler.
-// Author(s):   Conan Reis
+// This is the placement delete to mirror the placement new.  It serves no purpose other
+// than to prevent a compiler warning since all operator new functions expect a matching
+// operator delete function.
+// 
+// Params:
+//   obj_p - [ignored] pointer to object
+//   memory_p - [ignored] memory instance was created in
+//   
+// Examples:
+//   str_p->~AString();
+//   
+// Notes: This function should be completely optimized out by the compiler.
+// See:   placement new above
 inline void operator delete(void *, void *)
   {
   }

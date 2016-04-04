@@ -52,6 +52,7 @@ class ISkookumScriptRuntime : public IModuleInterface
 
     // Methods
 
+    virtual bool  is_skookum_disabled() const = 0;
     virtual void  startup_skookum() = 0;
     virtual bool  is_skookum_initialized() const = 0;
     virtual bool  is_freshen_binaries_pending() const = 0;

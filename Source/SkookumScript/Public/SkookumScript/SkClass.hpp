@@ -664,6 +664,11 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
       virtual SkClass * get_key_class() const;
 
+    // User data
+
+      template<typename T> T *   get_user_data() const           { return (T*)m_user_data_p; }
+      template<typename T> void  set_user_data(T * user_data_p)  { m_user_data_p = (void *)user_data_p; }
+
   protected:
 
   // Internal Methods
@@ -782,6 +787,10 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
       // Metaclass wrapper for this class
       SkMetaClass m_metaclass;
+
+    // User Data
+
+      void * m_user_data_p;
 
   };  // SkClass
 

@@ -14,6 +14,9 @@
 
 #include "../SkookumScriptRuntimePrivatePCH.h"
 #include "SkUERemote.hpp"
+
+#ifdef SKOOKUM_REMOTE_UNREAL
+
 #include "SkUERuntime.hpp"
 #include "Bindings/SkUEBlueprintInterface.hpp"
 #include <AssertionMacros.h>
@@ -35,8 +38,6 @@ namespace
 //=======================================================================================
 // SkUERemote Methods
 //=======================================================================================
-
-#ifdef SKOOKUM_REMOTE_UNREAL
 
 //---------------------------------------------------------------------------------------
 // Constructor
@@ -173,7 +174,7 @@ TSharedPtr<FInternetAddr> SkUERemote::get_ip_address_local()
   }
 
 //---------------------------------------------------------------------------------------
-// Determines if runtime connected to remote Skookum IDE
+// Determines if runtime connected to remote SkookumIDE
 // 
 // #Author(s): Conan Reis
 bool SkUERemote::is_connected() const
@@ -214,13 +215,13 @@ void SkUERemote::set_mode(eSkLocale mode)
 
     SkookumRemoteBase::set_mode(mode);
 
-    // $Revisit - CReis Update debug UI of Skookum IDE connection state
+    // $Revisit - CReis Update debug UI of SkookumIDE connection state
 
     switch (mode)
       {
       case SkLocale_embedded:
         set_connect_state(ConnectState_disconnected);
-        SkDebug::print("\nSkookumScript: Skookum IDE not connected (off-line)\n\n", SkLocale_local);
+        SkDebug::print("\nSkookumScript: SkookumIDE not connected (off-line)\n\n", SkLocale_local);
         break;
 
       case SkLocale_runtime:
@@ -308,7 +309,7 @@ void SkUERemote::on_cmd_send(const ADatum & datum)
     {
     SkDebug::print(
       "SkookumScript: Remote IDE is not connected - command ignored!\n"
-      "[Connect runtime to Skookum IDE and try again.]\n",
+      "[Connect runtime to SkookumIDE and try again.]\n",
       SkLocale_local,
       SkDPrintType_warning);
     }
@@ -386,41 +387,22 @@ bool SkUERemote::spawn_remote_ide()
   #ifdef A_PLAT_PC
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Look for Skookum IDE in game/project plug-in folder first.
-    FString ide_path(
-      FPaths::GamePluginsDir()
-      / TEXT("SkookumScript/SkookumIDE/SkookumIDE") /*TEXT(SK_BITS_ID)*/ TEXT(".exe"));
+    // Look for SkookumIDE in game/project plug-in folder first.
+    FString plugin_root_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir());
+    FString ide_path(plugin_root_path / TEXT("SkookumIDE/SkookumIDE") /*TEXT(SK_BITS_ID)*/ TEXT(".exe"));
 
-    bool ide_exists = FPaths::FileExists(ide_path);
-
-    if (!ide_exists)
+    if (!FPaths::FileExists(ide_path))
       {
       //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-      // Look for Skookum IDE in engine plug-in folder next.
+      // Couldn't find IDE
+      UE_LOG(LogSkookum, Warning,
+        TEXT("Could not run SkookumScript IDE!\n")
+        TEXT("Looked in plugin folder and did not find it:\n")
+        TEXT("  %s\n\n")
+        TEXT("Please ensure SkookumScript IDE app is present.\n"),
+        *ide_path);
 
-      // Don't change ide_path yet so the game version stays the default if neither found.
-      FString ide_engine_path(
-        FPaths::EnginePluginsDir() / TEXT("SkookumScript/SkookumIDE/SkookumIDE") /*TEXT(SK_BITS_ID)*/ TEXT(".exe"));
-
-      ide_exists = FPaths::FileExists(ide_engine_path);
-
-      if (!ide_exists)
-        {
-        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        // Couldn't find IDE
-        UE_LOG(LogSkookum, Warning,
-          TEXT("Could not run SkookumScript IDE!\n")
-          TEXT("Looked in both game/project and engine folders and did not find it:\n")
-          TEXT("  %s\n")
-          TEXT("  %s\n\n")
-          TEXT("Please ensure SkookumScript IDE app is present.\n"),
-          *ide_path,
-          *ide_engine_path);
-
-        return false;
-        }
-
-      ide_path = ide_engine_path;
+      return false;
       }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

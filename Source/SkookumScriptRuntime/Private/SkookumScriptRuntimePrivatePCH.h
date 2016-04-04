@@ -14,6 +14,7 @@
 #include "CoreUObject.h"
 #include "ModuleManager.h"
 #include "UnrealString.h"
+#include "IPluginManager.h"
 
 #include <AgogCore/AgogCore.hpp>
 #include <AgogCore/AString.hpp>

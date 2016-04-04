@@ -23,7 +23,8 @@ void FSkookumStyles::Initialize()
     const FVector2D Icon20x20(20.0f, 20.0f);
     const FVector2D Icon40x40(40.0f, 40.0f);
 
-    FString content_path = FPaths::EnginePluginsDir() / TEXT("SkookumScript/Content/UI");
+    FString plugin_root_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir());
+    FString content_path = plugin_root_path / TEXT("Content/GUI");
     ms_singleton_p = FSlateGameResources::New(FSkookumStyles::GetStyleSetName(), content_path, content_path);
 
     // toolbar icons

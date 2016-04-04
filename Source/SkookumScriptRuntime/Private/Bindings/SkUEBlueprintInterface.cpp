@@ -771,7 +771,7 @@ void SkUEBlueprintInterface::bind_event_method(SkMethodBase * sk_method_p)
   SK_ASSERTX(!sk_method_p->is_bound() || static_cast<SkMethodFunc *>(sk_method_p)->m_atomic_f == &mthd_trigger_event, a_str_format("Trying to bind Blueprint event method '%s' but it is already bound to a different atomic implementation!", sk_method_p->get_name_cstr_dbg()));
   if (!sk_method_p->is_bound())
     {
-    sk_method_p->get_scope()->register_method_func(sk_method_p->get_name(), &mthd_trigger_event, SkBindFlag_instance_no_rebind);
+    sk_method_p->get_scope()->register_method_func(sk_method_p->get_name(), &mthd_trigger_event, sk_method_p->is_class_member() ? SkBindFlag_class_no_rebind : SkBindFlag_instance_no_rebind);
     }
   }
 

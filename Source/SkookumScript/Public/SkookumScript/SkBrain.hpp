@@ -130,8 +130,6 @@ class SK_API SkBrain
       static void     as_binary(void ** binary_pp);
       static uint32_t as_binary_length();
 
-      static void     compact();
-
     #endif // (SKOOKUM & SK_COMPILED_OUT)
 
 
@@ -166,6 +164,8 @@ class SK_API SkBrain
     static void initialize_classes();
     static void deinitialize_classes();
     static void deinitialize();
+    static void compact();
+
 
     #if (SKOOKUM & SK_DEBUG)
 

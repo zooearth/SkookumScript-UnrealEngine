@@ -108,6 +108,12 @@ void FSkookumScriptEditor::StartupModule()
   // Get pointer to runtime module
   m_runtime_p = FModuleManager::Get().GetModule("SkookumScriptRuntime");
 
+  // Don't do anything if SkookumScript is not active
+  if (get_runtime()->is_skookum_disabled())
+    {
+    return;
+    }
+
   // Tell runtime that editor is present (needed even in commandlet mode as we might have to demand-load blueprints)
   get_runtime()->set_editor_interface(this);
 
@@ -157,6 +163,12 @@ void FSkookumScriptEditor::StartupModule()
 
 void FSkookumScriptEditor::ShutdownModule()
   {
+  // Don't do anything if SkookumScript is not active
+  if (get_runtime()->is_skookum_disabled())
+    {
+    return;
+    }
+
   get_runtime()->set_editor_interface(nullptr);
   m_runtime_p.Reset();
 
@@ -236,14 +248,14 @@ FString FSkookumScriptEditor::make_project_editable()
           {
           // Move compiled binaries for convenience
           // We don't care if this succeeds
-          FString temp_binary_folder_path = temp_root_path / TEXT("Content/skookumscript");
-          FString editable_binary_folder_path = FPaths::GameDir() / TEXT("Content/skookumscript");
+          FString temp_binary_folder_path = temp_root_path / TEXT("Content/SkookumScript");
+          FString editable_binary_folder_path = FPaths::GameDir() / TEXT("Content/SkookumScript");
           IFileManager::Get().Move(*editable_binary_folder_path, *temp_binary_folder_path, true, true);
 
           // Change project packaging settings to include Sk binaries
           UProjectPackagingSettings * packaging_settings_p = Cast<UProjectPackagingSettings>(UProjectPackagingSettings::StaticClass()->GetDefaultObject());
-          const TCHAR * binary_path_name_p = TEXT("skookumscript");
-          for (TArray<FDirectoryPath>::TConstIterator dir_path(packaging_settings_p->DirectoriesToAlwaysStageAsNonUFS); dir_path; ++dir_path)
+          const TCHAR * binary_path_name_p = TEXT("SkookumScript");
+          for (TArray<FDirectoryPath>::TConstIterator dir_path(packaging_settings_p->DirectoriesToAlwaysStageAsUFS); dir_path; ++dir_path)
             {
             if (dir_path->Path == binary_path_name_p)
               {
@@ -255,7 +267,7 @@ FString FSkookumScriptEditor::make_project_editable()
             {
             FDirectoryPath binary_path;
             binary_path.Path = binary_path_name_p;
-            packaging_settings_p->DirectoriesToAlwaysStageAsNonUFS.Add(binary_path);
+            packaging_settings_p->DirectoriesToAlwaysStageAsUFS.Add(binary_path);
             FString config_file_name = FPaths::GameConfigDir() / TEXT("DefaultGame.ini");
             if (ISourceControlModule::Get().IsEnabled())
               {
@@ -273,6 +285,9 @@ FString FSkookumScriptEditor::make_project_editable()
           proj_ini = proj_ini.Replace(m_editable_ini_settings_p, TEXT("")); // Remove editable settings
           proj_ini += TEXT("Overlay7=Project|Project\r\n"); // Create Project overlay definition
           verify(FFileHelper::SaveStringToFile(proj_ini, *editable_project_path, FFileHelper::EEncodingOptions::ForceAnsi));
+
+          // Remember new project path
+          m_project_path = FPaths::ConvertRelativePathToFull(editable_project_path);
           }
         }
       }
@@ -435,7 +450,8 @@ void FSkookumScriptEditor::initialize_paths()
   const TCHAR * overlay_name_p = TEXT("Project-Generated");
 
   // Look for default SkookumScript project file in engine folder.
-  FString default_project_path(FPaths::EnginePluginsDir() / TEXT("SkookumScript/Scripts/Skookum-project-default.ini"));
+  FString plugin_root_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir());
+  FString default_project_path(plugin_root_path / TEXT("Scripts/Skookum-project-default.ini"));
   checkf(FPaths::FileExists(default_project_path), TEXT("Cannot find default project settings file '%s'!"), *default_project_path);
   m_default_project_path = FPaths::ConvertRelativePathToFull(default_project_path);
 
@@ -457,15 +473,15 @@ void FSkookumScriptEditor::initialize_paths()
         // If in neither folder, create new project in temporary location
         // $Revisit MBreyer - read ini file from default_project_path and patch it up to carry over customizations
         FString proj_ini = FString::Printf(TEXT("[Project]\r\nProjectName=%s\r\nStrictParse=true\r\nUseBuiltinActor=false\r\nCustomActorClass=Actor\r\nStartupMind=Master\r\n%s"), FApp::GetGameName(), m_editable_ini_settings_p);
-        proj_ini += TEXT("[Output]\r\nCompileManifest=false\r\nCompileTo=../Content/skookumscript/classes.sk-bin\r\n");
-        proj_ini += TEXT("[Script Overlays]\r\nOverlay1=*Core|Core\r\nOverlay2=-*Core-Sandbox|Core-Sandbox\r\nOverlay3=*VectorMath|VectorMath\r\nOverlay4=*Engine-Generated|Engine-Generated|3\r\nOverlay5=*Engine|Engine\r\nOverlay6=*");
+        proj_ini += TEXT("[Output]\r\nCompileManifest=false\r\nCompileTo=../Content/SkookumScript/Classes.sk-bin\r\n");
+        proj_ini += TEXT("[Script Overlays]\r\nOverlay1=*Core|Core\r\nOverlay2=-*Core-Sandbox|Core-Sandbox\r\nOverlay3=*VectorMath|VectorMath\r\nOverlay4=*Engine-Generated|Engine-Generated|1\r\nOverlay5=*Engine|Engine\r\nOverlay6=*");
         proj_ini += overlay_name_p;
         proj_ini += TEXT("|");
         proj_ini += overlay_name_p;
-        proj_ini += TEXT("|3\r\n");
+        proj_ini += TEXT("|1\r\n");
         if (FFileHelper::SaveStringToFile(proj_ini, *project_path, FFileHelper::EEncodingOptions::ForceAnsi))
           {
-          IFileManager::Get().MakeDirectory(*(temp_root_path / TEXT("Content/skookumscript")), true);
+          IFileManager::Get().MakeDirectory(*(temp_root_path / TEXT("Content/SkookumScript")), true);
           IFileManager::Get().MakeDirectory(*(temp_scripts_path / overlay_name_p / TEXT("Object")), true);
           generate_all_class_script_files();
           }

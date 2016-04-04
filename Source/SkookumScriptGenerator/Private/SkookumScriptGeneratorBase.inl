@@ -492,17 +492,35 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
       break;
       }
     }
+  // If it's a UStruct, group under virtual parent class "UStruct"
+  if (parent_to_sk_ustruct)
+    {
+    super_class_stack.Push(nullptr); // nullptr is placeholder for "UStruct"
+    }
 
   // Build path
-  int32 max_super_class_nesting = is_class ? FMath::Max(m_overlay_path_depth - 1, 0) : FMath::Max(m_overlay_path_depth - 2, 0);
-  FString class_path = m_overlay_path / (parent_to_sk_ustruct ? TEXT("Object/UStruct") : TEXT("Object"));
+  int32 max_super_class_nesting = FMath::Max(m_overlay_path_depth - 1, 0);
+  FString class_path = m_overlay_path / TEXT("Object");
   for (int32 i = 0; i < max_super_class_nesting && super_class_stack.Num(); ++i)
     {
-    class_path /= skookify_class_name(super_class_stack.Pop()->GetName());
+    obj_p = super_class_stack.Pop();
+    class_path /= skookify_class_name(obj_p ? obj_p->GetName() : TEXT("UStruct")); // nullptr is placeholder for "UStruct"
     }
   if (super_class_stack.Num())
     {
-    class_name = skookify_class_name(super_class_stack[0]->GetName()) + TEXT(".") + class_name;
+    obj_p = super_class_stack[0];
+    FString parent_name = skookify_class_name(obj_p ? obj_p->GetName() : TEXT("UStruct")); // nullptr is placeholder for "UStruct"
+    class_name = parent_name + TEXT(".") + class_name;
+
+    // Make sure parent path exists
+    FString grand_parent_name;
+    if (super_class_stack.Num() > 1)
+      {
+      obj_p = super_class_stack[1];
+      grand_parent_name = skookify_class_name(obj_p ? obj_p->GetName() : TEXT("UStruct")); // nullptr is placeholder for "UStruct"
+      }
+    FString directory_to_create(class_path / (grand_parent_name.IsEmpty() ? parent_name : grand_parent_name + TEXT(".") + parent_name));
+    IFileManager::Get().MakeDirectory(*directory_to_create, true);
     }
   return class_path / class_name;
   }
@@ -645,15 +663,18 @@ FString FSkookumScriptGeneratorBase::get_comment_block(UField * field_p)
         if (pos < 0) break;
 
         pos += 6; // Skip "@param"
-        while (FChar::IsWhitespace(comment_block[pos])) ++pos; // Skip white space
+        while (pos < comment_block.Len() && FChar::IsWhitespace(comment_block[pos])) ++pos; // Skip white space
         int32 identifier_begin = pos;
-        while (FChar::IsIdentifier(comment_block[pos])) ++pos; // Skip identifier
+        while (pos < comment_block.Len() && FChar::IsIdentifier(comment_block[pos])) ++pos; // Skip identifier
         int32 identifier_length = pos - identifier_begin;
-        // Replace parameter name with skookified version
-        FString param_name = skookify_var_name(comment_block.Mid(identifier_begin, identifier_length), false);
-        comment_block.RemoveAt(identifier_begin, identifier_length, false);
-        comment_block.InsertAt(identifier_begin, param_name);
-        pos += param_name.Len() - identifier_length;
+        if (identifier_length > 0)
+          {
+          // Replace parameter name with skookified version
+          FString param_name = skookify_var_name(comment_block.Mid(identifier_begin, identifier_length), false);
+          comment_block.RemoveAt(identifier_begin, identifier_length, false);
+          comment_block.InsertAt(identifier_begin, param_name);
+          pos += param_name.Len() - identifier_length;
+          }
         }
       }
 

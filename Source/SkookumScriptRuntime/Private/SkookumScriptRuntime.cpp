@@ -74,6 +74,7 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
     // Overridden from ISkookumScriptRuntime
 
+    virtual bool  is_skookum_disabled() const override;    
     virtual void  startup_skookum() override;
     virtual bool  is_skookum_initialized() const override;
     virtual bool  is_freshen_binaries_pending() const override;
@@ -115,6 +116,8 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
   // Data Members
 
+    bool              m_is_skookum_disabled;
+
     FAppInfo          m_app_info;
 
     SkUERuntime       m_runtime;
@@ -133,13 +136,12 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
     FDelegateHandle   m_game_tick_handle;
     FDelegateHandle   m_editor_tick_handle;
-
   };
 
 
 //---------------------------------------------------------------------------------------
 // Simple error dialog until more sophisticated one in place.
-// Could communicate remotely with Skookum IDE and have it bring up message window.
+// Could communicate remotely with SkookumIDE and have it bring up message window.
 class ASimpleErrorOutput : public AErrorOutputBase
   {
     public:
@@ -368,12 +370,12 @@ ASymbol FAppInfo::get_custom_actor_class_name() const
 
 //---------------------------------------------------------------------------------------
 FSkookumScriptRuntime::FSkookumScriptRuntime()
-  : 
+  : m_is_skookum_disabled(false)
 #ifdef SKOOKUM_REMOTE_UNREAL
-  m_freshen_binaries_requested(WITH_EDITORONLY_DATA), // With cooked data, load binaries immediately and do not freshen
+  , m_freshen_binaries_requested(WITH_EDITORONLY_DATA) // With cooked data, load binaries immediately and do not freshen
 #endif
-  m_game_world_p(nullptr),
-  m_editor_world_p(nullptr)
+  , m_game_world_p(nullptr)
+  , m_editor_world_p(nullptr)
   {
   //m_runtime.set_compiled_path("Scripts" SK_BITS_ID "\\");
   }
@@ -383,10 +385,18 @@ FSkookumScriptRuntime::FSkookumScriptRuntime()
 // variables are initialized, of course.)
 void FSkookumScriptRuntime::StartupModule()
   {
-  // In cooked builds, stay inert when there's no compiled binaries
-  #if !WITH_EDITORONLY_DATA
+  #if WITH_EDITORONLY_DATA
+    // In editor builds, don't activate SkookumScript if there's no project (project wizard mode)
+    if (!FApp::GetGameName() || !FApp::GetGameName()[0] || FPlatformString::Strcmp(FApp::GetGameName(), TEXT("None")) == 0)
+      {
+      m_is_skookum_disabled = true;
+      return;
+      }
+  #else
+    // In cooked builds, stay inert when there's no compiled binaries
     if (!m_runtime.is_binary_hierarchy_existing())
       {
+      m_is_skookum_disabled = true;
       return;
       }
   #endif
@@ -542,13 +552,11 @@ void FSkookumScriptRuntime::PreUnloadCallback()
 // support dynamic reloading, we call this function before unloading the module.
 void FSkookumScriptRuntime::ShutdownModule()
   {
-  // In cooked builds, stay inert when there's no compiled binaries
-  #if !WITH_EDITORONLY_DATA
-    if (!m_runtime.is_binary_hierarchy_existing())
-      {
-      return;
-      }
-  #endif
+  // Don't do anything if SkookumScript is not active
+  if (m_is_skookum_disabled)
+    {
+    return;
+    }
 
   // Printing during shutdown will re-launch IDE in case it has been closed prior to UE4
   // So quick fix is to just not print during shutdown
@@ -699,6 +707,13 @@ void FSkookumScriptRuntime::tick_remote()
   }
 
 #endif
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptRuntime::is_skookum_disabled() const
+  {
+  return m_is_skookum_disabled;
+  }
 
 //---------------------------------------------------------------------------------------
 // 

@@ -21,15 +21,16 @@
 // Global Structures
 //=======================================================================================
 
-#ifdef SKOOKUM_REMOTE
-  // Enable remote Skookum IDE for debugging in the SkookumScript Unreal plug-in
+#if (SKOOKUM & SK_DEBUG)
+//#ifdef SKOOKUM_REMOTE
+  // Enable remote SkookumIDE for debugging in the SkookumScript Unreal plug-in
   #define SKOOKUM_REMOTE_UNREAL
 #endif
 
 #ifdef SKOOKUM_REMOTE_UNREAL
 
 //---------------------------------------------------------------------------------------
-// Skookum remote IDE communication commands that are specific to the server IDE.
+// Communication commands that are specific to the SkookumIDE.
 class SkUERemote : public SkookumRemoteRuntimeBase
   {
   public:

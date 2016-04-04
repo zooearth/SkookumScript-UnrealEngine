@@ -18,7 +18,8 @@
 #include <SkookumScript/SkInvokedMethod.hpp>
 
 #ifdef _MSC_VER
-#pragma warning(disable : 4127) // Some functions below contain constant conditionals on purpose
+  #pragma warning(push)
+  #pragma warning(disable : 4127) // Some functions below contain constant conditionals on purpose
 #endif
 
 //---------------------------------------------------------------------------------------
@@ -238,5 +239,5 @@ void SkClassBindingBase<_BindingClass, _DataType>::register_bindings(ASymbol cla
 
 
 #ifdef _MSC_VER
-#pragma warning(default : 4127)
+  #pragma warning(pop)
 #endif

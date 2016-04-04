@@ -44,6 +44,9 @@ enum eSkExprFind
 
 
 //---------------------------------------------------------------------------------------
+// Stores context needed to identify particular class or class member
+// 
+// Subclasses: SkContextInfo
 struct SK_API SkMemberInfo
   {
   // Nested Structures

@@ -144,7 +144,7 @@
 #if !defined(ASYMBOL_DEFINE_STR)
   // Define for identifier definition
   #define ASYMBOL_DEFINE_STR(_prefix, _id, _str)       const ASymbol _prefix##_##_id(ASymbol::create(_str));
-  #define ASYMBOL_DEFINE_STR_NULL(_prefix, _id, _str)  const ASymbol _prefix##_##_id;
+  #define ASYMBOL_DEFINE_STR_NULL(_prefix, _id, _str)  const ASymbol _prefix##_##_id(ASymbol::get_null());
   #define ASYMBOL_ASSIGN_STR(_prefix, _id, _str)       const_cast<ASymbol&>(_prefix##_##_id) = ASymbol::create(_str);
   #define ASYMBOL_ASSIGN_STR_NULL(_prefix, _id, _str)  const_cast<ASymbol&>(_prefix##_##_id) = ASymbol::ms_null;
 #endif

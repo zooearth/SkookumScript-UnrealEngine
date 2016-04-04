@@ -3,7 +3,7 @@
   
   "FriendlyName" : "SkookumScript",
   "Version" : 1,
-  "VersionName" : "3.0.2234",
+  "VersionName" : "3.0.2391",
   "CreatedBy" : "Agog Labs Inc.",
   "CreatedByURL" : "http://SkookumScript.com",
   "DocsURL" : "http://skookumscript.com/docs/integrations/ue4plugin/",
@@ -15,31 +15,36 @@
   "IsBetaVersion" : true,
   "Installed" : true,
   "CanBeUsedWithUnrealHeaderTool" : true,
-  
-  "Modules" :
-  [
+
+  "Modules": [
     {
-      "Name" : "SkookumScriptGenerator",
-      "Type" : "Program",
-      "LoadingPhase" : "PostConfigInit"
+      "Name": "SkookumScriptGenerator",
+      "Type": "Program",
+      "LoadingPhase": "PostConfigInit"
     },
     {
       "Name": "SkookumScriptRuntime",
       "Type": "Runtime",
       "LoadingPhase": "PreDefault",
-      "BlacklistPlatforms" : [ "HTML5" ]
+      "BlacklistPlatforms": [ "HTML5" ]
     },
     {
-      "Name" : "SkookumScriptEditor",
-      "Type" : "Editor",
-      "LoadingPhase" : "Default",
-      "BlacklistPlatforms" : [ "HTML5" ]
+      "Name": "SkookumScriptEditor",
+      "Type": "Editor",
+      "LoadingPhase": "Default",
+      "BlacklistPlatforms": [ "HTML5" ]
     },
     {
-      "Name" : "SkookumScriptEditorGUI",
-      "Type" : "Editor",
-      "LoadingPhase" : "PostEngineInit",
-      "BlacklistPlatforms" : [ "HTML5" ]
+      "Name": "SkookumScriptEditorGUI",
+      "Type": "Editor",
+      "LoadingPhase": "PostEngineInit",
+      "BlacklistPlatforms": [ "HTML5" ]
+    },
+    {
+      "Name": "AgogCore",
+      "Type": "Runtime",
+      "LoadingPhase": "None",
+      "BlacklistPlatforms": [ "HTML5" ]
     }
   ]
 }

@@ -25,7 +25,16 @@
   #include <windows.h>  // Uses: IsDebuggerPresent(), OutputDebugStringA()
 #endif
 #if defined(A_PLAT_OSX) && defined(A_EXTRA_CHECK)
+  #include <sys/types.h>
+  #include <unistd.h>      // Uses: getpid
   #include <sys/sysctl.h>  // Uses: struct kinfo_proc etc.
+#endif
+#if (defined(A_PLAT_iOS) || defined(A_PLAT_tvOS)) && defined(A_EXTRA_CHECK)
+  #include <sys/types.h>
+  #include <unistd.h>      // Uses: getpid
+  #include <sys/sysctl.h>  // Uses: struct kinfo_proc etc.
+  //#include <Foundation/NSString.h>
+  //#include <Foundation/NSObjCRuntime.h>
 #endif
 #ifdef A_PLAT_ANDROID
   #include <android/log.h>
@@ -283,7 +292,7 @@ bool ADebug::is_debugging()
   #if defined(A_EXTRA_CHECK)
     #if defined(A_PLAT_PC)
       return ::IsDebuggerPresent();
-    #elif defined(A_PLAT_OSX)
+    #elif defined(A_PLAT_OSX) || defined(A_PLAT_iOS) || defined(A_PLAT_tvOS)
       int mib[4];
       struct kinfo_proc info;
       size_t size;
@@ -505,6 +514,12 @@ void ADebug::print_std(const AString & str)
     if (is_debugging())
       {
       ::printf("%s", str.as_cstr()); // This ensures strings containing a '%' will print properly      
+      }
+  #elif (defined(A_PLAT_iOS) || defined(A_PLAT_tvOS)) && defined(A_EXTRA_CHECK)
+    if (is_debugging())
+      {
+      ::printf("%s", str.as_cstr()); // This ensures strings containing a '%' will print properly
+      //NSLog(@"%s", str.as_cstr());
       }
   #elif defined(A_PLAT_ANDROID)
     __android_log_write(ANDROID_LOG_INFO, "SkookumScript", str.as_cstr());
