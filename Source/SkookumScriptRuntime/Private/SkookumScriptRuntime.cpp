@@ -591,13 +591,41 @@ void FSkookumScriptRuntime::ensure_runtime_initialized()
         {
         // At this point, wait if necessary to make sure we are connected
         m_remote_client.ensure_connected(0.0);
+
+        // Alert user in case we are still not connected - and allow for corrective measures
+        bool load_binaries_if_not_connected = true;
+        #if WITH_EDITOR
+          while (!m_remote_client.is_authenticated())
+            {
+            FText title = FText::FromString(TEXT("SkookumScript plugin cannot connect to SkookumIDE"));
+            EAppReturnType::Type decision = FMessageDialog::Open(
+              EAppMsgType::CancelRetryContinue,
+              FText::Format(FText::FromString(TEXT(
+                "The SkookumScript plugin cannot connect to the SkookumIDE. A connection to the SkookumIDE is required to properly work with SkookumScript.\n"
+                "This could be caused by any of the following situations:\n"
+                "1 - The SkookumIDE application is not running. If this is the case, please check your security software if it has been blocked. "
+                "If so, make sure that an application named 'SkookumIDE' is white-listed in your security software, then hit 'Retry'. "
+                "You can also try to launch the IDE manually. It should be located at the following path: {0}. Once running, hit 'Retry'.\n"
+                "2 - The SkookumIDE application is running, but stuck on an error. If so, try to resolve the error, and when the SkookumIDE is back up, hit 'Retry'.\n"
+                "3 - The SkookumIDE application is running and seems to be working fine. If so, just hitting 'Retry' should resolve the issue.\n\n"
+                "If you are still having issues, please don't hesitate to ask us for help at http://forum.skookumscript.com!\n")), 
+                FText::FromString(FPaths::ConvertRelativePathToFull(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("SkookumIDE") / TEXT("SkookumIDE.exe")))),
+              &title);
+            if (decision != EAppReturnType::Retry)
+              {
+              load_binaries_if_not_connected = (decision == EAppReturnType::Continue);
+              break;
+              }
+            m_remote_client.ensure_connected(10.0);
+            }
+        #endif
         if (m_remote_client.is_authenticated())
           {
           // Kick off re-compilation of the binaries
           m_remote_client.cmd_compiled_state(true);
           m_freshen_binaries_requested = false; // Request satisfied
           }
-        else
+        else if (load_binaries_if_not_connected)
           {
           // If no remote connection, attempt to load binaries at this point
           bool success_b = m_runtime.load_compiled_scripts();
