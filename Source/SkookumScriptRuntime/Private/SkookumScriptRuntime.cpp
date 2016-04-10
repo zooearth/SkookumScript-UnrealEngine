@@ -410,9 +410,6 @@ void FSkookumScriptRuntime::StartupModule()
   m_on_world_init_post_handle = FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FSkookumScriptRuntime::on_world_init_post);
   m_on_world_cleanup_handle   = FWorldDelegates::OnWorldCleanup.AddRaw(this, &FSkookumScriptRuntime::on_world_cleanup);
 
-  // Gather and register all UE classes/structs/enums known to SkookumScript
-  SkUEBindings::register_static_types();
-
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Start up SkookumScript
   #if !WITH_EDITOR
@@ -604,11 +601,13 @@ void FSkookumScriptRuntime::ensure_runtime_initialized()
                 "The SkookumScript plugin cannot connect to the SkookumIDE. A connection to the SkookumIDE is required to properly work with SkookumScript.\n"
                 "This could be caused by any of the following situations:\n"
                 "1 - The SkookumIDE application is not running. If this is the case, please check your security software if it has been blocked. "
-                "If so, make sure that an application named 'SkookumIDE' is white-listed in your security software, then hit 'Retry'. "
+                "If so, allow SkookumIDE to run, then hit 'Retry'. "
                 "You can also try to launch the IDE manually. It should be located at the following path: {0}. Once running, hit 'Retry'.\n"
                 "2 - The SkookumIDE application is running, but stuck on an error. If so, try to resolve the error, and when the SkookumIDE is back up, hit 'Retry'.\n"
-                "3 - The SkookumIDE application is running and seems to be working fine. If so, just hitting 'Retry' should resolve the issue.\n\n"
-                "If you are still having issues, please don't hesitate to ask us for help at http://forum.skookumscript.com!\n")), 
+                "3 - The SkookumIDE application is running and seems to be working fine. "
+                "If so, you might have an unusual networking environment that prevents the runtime plugin from properly connecting to the IDE (such as a virtualization software like VirtualBox, or multiple network adapters). "
+                "If so, please consult our forum for further assistance and possible solutions.\n\n"
+                "If you are still having issues, please don't hesitate to ask us for help at http://forum.skookumscript.com. We are there to make your experience skookum!\n")), 
                 FText::FromString(FPaths::ConvertRelativePathToFull(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("SkookumIDE") / TEXT("SkookumIDE.exe")))),
               &title);
             if (decision != EAppReturnType::Retry)

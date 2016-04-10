@@ -161,7 +161,8 @@ void SkUERuntime::on_bind_routines()
   #if WITH_EDITORONLY_DATA
     SkUEClassBindingHelper::reset_dynamic_class_mappings(); // Start over fresh
   #endif
-
+                                                            // HACK
+  SkUEBindings::register_static_types();
   SkUEBindings::register_all_bindings();
   m_blueprint_interface.reexpose_all(); // Hook up Blueprint functions and events for static classes
   }

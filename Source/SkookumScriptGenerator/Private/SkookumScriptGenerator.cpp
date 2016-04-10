@@ -1395,7 +1395,7 @@ bool FSkookumScriptGenerator::can_export_class(UClass * class_p, const FString &
   {
   FString class_name = *class_p->GetName();
 
-  return does_class_have_static_class(class_p) // Don't export classes that don't export DLL symbols
+  return (does_class_have_static_class(class_p) || class_p->HasAnyClassFlags(CLASS_HasInstancedReference)) // Don't export classes that don't export DLL symbols
     && !m_exported_classes.Contains(class_p) // Don't export classes that have already been exported
     && !m_skip_classes.Contains(class_name); // Don't export classes that set to skip in UHT config file
   }
