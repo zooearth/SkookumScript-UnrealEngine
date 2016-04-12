@@ -289,7 +289,7 @@ SkInstance * SkUEClassBindingHelper::access_raw_data_entity(void * obj_p, tSkRaw
     }
 
   // Get value
-  return SkUEEntity::new_instance(*data_p, data_type_p->get_key_class());
+  return SkUEEntity::new_instance(*data_p, nullptr, data_type_p->get_key_class());
   }
 
 //---------------------------------------------------------------------------------------
