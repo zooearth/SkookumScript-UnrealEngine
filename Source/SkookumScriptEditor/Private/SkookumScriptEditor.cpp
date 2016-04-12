@@ -52,7 +52,7 @@ protected:
 
   ISkookumScriptRuntime * get_runtime() const { return static_cast<ISkookumScriptRuntime *>(m_runtime_p.Get()); }
 
-  void                    on_asset_loaded(UObject * new_object_p);
+  void                    on_asset_loaded(UObject * obj_p);
   void                    on_object_modified(UObject * obj_p);
   void                    on_new_asset_created(UFactory * factory_p);
   void                    on_assets_deleted(const TArray<UClass*> & deleted_asset_classes);
@@ -63,6 +63,8 @@ protected:
   void                    on_in_memory_asset_deleted(UObject * obj_p);
   void                    on_map_opened(const FString & file_name, bool as_template);
   void                    on_blueprint_compiled(UBlueprint * blueprint_p);
+
+  void                    on_new_asset(UObject * obj_p);
 
   bool                    is_property_type_supported_and_known(UProperty * property_p) const;
   void                    generate_class_script_files(UClass * ue_class_p, bool generate_data);
@@ -511,21 +513,9 @@ void FSkookumScriptEditor::initialize_paths()
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptEditor::on_asset_loaded(UObject * new_object_p)
+void FSkookumScriptEditor::on_asset_loaded(UObject * obj_p)
   {
-  UBlueprint * blueprint_p = Cast<UBlueprint>(new_object_p);
-  if (blueprint_p)
-    {
-    // Register callback so we know when this Blueprint has been compiled
-    blueprint_p->OnCompiled().AddRaw(this, &FSkookumScriptEditor::on_blueprint_compiled);
-
-    if (!m_overlay_path.IsEmpty())
-      {
-      // And generate script files
-      generate_class_script_files(blueprint_p->GeneratedClass, true);
-      generate_used_class_script_files();
-      }
-    }
+  on_new_asset(obj_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -596,15 +586,7 @@ void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const
 //
 void FSkookumScriptEditor::on_in_memory_asset_created(UObject * obj_p)
   {
-  if (!m_overlay_path.IsEmpty())
-    {
-    UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-    if (blueprint_p)
-      {
-      generate_class_script_files(blueprint_p->GeneratedClass, true);
-      generate_used_class_script_files();
-      }
-    }
+  on_new_asset(obj_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -717,6 +699,24 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
           TEXT("To fix this issue, either add a SkookumScript component to the Blueprint, or invoke the destructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
           &title);
         }
+      }
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptEditor::on_new_asset(UObject * obj_p)
+  {
+  UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
+  if (blueprint_p)
+    {
+    // Register callback so we know when this Blueprint has been compiled
+    blueprint_p->OnCompiled().AddRaw(this, &FSkookumScriptEditor::on_blueprint_compiled);
+
+    if (!m_overlay_path.IsEmpty())
+      {
+      generate_class_script_files(blueprint_p->GeneratedClass, true);
+      generate_used_class_script_files();
       }
     }
   }
