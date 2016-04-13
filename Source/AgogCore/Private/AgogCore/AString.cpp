@@ -1026,11 +1026,11 @@ void AString::append(
   uint32_t     length // = ALength_calculate
   )
   {
-  A_ASSERT(cstr_p != nullptr, "Given nullptr instead of valid C-String", ErrId_null_cstr, AString);
+  A_ASSERT(cstr_p != nullptr || length == 0 || length == ALength_calculate, "Given nullptr and specified length", ErrId_null_cstr, AString);
 
   if (length == ALength_calculate)
     {
-    length = uint32_t(::strlen(cstr_p));
+    length = cstr_p ? uint32_t(::strlen(cstr_p)) : 0;
     }
 
   if (length)
