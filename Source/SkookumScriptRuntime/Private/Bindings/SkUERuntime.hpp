@@ -38,11 +38,13 @@ class SkUERuntime : public SkookumRuntimeBase
 
   // Methods
 
-    SkUERuntime() : m_is_initialized(false), m_compiled_file_b(false), m_listener_manager(256, 256), m_editor_interface_p(nullptr){ ms_singleton_p = this; }
+    SkUERuntime() : m_static_types_registered(false), m_is_initialized(false), m_compiled_file_b(false), m_listener_manager(256, 256), m_editor_interface_p(nullptr){ ms_singleton_p = this; }
     ~SkUERuntime() {}
 
     void startup();
     void shutdown();
+
+    void ensure_static_types_registered();
 
     // Script Loading / Binding
 
@@ -85,6 +87,7 @@ class SkUERuntime : public SkookumRuntimeBase
 
     // Data Members
 
+      bool                m_static_types_registered;
       bool                m_is_initialized;
 
       mutable bool        m_compiled_file_b;

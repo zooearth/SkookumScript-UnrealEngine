@@ -149,6 +149,17 @@ void SkUERuntime::shutdown()
   }
 
 //---------------------------------------------------------------------------------------
+
+void SkUERuntime::ensure_static_types_registered()
+  {
+  if (!m_static_types_registered)
+    {
+    SkUEBindings::register_static_types();
+    m_static_types_registered = true;
+    }
+  }
+
+//---------------------------------------------------------------------------------------
 // Override to add bindings to any custom C++ routines (methods & coroutines).
 //
 // #See Also   SkBrain::register_bind_atomics_func()
@@ -161,8 +172,8 @@ void SkUERuntime::on_bind_routines()
   #if WITH_EDITORONLY_DATA
     SkUEClassBindingHelper::reset_dynamic_class_mappings(); // Start over fresh
   #endif
-                                                            // HACK
-  SkUEBindings::register_static_types();
+
+  ensure_static_types_registered();                                                            // HACK
   SkUEBindings::register_all_bindings();
   m_blueprint_interface.reexpose_all(); // Hook up Blueprint functions and events for static classes
   }

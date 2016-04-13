@@ -116,26 +116,26 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
   // Data Members
 
-    bool              m_is_skookum_disabled;
+    bool                m_is_skookum_disabled;
 
-    FAppInfo          m_app_info;
+    FAppInfo            m_app_info;
 
-    SkUERuntime       m_runtime;
+    mutable SkUERuntime m_runtime;
 
     #ifdef SKOOKUM_REMOTE_UNREAL
-      SkUERemote      m_remote_client;
-      bool            m_freshen_binaries_requested;
+      SkUERemote        m_remote_client;
+      bool              m_freshen_binaries_requested;
     #endif
 
-    UWorld *          m_game_world_p;
-    UWorld *          m_editor_world_p;
+    UWorld *            m_game_world_p;
+    UWorld *            m_editor_world_p;
 
-    FDelegateHandle   m_on_world_init_pre_handle;
-    FDelegateHandle   m_on_world_init_post_handle;
-    FDelegateHandle   m_on_world_cleanup_handle;
+    FDelegateHandle     m_on_world_init_pre_handle;
+    FDelegateHandle     m_on_world_init_post_handle;
+    FDelegateHandle     m_on_world_cleanup_handle;
 
-    FDelegateHandle   m_game_tick_handle;
-    FDelegateHandle   m_editor_tick_handle;
+    FDelegateHandle     m_game_tick_handle;
+    FDelegateHandle     m_editor_tick_handle;
   };
 
 
@@ -842,6 +842,7 @@ void FSkookumScriptRuntime::freshen_compiled_binaries_if_have_errors()
 // 
 bool FSkookumScriptRuntime::is_static_class_known_to_skookum(UClass * class_p) const
   {
+  m_runtime.ensure_static_types_registered();
   return SkUEClassBindingHelper::is_static_class_registered(class_p);
   }
 
@@ -849,6 +850,7 @@ bool FSkookumScriptRuntime::is_static_class_known_to_skookum(UClass * class_p) c
 // 
 bool FSkookumScriptRuntime::is_static_struct_known_to_skookum(UStruct * struct_p) const
   {
+  m_runtime.ensure_static_types_registered();
   return SkUEClassBindingHelper::is_static_struct_registered(struct_p);
   }
 
@@ -856,6 +858,7 @@ bool FSkookumScriptRuntime::is_static_struct_known_to_skookum(UStruct * struct_p
 // 
 bool FSkookumScriptRuntime::is_static_enum_known_to_skookum(UEnum * enum_p) const
   {
+  m_runtime.ensure_static_types_registered();
   return SkUEClassBindingHelper::is_static_enum_registered(enum_p);
   }
 
@@ -863,6 +866,8 @@ bool FSkookumScriptRuntime::is_static_enum_known_to_skookum(UEnum * enum_p) cons
 // 
 bool FSkookumScriptRuntime::has_skookum_default_constructor(UClass * class_p) const
   {
+  SK_ASSERTX(m_runtime.is_initialized(), "Runtime must be initialized for this code to work.");
+
   SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(class_p);
   if (sk_class_p)
     {
@@ -876,6 +881,8 @@ bool FSkookumScriptRuntime::has_skookum_default_constructor(UClass * class_p) co
 // 
 bool FSkookumScriptRuntime::has_skookum_destructor(UClass * class_p) const
   {
+  SK_ASSERTX(m_runtime.is_initialized(), "Runtime must be initialized for this code to work.");
+
   SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(class_p);
   if (sk_class_p)
     {
