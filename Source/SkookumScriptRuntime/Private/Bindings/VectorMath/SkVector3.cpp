@@ -48,6 +48,15 @@ namespace SkVector3_Impl
     }
 
   //---------------------------------------------------------------------------------------
+  // # Skookum:   Vector3@!scalar(Real s) Vector3
+  // # Author(s): Markus Breyer
+  static void mthd_ctor_scalar(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+  {
+    // Results are ignored for constructors
+    scope_p->get_this()->construct<SkVector3>(scope_p->get_arg<SkReal>(SkArg_1));
+  }
+
+  //---------------------------------------------------------------------------------------
   // # Skookum:   Vector3@!axis_x() Vector3
   // # Author(s): Markus Breyer
   static void mthd_ctor_axis_x(SkInvokedMethod * scope_p, SkInstance ** result_pp)
@@ -500,6 +509,7 @@ namespace SkVector3_Impl
     {
       { "!xyz",             mthd_ctor_xyz },
       { "!xy",              mthd_ctor_xy },
+      { "!scalar",          mthd_ctor_scalar },
       { "!axis_x",          mthd_ctor_axis_x },
       { "!axis_x_neg",      mthd_ctor_axis_x_neg },
       { "!axis_y",          mthd_ctor_axis_y },
