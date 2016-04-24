@@ -43,6 +43,7 @@ class SkUERemote : public SkookumRemoteRuntimeBase
     void                      process_incoming();
 
     TSharedPtr<FInternetAddr> get_ip_address_local();
+    TSharedPtr<FInternetAddr> get_ip_address_ide();
 
     virtual bool              is_connected() const override;
     virtual void              set_mode(eSkLocale mode) override;

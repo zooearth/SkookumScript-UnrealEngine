@@ -174,6 +174,31 @@ TSharedPtr<FInternetAddr> SkUERemote::get_ip_address_local()
   }
 
 //---------------------------------------------------------------------------------------
+
+TSharedPtr<FInternetAddr> SkUERemote::get_ip_address_ide()
+  {
+  TSharedPtr<FInternetAddr> ip_addr = get_ip_address_local();
+
+  // Check if there's a file named "ide-ip.txt" present in the compiled binary folder
+  // If so, use the ip stored in it to connect to the IDE
+  FString ip_file_path;
+  if (static_cast<SkUERuntime*>(SkUERuntime::ms_singleton_p)->content_file_exists(TEXT("ide-ip.txt"), &ip_file_path))
+    {
+    ip_file_path /= TEXT("ide-ip.txt");
+    FString ip_text;
+    if (FFileHelper::LoadFileToString(ip_text, *ip_file_path))
+      {
+      bool is_valid;
+      ip_addr->SetIp(*ip_text, is_valid);
+      }
+    }
+
+  ip_addr->SetPort(SkUERemote_ide_port);
+
+  return ip_addr;
+  }
+
+//---------------------------------------------------------------------------------------
 // Determines if runtime connected to remote SkookumIDE
 // 
 // #Author(s): Conan Reis
@@ -238,23 +263,7 @@ void SkUERemote::set_mode(eSkLocale mode)
 
         if (m_socket_p)
           {
-          TSharedPtr<FInternetAddr> ip_addr = get_ip_address_local();
-
-          // Check if there's a file named "ide-ip.txt" present in the compiled binary folder
-          // If so, use the ip stored in it to connect to the IDE
-          FString ip_file_path;
-          if (static_cast<SkUERuntime*>(SkUERuntime::ms_singleton_p)->content_file_exists(TEXT("ide-ip.txt"), &ip_file_path))
-            {
-            ip_file_path /= TEXT("ide-ip.txt");
-            FString ip_text;
-            if (FFileHelper::LoadFileToString(ip_text, *ip_file_path))
-              {
-              bool is_valid;
-              ip_addr->SetIp(*ip_text, is_valid);
-              }
-            }
-
-          ip_addr->SetPort(SkUERemote_ide_port);
+          TSharedPtr<FInternetAddr> ip_addr = get_ip_address_ide();
           success = m_socket_p->Connect(*ip_addr);
           }
 
@@ -442,6 +451,19 @@ void SkUERemote::get_project_info(SkProjectInfo * out_project_info_p)
       {
       out_project_info_p->m_project_path         = FStringToAString(m_editor_interface_p->get_project_path());
       out_project_info_p->m_default_project_path = FStringToAString(m_editor_interface_p->get_default_project_path());
+      }
+  #else
+    // Is there an Sk project file in the usual location?
+    FString project_path(FPaths::GameDir() / TEXT("Scripts") / TEXT("Skookum-project.ini"));
+    if (FPaths::FileExists(project_path))
+      { 
+      out_project_info_p->m_project_path = FStringToAString(FPaths::ConvertRelativePathToFull(project_path));
+      }
+    // Is there an Sk default project file in the usual location?
+    FString default_project_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("Scripts") / TEXT("Skookum-project-default.ini"));
+    if (FPaths::FileExists(default_project_path))
+      {
+      out_project_info_p->m_default_project_path = FStringToAString(FPaths::ConvertRelativePathToFull(default_project_path));
       }
   #endif
   }

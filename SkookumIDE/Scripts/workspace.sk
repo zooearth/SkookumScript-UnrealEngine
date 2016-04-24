@@ -342,6 +342,3 @@ actors
 // Enjoy!!
 // Yours Skookumly,
 // The Mad Computer Scientists at Agog Labs
-
-Enemy.instances_first._chase(player_pawn)
-Pawn.instances
