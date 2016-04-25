@@ -28,6 +28,9 @@ public class AgogCore : ModuleRules
     case UnrealTargetPlatform.Android:
       Definitions.Add("A_PLAT_ANDROID");
       break;
+    case UnrealTargetPlatform.XboxOne:
+      Definitions.Add("A_PLAT_X_ONE");
+      break;
     }
 
     // NOTE: All modules inside the SkookumScript plugin folder must use the exact same definitions!

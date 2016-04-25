@@ -3,7 +3,7 @@
   
   "FriendlyName" : "SkookumScript",
   "Version" : 1,
-  "VersionName" : "3.0.2391",
+  "VersionName" : "3.0.2470",
   "CreatedBy" : "Agog Labs Inc.",
   "CreatedByURL" : "http://SkookumScript.com",
   "DocsURL" : "http://skookumscript.com/docs/integrations/ue4plugin/",
@@ -26,25 +26,25 @@
       "Name": "SkookumScriptRuntime",
       "Type": "Runtime",
       "LoadingPhase": "PreDefault",
-      "BlacklistPlatforms": [ "HTML5" ]
-    },
-    {
-      "Name": "SkookumScriptEditor",
-      "Type": "Editor",
-      "LoadingPhase": "Default",
-      "BlacklistPlatforms": [ "HTML5" ]
-    },
-    {
-      "Name": "SkookumScriptEditorGUI",
-      "Type": "Editor",
-      "LoadingPhase": "PostEngineInit",
-      "BlacklistPlatforms": [ "HTML5" ]
+      "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "IOS", "TVOS", "Android" ]
     },
     {
       "Name": "AgogCore",
       "Type": "Runtime",
       "LoadingPhase": "None",
-      "BlacklistPlatforms": [ "HTML5" ]
+      "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "IOS", "TVOS", "Android" ]
+    },
+    {
+      "Name": "SkookumScriptEditor",
+      "Type": "Editor",
+      "LoadingPhase": "Default",
+      "WhitelistPlatforms": [ "Win64", "Mac" ]
+    },
+    {
+      "Name": "SkookumScriptEditorGUI",
+      "Type": "Editor",
+      "LoadingPhase": "PostEngineInit",
+      "WhitelistPlatforms": [ "Win64", "Mac" ]
     }
   ]
 }

@@ -594,21 +594,19 @@ void FSkookumScriptRuntime::ensure_runtime_initialized()
         #if WITH_EDITOR
           while (!m_remote_client.is_authenticated())
             {
-            FText title = FText::FromString(TEXT("SkookumScript plugin cannot connect to SkookumIDE"));
+            FText title = FText::FromString(TEXT("SkookumScript UE4 Plugin cannot connect to the SkookumIDE"));
             EAppReturnType::Type decision = FMessageDialog::Open(
               EAppMsgType::CancelRetryContinue,
               FText::Format(FText::FromString(TEXT(
-                "The SkookumScript plugin cannot connect to the SkookumIDE. A connection to the SkookumIDE is required to properly work with SkookumScript.\n\n"
-                "This could be caused by any of the following situations:\n"
-                "1 - The SkookumIDE application is not running. If this is the case, please check your security software if it has been blocked. "
-                "If so, allow SkookumIDE to run, then hit 'Retry'. "
-                "You can also try to launch the IDE manually. It should be located at the following path: {0}. Once running, hit 'Retry'.\n"
-                "2 - The SkookumIDE application is running, but stuck on an error. If so, try to resolve the error, and when the SkookumIDE is back up, hit 'Retry'.\n"
-                "3 - The SkookumIDE application is running and seems to be working fine. "
-                "If so, the IP and port that the SkookumScript plugin is trying to connect to ({1}), might be different from the IP and port that the SkookumIDE is listening to (see SkookumIDE log window), or that port is blocked by a firewall. "
-                "This could be due to your networking environment (such as a custom firewall, virtualization software like VirtualBox, or multiple network adapters). "
-                "If this is the problem, please consult our forum for further assistance and possible solutions.\n\n"
-                "If you are still having issues, please don't hesitate to ask us for help at http://forum.skookumscript.com. We are there to make your experience skookum!\n")), 
+                "The SkookumScript UE4 Plugin cannot connect to the SkookumIDE. A connection to the SkookumIDE is required to properly work with SkookumScript.\n\n"
+                "The connection problem could be caused by any of the following situations:\n"
+                "- The SkookumIDE application is not running. If this is the case, your security software may have blocked it. If so, allow SkookumIDE.exe to run, then click ‘Retry’. "
+                "You can also try to launch the IDE manually. It should be located at the following path: {0}. Once running, click ‘Retry’.\n"
+                "- The SkookumIDE application is running, but stuck on an error. If so, try to resolve the error, and when the SkookumIDE is back up, click ‘Retry’.\n"
+                "- The SkookumIDE application is running and seems to be working fine. "
+                "If so, the IP and port that the SkookumScript UE4 Plugin is trying to connect to ({1}) might be different from the IP and port that the SkookumIDE is listening to (see SkookumIDE log window), or blocked by a firewall. "
+                "These problems could be due to your networking environment, such as a custom firewall, virtualization software such as VirtualBox, or multiple network adapters.\n\n"
+                "If you are having difficulties resolving this issue, please don’t hesitate to ask us for help at the SkookumScript Forum (http://forum.skookumscript.com). We are here to make your experience skookum!\n")), 
                 FText::FromString(FPaths::ConvertRelativePathToFull(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("SkookumIDE") / TEXT("SkookumIDE.exe"))),
                 FText::FromString(m_remote_client.get_ip_address_ide()->ToString(true))),
               &title);

@@ -229,10 +229,23 @@
 // Microsoft Xbox One (Durango) Platform
 #ifdef A_PLAT_X_ONE
 
+  #include <xmmintrin.h>
+
   #define A_PLAT_STR_ID   "X_ONE"
   #define A_PLAT_STR_DESC "Microsoft Xbox One"
   #define A_BITS64
   #define AGOG_LITTLE_ENDIAN_HOST   1    // Little endian
+
+  //   Microsoft Developer Studio specific compiler pragmas
+  #if defined(_MSC_VER)
+
+    // Level 4 warnings that are acceptable
+    #pragma warning( disable : 4800 ) // Forcing value to bool 'true' or 'false' (performance warning)
+    #pragma warning( disable : 4996 ) // Used depreciated function - used since declaring _CRT_SECURE_NO_WARNINGS seems to have no effect
+  
+    #define A_BREAK()   __debugbreak()
+
+  #endif  // _MSC_VER
 
   // DLL linkage specification
   #define A_DLLIMPORT

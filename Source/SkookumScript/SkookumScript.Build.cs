@@ -120,7 +120,8 @@ public class SkookumScript : ModuleRules
     else if (bPlatformAllowed)
     {
       var moduleName = "SkookumScript";
-      var libFileNameStem = libNamePrefix + moduleName + (bIsMonolithic ? "" : "-" + platformName) + libNameSuffix;
+      // Link with monolithic library on all platforms except UE4Editor Win64 which requires a specific DLL import library
+      var libFileNameStem = libNamePrefix + moduleName + ((!bIsMonolithic && Target.Platform == UnrealTargetPlatform.Win64) ? "-" + platformName : "") + libNameSuffix;
       var libFileName = libFileNameStem + libNameExt;
       var libDirPathBase = Path.Combine(ModuleDirectory, "Lib");
       // Add library paths to linker parameters

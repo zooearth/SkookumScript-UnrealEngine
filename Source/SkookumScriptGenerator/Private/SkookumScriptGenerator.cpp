@@ -207,6 +207,9 @@ void FSkookumScriptGenerator::Initialize(const FString & root_local_path, const 
 bool FSkookumScriptGenerator::ShouldExportClassesForModule(const FString & module_name, EBuildModuleType::Type module_type, const FString & module_generated_include_folder) const
   {
   bool can_export = (module_type == EBuildModuleType::Runtime || module_type == EBuildModuleType::Game);
+  // THE CODE BELOW REQUIRES THREE BUG FIXES IN THE ENGINE TO GO IN FIRST
+  // Accept all engine modules by default - if not engine runtime, check further 
+  //if (module_type != EBuildModuleType::Runtime)
   if (can_export)
     {
     // Only export functions from selected modules
@@ -352,12 +355,7 @@ void FSkookumScriptGenerator::generate_class_script_files(UStruct * class_or_str
   const FString skookum_class_name = get_skookum_class_name(class_or_struct_p);
 
   // Create class meta file:
-  const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
-  FString body = get_comment_block(class_or_struct_p);
-  if (!FFileHelper::SaveStringToFile(body, *meta_file_path, ms_script_file_encoding))
-    {
-    FError::Throwf(TEXT("Could not save file: %s"), *meta_file_path);
-    }
+  generate_class_meta_file(class_or_struct_p, class_path, skookum_class_name);
 
   // Create raw data member file
   const FString data_file_path = class_path / TEXT("!Data.sk");
@@ -390,7 +388,7 @@ void FSkookumScriptGenerator::generate_class_script_files(UStruct * class_or_str
     }
   if (!FFileHelper::SaveStringToFile(data_body, *data_file_path, ms_script_file_encoding))
     {
-    FError::Throwf(TEXT("Could not save file: %s"), *meta_file_path);
+    FError::Throwf(TEXT("Could not save file: %s"), *data_file_path);
     }
 
   // For structs, generate ctor/ctor_copy/op_assign/dtor
@@ -398,7 +396,7 @@ void FSkookumScriptGenerator::generate_class_script_files(UStruct * class_or_str
     {
     // Constructor
     const FString ctor_file_path = class_path / TEXT("!().sk");
-    body = FString::Printf(TEXT("() %s\r\n"), *skookum_class_name);
+    FString body = FString::Printf(TEXT("() %s\r\n"), *skookum_class_name);
     if (!FFileHelper::SaveStringToFile(body, *ctor_file_path, ms_script_file_encoding))
       {
       FError::Throwf(TEXT("Could not save file: %s"), *ctor_file_path);

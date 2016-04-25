@@ -74,6 +74,8 @@ class FSkookumScriptGeneratorBase
     static uint32         get_skookum_symbol_id(const FString & string);
     static FString        get_comment_block(UField * field_p);
 
+    void                  generate_class_meta_file(UStruct * class_or_struct_p, const FString & class_path, const FString & skookum_class_name);
+
     //---------------------------------------------------------------------------------------
     // Data
 
@@ -508,8 +510,8 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
     }
   if (super_class_stack.Num())
     {
-    obj_p = super_class_stack[0];
-    FString parent_name = skookify_class_name(obj_p ? obj_p->GetName() : TEXT("UStruct")); // nullptr is placeholder for "UStruct"
+    UObject * parent_obj_p = super_class_stack[0];
+    FString parent_name = skookify_class_name(parent_obj_p ? parent_obj_p->GetName() : TEXT("UStruct")); // nullptr is placeholder for "UStruct"
     class_name = parent_name + TEXT(".") + class_name;
 
     // Make sure parent path exists
@@ -519,8 +521,11 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
       obj_p = super_class_stack[1];
       grand_parent_name = skookify_class_name(obj_p ? obj_p->GetName() : TEXT("UStruct")); // nullptr is placeholder for "UStruct"
       }
-    FString directory_to_create(class_path / (grand_parent_name.IsEmpty() ? parent_name : grand_parent_name + TEXT(".") + parent_name));
-    IFileManager::Get().MakeDirectory(*directory_to_create, true);
+    FString parent_class_path(class_path / (grand_parent_name.IsEmpty() ? parent_name : grand_parent_name + TEXT(".") + parent_name));
+    if (!FPaths::DirectoryExists(parent_class_path))
+      {
+      generate_class_meta_file(Cast<UStruct>(parent_obj_p), parent_class_path, parent_name);
+      }
     }
   return class_path / class_name;
   }
@@ -699,4 +704,16 @@ FString FSkookumScriptGeneratorBase::get_comment_block(UField * field_p)
   #else
     return FString();
   #endif
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptGeneratorBase::generate_class_meta_file(UStruct * class_or_struct_p, const FString & class_path, const FString & skookum_class_name)
+  {
+  const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
+  FString body = class_or_struct_p ? get_comment_block(class_or_struct_p) : (TEXT("// ") + skookum_class_name + TEXT("\n"));
+  if (!FFileHelper::SaveStringToFile(body, *meta_file_path, ms_script_file_encoding))
+    {
+    FError::Throwf(TEXT("Could not save file: %s"), *meta_file_path);
+    }
   }

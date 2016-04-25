@@ -1009,7 +1009,7 @@ class SK_API SkParser : public AString
         SkExpressionBase *   parse_class_cast(Args & args, SkExpressionBase * receiver_p) const;
         SkExpressionBase *   parse_class_conversion(Args & args, SkExpressionBase * receiver_p) const;
         SkIdentifierLocal *  parse_data_accessor(Args & args, SkExpressionBase * owner_p) const;
-        SkExpressionBase *   parse_expression_string(Args & args, SkExpressionBase * receiver_p) const;
+        SkExpressionBase *   parse_expression_string(Args & args, SkExpressionBase ** receiver_pp) const;
         SkInvokeCascade *    parse_invoke_cascade(Args & args, SkExpressionBase * receiver_p) const;
         SkExpressionBase *   parse_invoke_instantiate(Args & args, SkExpressionBase * receiver_p, bool * is_raw_data_pass_through_copy_p) const;
         SkInvokeSync *       parse_invoke_apply(Args & args, SkExpressionBase * receiver_p) const;

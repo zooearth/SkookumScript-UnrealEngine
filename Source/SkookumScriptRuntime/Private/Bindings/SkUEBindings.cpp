@@ -37,7 +37,16 @@
 #include "UserWidget.h"
 #include "Widgets/Layout/SScaleBox.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations" // Generated code will use some deprecated functions - that's ok don't tell me about it
+#endif
+
 #include <SkUE.generated.inl> // Massive code file containing thousands of generated bindings
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 //=======================================================================================
 // Data
