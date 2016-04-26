@@ -186,9 +186,8 @@ void FSkookumScriptGenerator::Initialize(const FString & root_local_path, const 
   // Clear contents of scripts folder for a fresh start
   FString directory_to_delete(m_overlay_path / TEXT("Object"));
   IFileManager::Get().DeleteDirectory(*directory_to_delete, false, true);
-  // Create folder for class "Enum" as the folder will not get automagically created when m_overlay_path_depth <= 1
-  FString directory_to_create(m_overlay_path / TEXT("Object") / TEXT("Enum"));
-  IFileManager::Get().MakeDirectory(*directory_to_create, true);
+  // Create class "Enum" as the folder will not get automagically created when m_overlay_path_depth <= 1
+  generate_class_meta_file(nullptr, m_overlay_path / TEXT("Object") / TEXT("Enum"), TEXT("Enum"));
 
   // Fetch from ini file which classes to skip during script generation
   // [SkookumScriptGenerator]
