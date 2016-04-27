@@ -1602,11 +1602,6 @@ FString FSkookumScriptGenerator::get_cpp_property_type_name(UProperty * property
     int first_space_index = property_type_name.Find(TEXT(" "));
     property_type_name = TEXT("TEnumAsByte<") + property_type_name.Mid(first_space_index + 1);
     }
-  else if (property_type_name.StartsWith(decl_TSubclassOf)
-        || property_type_name.StartsWith(decl_TSubclassOfShort))
-    {
-    property_type_name = TEXT("UClass *");
-    }
   else if (property_type_name.StartsWith(decl_TArray))
     {
     const UArrayProperty * array_property_p = Cast<UArrayProperty>(property_p);
