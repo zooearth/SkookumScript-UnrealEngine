@@ -298,14 +298,17 @@ void FSkookumScriptGenerator::FinishExport()
   while (m_used_classes.Num() > 0)
     {
     UStruct * struct_p = m_used_classes.Pop();
-    UClass * class_p = Cast<UClass>(struct_p);
-    if (class_p)
+    if (!m_exported_classes.Contains(struct_p))
       {
-      generate_class(class_p, class_p->GetMetaData(ms_meta_data_key_module_relative_path));
-      }
-    else
-      {
-      generate_struct(struct_p);
+      UClass * class_p = Cast<UClass>(struct_p);
+      if (class_p)
+        {
+        generate_class(class_p, class_p->GetMetaData(ms_meta_data_key_module_relative_path));
+        }
+      else
+        {
+        generate_struct(struct_p);
+        }
       }
     }
 
