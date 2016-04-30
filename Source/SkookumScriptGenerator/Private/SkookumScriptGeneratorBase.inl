@@ -84,6 +84,7 @@ class FSkookumScriptGeneratorBase
     static const FString  ms_sk_type_id_names[SkTypeID__Count]; // Names belonging to the ids above
     static const FString  ms_reserved_keywords[]; // = Forbidden variable names
     static const FName    ms_meta_data_key_function_category;
+    static const FName    ms_meta_data_key_blueprint_type;
 
     FString               m_overlay_path;       // Folder where to place generated script files
     int32                 m_overlay_path_depth; // Amount of super classes until we start flattening the script file hierarchy due to the evil reign of Windows MAX_PATH. 1 = everything is right under 'Object', 0 is not allowed
@@ -155,6 +156,7 @@ const FString FSkookumScriptGeneratorBase::ms_reserved_keywords[] =
   };
 
 const FName FSkookumScriptGeneratorBase::ms_meta_data_key_function_category(TEXT("Category"));
+const FName FSkookumScriptGeneratorBase::ms_meta_data_key_blueprint_type(TEXT("BlueprintType"));
 
 const FFileHelper::EEncodingOptions::Type FSkookumScriptGeneratorBase::ms_script_file_encoding = FFileHelper::EEncodingOptions::ForceAnsi;
 
@@ -258,8 +260,12 @@ bool FSkookumScriptGeneratorBase::is_property_type_supported(UProperty * propert
 bool FSkookumScriptGeneratorBase::is_struct_type_supported(UStruct * struct_p)
   {
   UScriptStruct * script_struct = Cast<UScriptStruct>(struct_p);  
-  return (script_struct && (script_struct->HasDefaults() || (script_struct->StructFlags & STRUCT_RequiredAPI)));
-  //return script_struct && !(script_struct->StructFlags & STRUCT_NoExport);
+  return (script_struct && (script_struct->HasDefaults() || (script_struct->StructFlags & STRUCT_RequiredAPI) || script_struct->HasMetaData(ms_meta_data_key_blueprint_type)));
+#if 0
+  return script_struct
+    && (script_struct->StructFlags & (STRUCT_CopyNative|STRUCT_IsPlainOldData|STRUCT_RequiredAPI))
+    && !(script_struct->StructFlags & STRUCT_NoExport);
+#endif
   }
 
 //---------------------------------------------------------------------------------------
