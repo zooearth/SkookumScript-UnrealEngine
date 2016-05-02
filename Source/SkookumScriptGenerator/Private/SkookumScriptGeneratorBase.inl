@@ -165,7 +165,7 @@ const FFileHelper::EEncodingOptions::Type FSkookumScriptGeneratorBase::ms_script
 bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini_file_path, const FString & overlay_name)
   {
   // Try to figure the path depth from ini file
-  m_overlay_path_depth = 4; // Set to sensible default in case we don't find it in the ini file
+  m_overlay_path_depth = 1; // Set to sensible default in case we don't find it in the ini file
   FString ini_file_text;
   if (FFileHelper::LoadFileToString(ini_file_text, *project_ini_file_path))
     {
@@ -260,7 +260,11 @@ bool FSkookumScriptGeneratorBase::is_property_type_supported(UProperty * propert
 bool FSkookumScriptGeneratorBase::is_struct_type_supported(UStruct * struct_p)
   {
   UScriptStruct * script_struct = Cast<UScriptStruct>(struct_p);  
-  return (script_struct && (script_struct->HasDefaults() || (script_struct->StructFlags & STRUCT_RequiredAPI) || script_struct->HasMetaData(ms_meta_data_key_blueprint_type)));
+  return (script_struct && (script_struct->HasDefaults() || (script_struct->StructFlags & STRUCT_RequiredAPI)
+#if WITH_EDITOR || HACK_HEADER_GENERATOR
+    || script_struct->HasMetaData(ms_meta_data_key_blueprint_type)
+#endif
+    ));
 #if 0
   return script_struct
     && (script_struct->StructFlags & (STRUCT_CopyNative|STRUCT_IsPlainOldData|STRUCT_RequiredAPI))
@@ -315,7 +319,52 @@ FString FSkookumScriptGeneratorBase::skookify_class_name(const FString & name)
   if (name == TEXT("KismetTextLibrary"))                 return TEXT("TextLib");
   if (name == TEXT("VisualLoggerKismetLibrary"))         return TEXT("LogLib");
 
-  return name;
+  if (name.IsEmpty()) return TEXT("Unnamed");
+
+  // Make sure class name conforms to Sk naming requirements
+  FString skookum_name;
+  skookum_name.Reserve(name.Len() + 16);
+
+  bool was_underscore = true;
+  for (int32 i = 0; i < name.Len(); ++i)
+    {
+    TCHAR c = name[i];
+
+    // Ensure first character is uppercase
+    if (skookum_name.IsEmpty())
+      {
+      if (islower(c))
+        {
+        c = toupper(c);
+        }
+      else if (!isupper(c))
+        {
+        // If name starts with neither upper nor lowercase letter, prepend "Sk"
+        skookum_name.Append(TEXT("Sk"));
+        }
+      }
+
+    // Is it [A-Za-z0-9]?
+    if ((c >= TCHAR('0') && c <= TCHAR('9'))
+     || (c >= TCHAR('A') && c <= TCHAR('Z'))
+     || (c >= TCHAR('a') && c <= TCHAR('z')))
+      {
+      // Yes, append it
+      skookum_name.AppendChar(c);
+      was_underscore = false;
+      }
+    else
+      {
+      // No, insert underscore, but only one
+      if (!was_underscore)
+        {
+        skookum_name.AppendChar('_');
+        was_underscore = true;
+        }
+      }
+    }
+
+  return skookum_name;
   }
 
 //---------------------------------------------------------------------------------------
@@ -344,20 +393,12 @@ FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, boo
       continue;
       }
 
-    // Insert underscore for anything else than [A-Za-z0-9]
-    if (c < TCHAR('0')
-     || (c > TCHAR('9') && c < TCHAR('A'))
-     || (c > TCHAR('Z') && c < TCHAR('a'))
-     || c > TCHAR('z'))
+    // Is it [A-Za-z0-9]?
+    if ((c >= TCHAR('0') && c <= TCHAR('9'))
+     || (c >= TCHAR('A') && c <= TCHAR('Z'))
+     || (c >= TCHAR('a') && c <= TCHAR('z')))
       {
-      if (!was_underscore)
-        {
-        skookum_name.AppendChar('_');
-        was_underscore = true;
-        }
-      }
-    else
-      {
+      // Yes, append it
       bool is_upper = isupper(c) != 0 || isdigit(c) != 0;
       if (is_upper && !was_upper && !was_underscore)
         {
@@ -366,6 +407,15 @@ FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, boo
       skookum_name.AppendChar(tolower(c));
       was_upper = is_upper;
       was_underscore = false;
+      }
+    else
+      {
+      // No, insert underscore, but only one
+      if (!was_underscore)
+        {
+        skookum_name.AppendChar('_');
+        was_underscore = true;
+        }
       }
     }
 
