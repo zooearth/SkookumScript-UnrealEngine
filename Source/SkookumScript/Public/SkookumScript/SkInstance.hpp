@@ -148,10 +148,26 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
       return static_cast<_BindingClass*>(this)->get_data();
       }
 
-    // Method Invocation
+  // Method Invocation
 
-      void         call_default_constructor();
-      void         call_destructor();
+  //---------------------------------------------------------------------------------------
+  // This calls this instance's SkookumScript default constructor method !() according to
+  // its class type.
+  // 
+  // Examples:
+  //   Generally called in the constructor of a custom object derived from the SkInstance
+  //   class.
+  //   
+  // Notes:
+  //   This method allows for the delayed initialization of an object - i.e. after the
+  //   object has already been created.
+  void call_default_constructor();
+
+  //---------------------------------------------------------------------------------------
+  // Calls this instance's SkookumScript destructor method !!() according to its class type.
+  // 
+  // Examples: Generally called whenever the instance has no references to it.
+  void call_destructor();
 
   //---------------------------------------------------------------------------------------
   // Evaluates the method with 0 or more arguments and returns immediately
@@ -248,12 +264,86 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
     SkInvokedBase * caller_p = nullptr
     );
 
-    // Coroutine related
+  // Coroutine related
 
-      virtual void         clear_coroutines();
+  // Instances do not update coroutines though their subclasses `SkMind` do.
+  virtual void clear_coroutines() {}
 
-      SkInvokedCoroutine * coroutine_call(const ASymbol & coroutine_name, SkInstance ** args_pp, uint32_t arg_count, bool immediate = true, f32 update_interval = SkCall_interval_always, SkInvokedBase * caller_p = nullptr, SkMind * updater_p = nullptr);
-      SkInvokedCoroutine * coroutine_call(const ASymbol & coroutine_name, SkInstance * arg_p = nullptr, bool immediate = true, f32 update_interval = SkCall_interval_always, SkInvokedBase * caller_p = nullptr, SkMind * updater_p = nullptr);
+  //---------------------------------------------------------------------------------------
+  // Evaluates the coroutine call with 0 or more arguments.
+  // 
+  // Returns:
+  //   `nullptr` if the coroutine completed immediately or an invoked coroutine if the
+  //   coroutine has a deferred completion.
+  //   
+  // Params:  
+  //   coroutine_name:
+  //     name of the coroutine to call if it exists for this object. If the specified
+  //     coroutine does not exist for this object it will assert if `(SKOOKUM & SK_DEBUG)`
+  //     is set.
+  //   args_pp:
+  //     Optional pointers to object instances to use as arguments - each one present should
+  //     have its reference count incremented and each defaulted/skipped argument should be
+  //     a `nullptr` element.  If arg_count is 0 this is ignored
+  //   arg_count:
+  //     number of arguments to use in args_pp.  If it is 0 then no arguments are passed and
+  //     args_pp is ignored.
+  //   immediate:
+  //     if true the coroutine is invoked immediately (it may not be completed, but it will
+  //     be *started* immediately), if false the coroutine is scheduled for invocation on
+  //     the next update.
+  //   update_interval:
+  //     Specifies how often the coroutine should be updated in seconds.
+  //     (Default SkCall_interval_always)
+  //   caller_p:
+  //     object that called/invoked this expression and that may await a result - call its
+  //     `pending_deferred()` method with the result of this method as necessary.  If it is
+  //     `nullptr`, then there is no object that needs to be notified when this invocation
+  //     is complete.
+  //   updater_p:
+  //    Mind object that will update this invoked coroutine as needed - generally same
+  //    updater as the caller.  If nullptr the caller's updater is used and if the caller is
+  //    nullptr scope_p is used.
+  //             
+  // See:       coroutine_invoke()
+  // Author(s): Conan Reis
+  SkInvokedCoroutine * coroutine_call(const ASymbol & coroutine_name, SkInstance ** args_pp, uint32_t arg_count, bool immediate = true, f32 update_interval = SkCall_interval_always, SkInvokedBase * caller_p = nullptr, SkMind * updater_p = nullptr);
+
+  //---------------------------------------------------------------------------------------
+  // Evaluates the coroutine call with 0/1 arguments.
+  // 
+  // Returns:
+  //   `nullptr` if the coroutine completed immediately or an invoked coroutine if the
+  //   coroutine has a deferred completion.
+  //   
+  // Params:  
+  //   coroutine_name:
+  //     name of the coroutine to call if it exists for this object. If the specified
+  //     coroutine does not exist for this object it will assert if `(SKOOKUM & SK_DEBUG)`
+  //     is set.
+  //   arg_p:
+  //     pointer to an object to use as an argument to the coroutine. If it is nullptr then
+  //     no argument is passed.
+  //   immediate:
+  //     if true the coroutine is invoked immediately (it may not be completed, but it will
+  //     be *started* immediately), if false the coroutine is scheduled for invocation on
+  //     the next update.
+  //   update_interval:
+  //     Specifies how often the coroutine should be updated in seconds.
+  //     (Default SkCall_interval_always)
+  //   caller_p:
+  //     object that called/invoked this expression and that may await a result - call its
+  //     `pending_deferred()` method with the result of this method as necessary.  If it is
+  //     `nullptr`, then there is no object that needs to be notified when this invocation
+  //     is complete.
+  //   updater_p:
+  //    Mind object that will update this invoked coroutine as needed - generally same
+  //    updater as the caller.  If nullptr the caller's updater is used and if the caller is
+  //    nullptr scope_p is used.
+  //             
+  // See:       coroutine_invoke()
+  // Author(s): Conan Reis
+  SkInvokedCoroutine * coroutine_call(const ASymbol & coroutine_name, SkInstance * arg_p = nullptr, bool immediate = true, f32 update_interval = SkCall_interval_always, SkInvokedBase * caller_p = nullptr, SkMind * updater_p = nullptr);
 
     // Overriding from SkObjectBase
 

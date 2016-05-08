@@ -112,9 +112,9 @@ class SK_API SkMind : public SkClassBindingAbstract<SkMind>, public SkDataInstan
 
       AList<SkInvokedCoroutine> & get_invoked_coroutines()         { return m_icoroutines_to_update; }
 
-      virtual void  clear_coroutines() override; // Overridden from SkInstance
-      void          suspend_coroutines();
-      void          resume_coroutines();
+      virtual void clear_coroutines() override;
+      void         suspend_coroutines();
+      void         resume_coroutines();
 
     // Overriding from SkInstance -> SkDataInstance
 
