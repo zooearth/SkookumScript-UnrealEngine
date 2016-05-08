@@ -571,11 +571,11 @@ class A_API AString
   
   // Friend Functions
 
-    friend AString   operator+(const AString & str1, const AString & str2);
-    friend AString   operator+(const AString & str, const char * cstr_p);
-    friend AString   operator+(const AString & str, char ch);
-    friend AString   operator+(const char * cstr_p, const AString & str);
-    friend AString   operator+(char ch, const AString & str);
+    friend A_API AString   operator+(const AString & str1, const AString & str2);
+    friend A_API AString   operator+(const AString & str, const char * cstr_p);
+    friend A_API AString   operator+(const AString & str, char ch);
+    friend A_API AString   operator+(const char * cstr_p, const AString & str);
+    friend A_API AString   operator+(char ch, const AString & str);
 
     // Future methods
       //friend istream & operator>>(istream & strm, AString & str);

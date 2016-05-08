@@ -16,6 +16,7 @@
 //=======================================================================================
 
 #include <AgogCore/AgogCore.hpp> // Always include AgogCore first (as some builds require a designated precompiled header)
+#include <AgogCore/ADeferFunc.hpp>
 #include <AgogCore/ARandom.hpp>
 #include <AgogCore/AStringRef.hpp>
 #include <AgogCore/AString.hpp>
@@ -232,6 +233,7 @@ namespace AgogCore
   void deinitialize()
     {
     // Deinitialize subsystems
+    ADeferFunc::ms_deferred_funcs.free_all_compact();
     ADebug::deinitialize();
     ASymbolTable::deinitialize();
     AString::deinitialize();

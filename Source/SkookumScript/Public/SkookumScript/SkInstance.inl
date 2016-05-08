@@ -151,28 +151,6 @@ A_INLINE void SkInstance::method_call(
   }
 
 //---------------------------------------------------------------------------------------
-// Evaluates the coroutine call.
-// Returns:    nullptr if the coroutine completed immediately or an invoked coroutine if the
-//             coroutine has a deferred completion.
-// Arg         coroutine_name - name of the coroutine to call if it exists for this object.
-//             If the specified coroutine does not exist for this object it will assert if
-//             (SKOOKUM & SK_DEBUG) is set.
-// Arg         arg_p - pointer to an object to use as an argument to the coroutine.
-//             If it is nullptr then no argument is passed.
-// Arg         immediate - if true the coroutine is invoked immediately (it may not be fully
-//             evaluated, but it will be *started* immediately), if false the coroutine is
-//             scheduled for invocation on the next update.
-// Arg         update_interval - Specifies how often the coroutine should be updated in
-//             seconds.  (Default SkCall_interval_always)
-// Arg         caller_p - object that called/invoked this expression and that may await
-//             a result - call its pending_deferred() method with the result of this method
-//             as necessary.  If it is nullptr, then there is no object that needs to be
-//             notified when this invocation is complete.
-// Arg         updater_p - mind that will update invoked coroutine as needed - generally
-//             same updater as the caller.  If nullptr the caller's updater is used and if
-//             the caller is nullptr scope_p is used.
-// See:        coroutine_schedule()
-// Author(s):   Conan Reis
 A_INLINE SkInvokedCoroutine * SkInstance::coroutine_call(
   const ASymbol & coroutine_name,
   SkInstance *    arg_p,           // = nullptr

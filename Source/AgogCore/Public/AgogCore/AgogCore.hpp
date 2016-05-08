@@ -934,11 +934,11 @@ namespace AgogCore
   {
 
   // Static (global) initialization/deinitialization of AgogCore
-  extern A_API void  initialize(AAppInfoCore * app_info_p);
-  extern A_API void  deinitialize();
+  A_API void  initialize(AAppInfoCore * app_info_p);
+  A_API void  deinitialize();
 
-  extern A_API AAppInfoCore *  get_app_info();
-  extern A_API void            set_app_info(AAppInfoCore * app_info_p);
+  A_API AAppInfoCore *  get_app_info();
+  A_API void            set_app_info(AAppInfoCore * app_info_p);
 
   }
 
