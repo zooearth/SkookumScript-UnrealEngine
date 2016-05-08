@@ -66,16 +66,16 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptListener : public UObject
     // Various event callback functions
 
     UFUNCTION()
-    void OnActorOverlap(AActor * other_actor_p);
+    void OnActorOverlap(AActor * overlapped_actor_p, AActor * other_actor_p);
 
     UFUNCTION()
-    void OnTakeAnyDamage(float damage, const UDamageType * damage_type_p, AController * instigated_by_p, AActor * damage_causer_p);
+    void OnTakeAnyDamage(AActor * damaged_actor_p, float damage, const UDamageType * damage_type_p, AController * instigated_by_p, AActor * damage_causer_p);
 
     UFUNCTION()
-    void OnTakePointDamage(float damage, AController * instigated_by_p, FVector hit_location, UPrimitiveComponent * hit_component_p, FName bone_name, FVector shot_from_direction, const UDamageType * damage_type_p, AActor * damage_causer_p);
+    void OnTakePointDamage(AActor * damaged_actor_p, float damage, AController * instigated_by_p, FVector hit_location, UPrimitiveComponent * hit_component_p, FName bone_name, FVector shot_from_direction, const UDamageType * damage_type_p, AActor * damage_causer_p);
 
     UFUNCTION()
-    void OnDestroyed();
+    void OnDestroyed(AActor * destroyed_actor_p);
 
   protected:
 

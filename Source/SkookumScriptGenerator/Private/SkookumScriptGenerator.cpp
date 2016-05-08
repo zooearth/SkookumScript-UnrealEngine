@@ -205,10 +205,10 @@ void FSkookumScriptGenerator::Initialize(const FString & root_local_path, const 
 
 bool FSkookumScriptGenerator::ShouldExportClassesForModule(const FString & module_name, EBuildModuleType::Type module_type, const FString & module_generated_include_folder) const
   {
-  bool can_export = (module_type == EBuildModuleType::Runtime || module_type == EBuildModuleType::Game);
+  bool can_export = (module_type == EBuildModuleType::EngineRuntime || module_type == EBuildModuleType::GameRuntime);
   // THE CODE BELOW REQUIRES THREE BUG FIXES IN THE ENGINE TO GO IN FIRST
   // Accept all engine modules by default - if not engine runtime, check further 
-  //if (module_type != EBuildModuleType::Runtime)
+  //if (module_type != EBuildModuleType::EngineRuntime)
   if (can_export)
     {
     // Only export functions from selected modules

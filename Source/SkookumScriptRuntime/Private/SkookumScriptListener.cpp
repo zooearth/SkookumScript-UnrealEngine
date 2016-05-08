@@ -121,7 +121,7 @@ inline void USkookumScriptListener::push_event_and_resume(EventInfo * event_p, u
 
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptListener::OnActorOverlap(AActor * other_actor_p)
+void USkookumScriptListener::OnActorOverlap(AActor * overlapped_actor_p, AActor * other_actor_p)
   {
   EventInfo * event_p = alloc_event();
   event_p->m_argument_p[SkArg_1] = SkUEActor::new_instance(other_actor_p);
@@ -130,7 +130,7 @@ void USkookumScriptListener::OnActorOverlap(AActor * other_actor_p)
 
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptListener::OnTakeAnyDamage(float damage, const UDamageType * damage_type_p, AController * instigated_by_p, AActor * damage_causer_p)
+void USkookumScriptListener::OnTakeAnyDamage(AActor * damaged_actor_p, float damage, const UDamageType * damage_type_p, AController * instigated_by_p, AActor * damage_causer_p)
   {
   EventInfo * event_p = alloc_event();
   event_p->m_argument_p[SkArg_1] = SkReal::new_instance(damage);
@@ -142,7 +142,7 @@ void USkookumScriptListener::OnTakeAnyDamage(float damage, const UDamageType * d
 
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptListener::OnTakePointDamage(float damage, AController * instigated_by_p, FVector hit_location, UPrimitiveComponent * hit_component_p, FName bone_name, FVector shot_from_direction, const UDamageType * damage_type_p, AActor * damage_causer_p)
+void USkookumScriptListener::OnTakePointDamage(AActor * damaged_actor_p, float damage, AController * instigated_by_p, FVector hit_location, UPrimitiveComponent * hit_component_p, FName bone_name, FVector shot_from_direction, const UDamageType * damage_type_p, AActor * damage_causer_p)
   {
   EventInfo * event_p = alloc_event();
   event_p->m_argument_p[SkArg_1] = SkReal::new_instance(damage);
@@ -158,7 +158,7 @@ void USkookumScriptListener::OnTakePointDamage(float damage, AController * insti
 
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptListener::OnDestroyed()
+void USkookumScriptListener::OnDestroyed(AActor * destroyed_actor_p)
   {
   push_event_and_resume(alloc_event(), 0);
   }

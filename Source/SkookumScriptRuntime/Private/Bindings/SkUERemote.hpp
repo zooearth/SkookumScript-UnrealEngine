@@ -95,6 +95,7 @@ class SkUERemote : public SkookumRemoteRuntimeBase
 
   protected:
 
+    AString                   get_socket_str(const FInternetAddr & addr);
     AString                   get_socket_str();
 
   // Events

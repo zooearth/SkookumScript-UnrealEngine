@@ -136,7 +136,23 @@ void SkUERemote::process_incoming()
   }
 
 //---------------------------------------------------------------------------------------
-// Get (ANSI) string representation of socket IP Address and port
+// Get (ANSI) string representation of specified socket IP Address and port
+// 
+// #Author(s): Conan Reis
+AString SkUERemote::get_socket_str(const FInternetAddr & addr)
+  {
+  AString str;
+  uint8_t ipv4addr[4];
+
+  addr.GetIp(*reinterpret_cast<uint32 *>(ipv4addr));
+  str.ensure_size(32u);
+  str.format("%u.%u.%u.%u:%u", ipv4addr[3], ipv4addr[2], ipv4addr[1], ipv4addr[0], addr.GetPort());
+
+  return str;
+  }
+
+//---------------------------------------------------------------------------------------
+// Get (ANSI) string representation of current socket IP Address and port
 // 
 // #Author(s): Conan Reis
 AString SkUERemote::get_socket_str()
@@ -146,17 +162,12 @@ AString SkUERemote::get_socket_str()
     return "SkookumIDE.RemoteConnection(Disconnected)";
     }
 
-  AString str;
-  uint8_t ipv4addr[4];
   ISocketSubsystem * socket_system_p = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
   TSharedRef<FInternetAddr> local_addr = socket_system_p->CreateInternetAddr();
 
   m_socket_p->GetAddress(*local_addr);
-  local_addr->GetIp(*reinterpret_cast<uint32 *>(ipv4addr));
-  str.ensure_size(32u);
-  str.format("%u.%u.%u.%u:%u", ipv4addr[0], ipv4addr[1], ipv4addr[2], ipv4addr[3], m_socket_p->GetPortNo());
 
-  return str;
+  return get_socket_str(*local_addr);
   }
 
 //---------------------------------------------------------------------------------------
@@ -174,23 +185,50 @@ TSharedPtr<FInternetAddr> SkUERemote::get_ip_address_local()
   }
 
 //---------------------------------------------------------------------------------------
-
 TSharedPtr<FInternetAddr> SkUERemote::get_ip_address_ide()
   {
-  TSharedPtr<FInternetAddr> ip_addr = get_ip_address_local();
+  FString ip_file_path;
+
+  TSharedPtr<FInternetAddr> ip_addr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 
   // Check if there's a file named "ide-ip.txt" present in the compiled binary folder
   // If so, use the ip stored in it to connect to the IDE
-  FString ip_file_path;
-  if (static_cast<SkUERuntime*>(SkUERuntime::ms_singleton_p)->content_file_exists(TEXT("ide-ip.txt"), &ip_file_path))
+  if (static_cast<SkUERuntime*>(SkUERuntime::ms_singleton_p)->content_file_exists(
+    TEXT("ide-ip.txt"), &ip_file_path))
     {
-    ip_file_path /= TEXT("ide-ip.txt");
     FString ip_text;
+
+    ip_file_path /= TEXT("ide-ip.txt");
+
     if (FFileHelper::LoadFileToString(ip_text, *ip_file_path))
       {
       bool is_valid;
+
       ip_addr->SetIp(*ip_text, is_valid);
       }
+    }
+  else
+    {
+    // "localhost" - Use local machine loop back adapter by default
+    // Note that this is for 127.0.0.1 - the numbers are in network byte order.
+    const uint8_t local_host_ipv4[4] = {1u, 0u, 0u, 127u};
+
+    ip_addr->SetIp(*reinterpret_cast<const uint32 *>(local_host_ipv4));
+
+    // $Note - CReis localhost is used instead of adapter address by default
+    // Get IP address from network adapter
+    //ip_addr = get_ip_address_local();
+    
+    // If non-desktop expect SkookumIDE IP address to be specified
+    #if ((PLATFORM_WINDOWS == 0) && (PLATFORM_MAC == 0) && (PLATFORM_LINUX == 0))
+      A_DPRINT("SkookumIDE Warning!\n"
+        "  Did not find ide-ip.txt in the SkookumScript compiled binary folder.\n"
+        "  It specifies the SkookumIDE IP address and without it the runtime will not be able\n"
+        "  to connect to the SkookumIDE.\n\n"
+        "  See 'Specifying the SkookumRuntime IP address' here:\n"
+        "    http://skookumscript.com/docs/v3.0/ide/ip-addresses/#specifying-the-skookumruntime-ip-address"
+        );
+    #endif
     }
 
   ip_addr->SetPort(SkUERemote_ide_port);
@@ -251,8 +289,6 @@ void SkUERemote::set_mode(eSkLocale mode)
 
       case SkLocale_runtime:
         {
-        SkDebug::print("SkookumScript: Attempting to connect to remote IDE\n", SkLocale_local);
-
         set_connect_state(ConnectState_connecting);
 
         m_socket_p = FTcpSocketBuilder(TEXT("SkookumIDE.RemoteConnection"))
@@ -264,12 +300,13 @@ void SkUERemote::set_mode(eSkLocale mode)
         if (m_socket_p)
           {
           TSharedPtr<FInternetAddr> ip_addr = get_ip_address_ide();
+          SkDebug::print(a_str_format("SkookumScript: Attempting to connect to remote IDE at %s\n", get_socket_str(*ip_addr).as_cstr()), SkLocale_local);
           success = m_socket_p->Connect(*ip_addr);
           }
 
         if (!success)
           {
-          SkDebug::print("\nSkookumScript: Failed attempt to connect with remote IDE.!\n\n", SkLocale_local);
+          SkDebug::print("\nSkookumScript: Failed attempt to connect with remote IDE!\n\n", SkLocale_local);
           set_mode(SkLocale_embedded);
           return;
           }
