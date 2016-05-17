@@ -507,7 +507,16 @@ FString FSkookumScriptGeneratorBase::skookify_method_name(const FString & name, 
 
 FString FSkookumScriptGeneratorBase::get_skookum_class_name(UStruct * class_or_struct_p)
   {
-  return skookify_class_name(class_or_struct_p->GetName());
+  UObject * obj_p = class_or_struct_p;
+  #if WITH_EDITOR
+    UClass * class_p = Cast<UClass>(class_or_struct_p);
+    if (class_p)
+      {
+      UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(class_p);
+      if (blueprint_p) obj_p = blueprint_p;
+      }
+  #endif
+  return skookify_class_name(obj_p->GetName());
   }
 
 //---------------------------------------------------------------------------------------
@@ -518,12 +527,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
   bool is_class = (class_p != nullptr);
 
   // Remember class name
-  UObject * obj_p = class_or_struct_p;
-  #if WITH_EDITOR
-    UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(class_p);
-    if (blueprint_p) obj_p = blueprint_p;
-  #endif
-  FString class_name = skookify_class_name(obj_p->GetName());
+  FString class_name = get_skookum_class_name(class_or_struct_p);
   if (out_class_name_p)
     {
     *out_class_name_p = class_name;
@@ -531,17 +535,12 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
 
   // Make array of the super classes
   bool parent_to_sk_ustruct = !is_class;
-  TArray<UObject *> super_class_stack;
+  TArray<FString> super_class_stack;
   super_class_stack.Reserve(32);
   UStruct * super_p = class_or_struct_p;
   while ((super_p = super_p->GetSuperStruct()) != nullptr)
     {
-    obj_p = super_p;
-    #if WITH_EDITOR
-      blueprint_p = UBlueprint::GetBlueprintFromClass(Cast<UClass>(super_p));
-      if (blueprint_p) obj_p = blueprint_p;
-    #endif
-    super_class_stack.Push(obj_p);
+    super_class_stack.Push(get_skookum_class_name(super_p));
     m_used_classes.AddUnique(super_p); // All super classes are also considered used
     // Turn `Vector` into built-in `Vector3`:
     if (super_p->GetName() == TEXT("Vector"))
@@ -553,7 +552,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
   // If it's a UStruct, group under virtual parent class "UStruct"
   if (parent_to_sk_ustruct)
     {
-    super_class_stack.Push(nullptr); // nullptr is placeholder for "UStruct"
+    super_class_stack.Push(TEXT("UStruct"));
     }
 
   // Build path
@@ -561,26 +560,17 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
   FString class_path = m_overlay_path / TEXT("Object");
   for (int32 i = 0; i < max_super_class_nesting && super_class_stack.Num(); ++i)
     {
-    obj_p = super_class_stack.Pop();
-    class_path /= skookify_class_name(obj_p ? obj_p->GetName() : TEXT("UStruct")); // nullptr is placeholder for "UStruct"
+    class_path /= super_class_stack.Pop();
     }
   if (super_class_stack.Num())
     {
-    UObject * parent_obj_p = super_class_stack[0];
-    FString parent_name = skookify_class_name(parent_obj_p ? parent_obj_p->GetName() : TEXT("UStruct")); // nullptr is placeholder for "UStruct"
-    class_name = parent_name + TEXT(".") + class_name;
+    class_name = super_class_stack[0] + TEXT(".") + class_name;
 
     // Make sure parent path exists
-    FString grand_parent_name;
-    if (super_class_stack.Num() > 1)
-      {
-      obj_p = super_class_stack[1];
-      grand_parent_name = skookify_class_name(obj_p ? obj_p->GetName() : TEXT("UStruct")); // nullptr is placeholder for "UStruct"
-      }
-    FString parent_class_path(class_path / (grand_parent_name.IsEmpty() ? parent_name : grand_parent_name + TEXT(".") + parent_name));
+    FString parent_class_path(class_path / (super_class_stack.Num() <= 1 ? super_class_stack[0] : super_class_stack[1] + TEXT(".") + super_class_stack[0]));
     if (!FPaths::DirectoryExists(parent_class_path))
       {
-      generate_class_meta_file(Cast<UStruct>(parent_obj_p), parent_class_path, parent_name);
+      generate_class_meta_file(class_or_struct_p->GetSuperStruct(), parent_class_path, super_class_stack[0]);
       }
     }
   return class_path / class_name;
@@ -655,7 +645,7 @@ FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_
   if (property_p->IsA(UObjectPropertyBase::StaticClass()))
     {
     UClass * class_p = Cast<UObjectPropertyBase>(property_p)->PropertyClass;
-    return (does_class_have_static_class(class_p) || class_p->GetName() == TEXT("Object")) ? SkTypeID_UObject : SkTypeID_None;
+    return (does_class_have_static_class(class_p) || class_p->HasAnyClassFlags(CLASS_HasInstancedReference) || class_p->GetName() == TEXT("Object")) ? SkTypeID_UObject : SkTypeID_None;
     }
 
   if (UArrayProperty * array_property_p = Cast<UArrayProperty>(property_p))
@@ -676,11 +666,11 @@ FString FSkookumScriptGeneratorBase::get_skookum_property_type_name_existing(UPr
 
   if (type_id == SkTypeID_UObject)
     {
-    return skookify_class_name(Cast<UObjectPropertyBase>(property_p)->PropertyClass->GetName());
+    return get_skookum_class_name(Cast<UObjectPropertyBase>(property_p)->PropertyClass);
     }
   else if (type_id == SkTypeID_UStruct)
     {
-    return skookify_class_name(Cast<UStructProperty>(property_p)->Struct->GetName());
+    return get_skookum_class_name(Cast<UStructProperty>(property_p)->Struct);
     }
   else if (type_id == SkTypeID_Enum)
     {
