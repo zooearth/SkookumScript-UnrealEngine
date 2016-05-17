@@ -3,7 +3,7 @@
   
   "FriendlyName" : "SkookumScript",
   "Version" : 1,
-  "VersionName" : "3.0.2548",
+  "VersionName" : "3.0.2587",
   "CreatedBy" : "Agog Labs Inc.",
   "CreatedByURL" : "http://SkookumScript.com",
   "DocsURL" : "http://skookumscript.com/docs/integrations/ue4plugin/",
@@ -30,12 +30,6 @@
     },
     {
       "Name": "AgogCore",
-      "Type": "Runtime",
-      "LoadingPhase": "None",
-      "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "IOS", "TVOS", "Android" ]
-    },
-    {
-      "Name": "SkookumScript",
       "Type": "Runtime",
       "LoadingPhase": "None",
       "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "IOS", "TVOS", "Android" ]

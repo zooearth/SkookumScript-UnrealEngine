@@ -32,7 +32,7 @@
 //-----------------------------------------
 // Variables!
 
-// The exclamation mark ! indicates that something “new” is being
+// The exclamation mark ! indicates that something "new" is being
 // created. This creates variable 'bob' and binds it to the
 // Integer 9 and bob has the type Integer
 !bob : 9
