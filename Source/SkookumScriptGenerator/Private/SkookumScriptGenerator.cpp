@@ -1527,13 +1527,13 @@ FString FSkookumScriptGenerator::get_skookum_property_type_name(UProperty * prop
     {
     UObjectPropertyBase * object_property_p = Cast<UObjectPropertyBase>(property_p);
     m_used_classes.AddUnique(object_property_p->PropertyClass);
-    return skookify_class_name(object_property_p->PropertyClass->GetName());
+    return get_skookum_class_name(object_property_p->PropertyClass);
     }
   else if (type_id == SkTypeID_UStruct)
     {
     UStruct * struct_p = Cast<UStructProperty>(property_p)->Struct;
     generate_struct(struct_p);
-    return skookify_class_name(struct_p->GetName());
+    return get_skookum_class_name(struct_p);
     }
   else if (type_id == SkTypeID_Enum)
     {
@@ -1673,7 +1673,7 @@ FString FSkookumScriptGenerator::get_skookum_default_initializer(UFunction * fun
         case SkTypeID_List:
         case SkTypeID_UStruct:         default_value = get_skookum_property_type_name(param_p) + TEXT("!"); break;
         case SkTypeID_UClass:
-        case SkTypeID_UObject:         default_value = (param_p->GetName() == TEXT("WorldContextObject")) ? TEXT("@@world") : skookify_class_name(Cast<UObjectPropertyBase>(param_p)->PropertyClass->GetName()) + TEXT("!null"); break;
+        case SkTypeID_UObject:         default_value = (param_p->GetName() == TEXT("WorldContextObject")) ? TEXT("@@world") : get_skookum_class_name(Cast<UObjectPropertyBase>(param_p)->PropertyClass) + TEXT("!null"); break;
         }
       }
     else
@@ -1726,7 +1726,7 @@ FString FSkookumScriptGenerator::get_skookum_default_initializer(UFunction * fun
         case SkTypeID_RotationAngles:  default_value = TEXT("RotationAngles!yaw_pitch_roll(") + default_value + TEXT(")"); break;
         case SkTypeID_Transform:       break; // Not implemented yet - leave as-is for now
         case SkTypeID_Color:           default_value = TEXT("Color!rgba") + default_value; break;
-        case SkTypeID_UStruct:         if (default_value == TEXT("LatentInfo")) default_value = skookify_class_name(Cast<UStructProperty>(param_p)->Struct->GetName()) + TEXT("!"); break;
+        case SkTypeID_UStruct:         if (default_value == TEXT("LatentInfo")) default_value = get_skookum_class_name(Cast<UStructProperty>(param_p)->Struct) + TEXT("!"); break;
         case SkTypeID_UClass:          default_value = skookify_class_name(default_value) + TEXT(".static_class"); break;
         case SkTypeID_UObject:         if (default_value == TEXT("WorldContext") || default_value == TEXT("WorldContextObject") || param_p->GetName() == TEXT("WorldContextObject")) default_value = TEXT("@@world"); break;
         }
