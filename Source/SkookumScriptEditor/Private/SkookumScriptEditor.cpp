@@ -874,7 +874,7 @@ void FSkookumScriptEditor::rename_class_script_files(UClass * ue_class_p, const 
     {
     FString new_class_name;
     const FString new_class_path = get_skookum_class_path(ue_class_p, &new_class_name);
-    FString old_class_path = FPaths::GetPath(new_class_path) / old_class_name;
+    FString old_class_path = new_class_path.Replace(*new_class_name, *skookify_class_name(old_class_name));
     // Does old class folder exist?
     if (FPaths::DirectoryExists(old_class_path))
       {
@@ -891,7 +891,7 @@ void FSkookumScriptEditor::rename_class_script_files(UClass * ue_class_p, const 
         FError::Throwf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_class_path, *new_class_path);
         }
       get_runtime()->on_class_scripts_changed_by_editor(old_class_name, ISkookumScriptRuntime::ChangeType_deleted);
-      get_runtime()->on_class_scripts_changed_by_editor(new_class_path, ISkookumScriptRuntime::ChangeType_created);
+      get_runtime()->on_class_scripts_changed_by_editor(new_class_name, ISkookumScriptRuntime::ChangeType_created);
       }
     else
       {
