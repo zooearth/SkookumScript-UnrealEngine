@@ -23,16 +23,16 @@ class SkUEClassBindingHelper
 
     enum
       {
-      Raw_data_info_offset_shift    = 0,
-      Raw_data_info_offset_mask     = 0xFFFF,
+      Raw_data_info_offset_shift    = 0,      // Byte offset inside structure where this property is stored
+      Raw_data_info_offset_mask     = 0xFFFF, // Stored as 16 bit
       Raw_data_info_type_shift      = 16,     // See Raw_data_type_... below
       Raw_data_info_type_mask       = 0xFFFF, // See Raw_data_type_... below
       Raw_data_info_elem_type_shift = 32,
       Raw_data_info_elem_type_mask  = 0xFFFF,
 
-      Raw_data_type_size_shift  = 0,
+      Raw_data_type_size_shift  = 0,      // Size of this data type
       Raw_data_type_size_mask   = 0x3FF,
-      Raw_data_type_extra_shift = 10,
+      Raw_data_type_extra_shift = 10,     // Extra type-specific information stored here
       Raw_data_type_extra_mask  = 0x3F,
       };
 

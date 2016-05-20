@@ -1082,7 +1082,8 @@ FString FSkookumScriptGenerator::generate_method_out_parameter_expression(UFunct
     case SkTypeID_Enum:
     case SkTypeID_UStruct:
     case SkTypeID_UClass:
-    case SkTypeID_UObject:         fmt = FString::Printf(TEXT("scope_p->get_arg<%s>(SkArg_%%d) = %%s"), *get_skookum_property_binding_class_name(param_p)); break;
+    case SkTypeID_UObject:
+    case SkTypeID_UObjectWeakPtr:  fmt = FString::Printf(TEXT("scope_p->get_arg<%s>(SkArg_%%d) = %%s"), *get_skookum_property_binding_class_name(param_p)); break;
     case SkTypeID_String:          fmt = TEXT("scope_p->get_arg<SkString>(SkArg_%d) = AString(*%s, %s.Len())"); break; // $revisit MBreyer - Avoid copy here
     case SkTypeID_List:
       {
@@ -1126,10 +1127,11 @@ FString FSkookumScriptGenerator::generate_method_parameter_assignment(UProperty 
       case SkTypeID_Name:
       case SkTypeID_UStruct:
       case SkTypeID_UClass:
-      case SkTypeID_UObject:       generated_code = FString::Printf(TEXT("%s = scope_p->get_arg<%s>(SkArg_%d);"), *assignee_name, *get_skookum_property_binding_class_name(param_p), param_index + 1); break;
-      case SkTypeID_Integer:       generated_code = FString::Printf(TEXT("%s = (%s)scope_p->get_arg<%s>(SkArg_%d);"), *assignee_name, *get_cpp_property_cast_name(param_p), *get_skookum_property_binding_class_name(param_p), param_index + 1); break;
-      case SkTypeID_Enum:          generated_code = FString::Printf(TEXT("%s = (%s)scope_p->get_arg<SkEnum>(SkArg_%d);"), *assignee_name, *get_cpp_property_cast_name(param_p), param_index + 1); break;
-      case SkTypeID_String:        generated_code = FString::Printf(TEXT("%s = scope_p->get_arg<SkString>(SkArg_%d).as_cstr();"), *assignee_name, param_index + 1); break;
+      case SkTypeID_UObject:
+      case SkTypeID_UObjectWeakPtr: generated_code = FString::Printf(TEXT("%s = scope_p->get_arg<%s>(SkArg_%d);"), *assignee_name, *get_skookum_property_binding_class_name(param_p), param_index + 1); break;
+      case SkTypeID_Integer:        generated_code = FString::Printf(TEXT("%s = (%s)scope_p->get_arg<%s>(SkArg_%d);"), *assignee_name, *get_cpp_property_cast_name(param_p), *get_skookum_property_binding_class_name(param_p), param_index + 1); break;
+      case SkTypeID_Enum:           generated_code = FString::Printf(TEXT("%s = (%s)scope_p->get_arg<SkEnum>(SkArg_%d);"), *assignee_name, *get_cpp_property_cast_name(param_p), param_index + 1); break;
+      case SkTypeID_String:         generated_code = FString::Printf(TEXT("%s = scope_p->get_arg<SkString>(SkArg_%d).as_cstr();"), *assignee_name, param_index + 1); break;
       case SkTypeID_Color:
         {
         static FName name_Color("Color");
@@ -1186,6 +1188,7 @@ FString FSkookumScriptGenerator::generate_property_default_ctor_argument(UProper
     case SkTypeID_Color:           return TEXT("ForceInitToZero");
     case SkTypeID_UClass:
     case SkTypeID_UObject:         return TEXT("nullptr");
+    case SkTypeID_UObjectWeakPtr:  return FString::Printf(TEXT("%s()"), *get_cpp_property_type_name(param_p));
     default:                       FError::Throwf(TEXT("Unsupported property type: %s"), *param_p->GetClass()->GetName()); return TEXT("");
     }
   }
@@ -1215,7 +1218,8 @@ FString FSkookumScriptGenerator::generate_return_value_passing(UProperty * retur
       case SkTypeID_Enum:
       case SkTypeID_UStruct:
       case SkTypeID_UClass:
-      case SkTypeID_UObject:         fmt = FString::Printf(TEXT("%s::new_instance(%%s)"), *get_skookum_property_binding_class_name(return_value_p)); break;
+      case SkTypeID_UObject:
+      case SkTypeID_UObjectWeakPtr:  fmt = FString::Printf(TEXT("%s::new_instance(%%s)"), *get_skookum_property_binding_class_name(return_value_p)); break;
       case SkTypeID_String:          fmt = TEXT("SkString::new_instance(AString(*(%s), %s.Len()))"); break; // $revisit MBreyer - Avoid copy here
       case SkTypeID_List:
         {
@@ -1523,7 +1527,7 @@ FString FSkookumScriptGenerator::get_skookum_property_type_name(UProperty * prop
   {
   eSkTypeID type_id = get_skookum_property_type(property_p);
 
-  if (type_id == SkTypeID_UObject)
+  if (type_id == SkTypeID_UObject || type_id == SkTypeID_UObjectWeakPtr)
     {
     UObjectPropertyBase * object_property_p = Cast<UObjectPropertyBase>(property_p);
     m_used_classes.AddUnique(object_property_p->PropertyClass);
@@ -1558,7 +1562,8 @@ FString FSkookumScriptGenerator::get_skookum_property_binding_class_name(UProper
     || type_id == SkTypeID_Enum
     || type_id == SkTypeID_UStruct
     || type_id == SkTypeID_UClass
-    || type_id == SkTypeID_UObject)
+    || type_id == SkTypeID_UObject
+    || type_id == SkTypeID_UObjectWeakPtr)
     {
     prefix = TEXT("SkUE");
     }
@@ -1673,7 +1678,8 @@ FString FSkookumScriptGenerator::get_skookum_default_initializer(UFunction * fun
         case SkTypeID_List:
         case SkTypeID_UStruct:         default_value = get_skookum_property_type_name(param_p) + TEXT("!"); break;
         case SkTypeID_UClass:
-        case SkTypeID_UObject:         default_value = (param_p->GetName() == TEXT("WorldContextObject")) ? TEXT("@@world") : get_skookum_class_name(Cast<UObjectPropertyBase>(param_p)->PropertyClass) + TEXT("!null"); break;
+        case SkTypeID_UObject:
+        case SkTypeID_UObjectWeakPtr:  default_value = (param_p->GetName() == TEXT("WorldContextObject")) ? TEXT("@@world") : get_skookum_class_name(Cast<UObjectPropertyBase>(param_p)->PropertyClass) + TEXT("!null"); break;
         }
       }
     else
@@ -1728,7 +1734,8 @@ FString FSkookumScriptGenerator::get_skookum_default_initializer(UFunction * fun
         case SkTypeID_Color:           default_value = TEXT("Color!rgba") + default_value; break;
         case SkTypeID_UStruct:         if (default_value == TEXT("LatentInfo")) default_value = get_skookum_class_name(Cast<UStructProperty>(param_p)->Struct) + TEXT("!"); break;
         case SkTypeID_UClass:          default_value = skookify_class_name(default_value) + TEXT(".static_class"); break;
-        case SkTypeID_UObject:         if (default_value == TEXT("WorldContext") || default_value == TEXT("WorldContextObject") || param_p->GetName() == TEXT("WorldContextObject")) default_value = TEXT("@@world"); break;
+        case SkTypeID_UObject:
+        case SkTypeID_UObjectWeakPtr:  if (default_value == TEXT("WorldContext") || default_value == TEXT("WorldContextObject") || param_p->GetName() == TEXT("WorldContextObject")) default_value = TEXT("@@world"); break;
         }
       }
 
