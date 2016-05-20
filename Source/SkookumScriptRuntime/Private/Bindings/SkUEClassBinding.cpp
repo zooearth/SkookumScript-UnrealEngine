@@ -260,6 +260,11 @@ tSkRawDataInfo SkUEClassBindingHelper::compute_raw_data_info(UProperty * ue_var_
     tSkRawDataInfo item_raw_data_info = compute_raw_data_info(array_property_p->Inner);
     raw_data_info |= ((item_raw_data_info >> Raw_data_info_type_shift) & Raw_data_info_type_mask) << Raw_data_info_elem_type_shift;
     }
+  else if (type_id == FSkookumScriptGeneratorBase::SkTypeID_UObjectWeakPtr)
+    {
+    // If weak ptr, store extra bit to indicate that
+    raw_data_info |= tSkRawDataInfo(1) << (Raw_data_info_type_shift + Raw_data_type_extra_shift);
+    }
 
   return raw_data_info;
   }
@@ -277,19 +282,43 @@ SkInstance * SkUEClassBindingHelper::access_raw_data_entity(void * obj_p, tSkRaw
   {
   uint32_t byte_offset = (raw_data_info >> Raw_data_info_offset_shift) & Raw_data_info_offset_mask;
   SK_ASSERTX(((raw_data_info >> (Raw_data_info_type_shift + Raw_data_type_size_shift)) & Raw_data_type_size_mask) == sizeof(UObject *), "Size of data type and data member must match!");
-  
-  UObject ** data_p = (UObject **)((uint8_t*)obj_p + byte_offset);
 
-  // Set or get?
-  if (value_p)
+  // We know the data lives here
+  uint8_t * data_p = (uint8_t*)obj_p + byte_offset;
+
+  // Check special bit indicating it's stored as a weak pointer
+  if (raw_data_info & (tSkRawDataInfo(1) << (Raw_data_info_type_shift + Raw_data_type_extra_shift)))
     {
-    // Set value
-    *data_p = value_p->as<SkUEEntity>();
-    return nullptr;
-    }
+    // Stored a weak pointer
+    FWeakObjectPtr * weak_p = (FWeakObjectPtr *)data_p;
 
-  // Get value
-  return SkUEEntity::new_instance(*data_p, nullptr, data_type_p->get_key_class());
+    // Set or get?
+    if (value_p)
+      {
+      // Set value
+      *weak_p = value_p->as<SkUEEntity>();
+      return nullptr;
+      }
+
+    // Get value
+    return SkUEEntity::new_instance(weak_p->Get(), nullptr, data_type_p->get_key_class());
+    }
+  else
+    {
+    // Stored as naked pointer
+    UObject ** obj_pp = (UObject **)data_p;
+
+    // Set or get?
+    if (value_p)
+      {
+      // Set value
+      *obj_pp = value_p->as<SkUEEntity>();
+      return nullptr;
+      }
+
+    // Get value
+    return SkUEEntity::new_instance(*obj_pp, nullptr, data_type_p->get_key_class());
+    }
   }
 
 //---------------------------------------------------------------------------------------

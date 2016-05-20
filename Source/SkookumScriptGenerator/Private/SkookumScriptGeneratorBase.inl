@@ -42,6 +42,7 @@ class FSkookumScriptGeneratorBase
       SkTypeID_UStruct,
       SkTypeID_UClass,
       SkTypeID_UObject,
+      SkTypeID_UObjectWeakPtr,
       SkTypeID_List,
 
       SkTypeID__Count
@@ -246,8 +247,7 @@ bool FSkookumScriptGeneratorBase::is_property_type_supported(UProperty * propert
   if (property_p->HasAnyPropertyFlags(CPF_EditorOnly)
     || property_p->IsA(ULazyObjectProperty::StaticClass())
     || property_p->IsA(UAssetObjectProperty::StaticClass())
-    || property_p->IsA(UAssetClassProperty::StaticClass())
-    || property_p->IsA(UWeakObjectProperty::StaticClass()))
+    || property_p->IsA(UAssetClassProperty::StaticClass()))
     {
     return false;
     }
@@ -645,7 +645,12 @@ FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_
   if (property_p->IsA(UObjectPropertyBase::StaticClass()))
     {
     UClass * class_p = Cast<UObjectPropertyBase>(property_p)->PropertyClass;
-    return (does_class_have_static_class(class_p) || class_p->HasAnyClassFlags(CLASS_HasInstancedReference) || class_p->GetName() == TEXT("Object")) ? SkTypeID_UObject : SkTypeID_None;
+    if (does_class_have_static_class(class_p) || class_p->HasAnyClassFlags(CLASS_HasInstancedReference) || class_p->GetName() == TEXT("Object"))
+      {
+      return property_p->IsA(UWeakObjectProperty::StaticClass()) ? SkTypeID_UObjectWeakPtr : SkTypeID_UObject;
+      }
+
+    return SkTypeID_None;
     }
 
   if (UArrayProperty * array_property_p = Cast<UArrayProperty>(property_p))
@@ -664,7 +669,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_property_type_name_existing(UPr
   {
   eSkTypeID type_id = get_skookum_property_type(property_p);
 
-  if (type_id == SkTypeID_UObject)
+  if (type_id == SkTypeID_UObject || type_id == SkTypeID_UObjectWeakPtr)
     {
     return get_skookum_class_name(Cast<UObjectPropertyBase>(property_p)->PropertyClass);
     }
