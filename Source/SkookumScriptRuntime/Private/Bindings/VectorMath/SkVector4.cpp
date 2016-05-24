@@ -290,13 +290,13 @@ namespace SkVector4_Impl
   // # Skookum:	  -Vector4
   // # Author(s): Zachary Burke
   static void mthd_op_negated(SkInvokedMethod * scope_p, SkInstance ** result_pp)
-  {
-	  // Do nothing if result not desired
-	  if (result_pp)
-	  {
-		  *result_pp = SkVector4::new_instance(-scope_p->this_as<SkVector4>());
-	  }
-  }
+    {
+    // Do nothing if result not desired
+    if (result_pp)
+      {
+      *result_pp = SkVector4::new_instance(-scope_p->this_as<SkVector4>());
+      }
+    }
 
   //---------------------------------------------------------------------------------------
   // # Skookum:   Vector4@set(Real x, Real y, Real z, Real w) Vector4
@@ -497,8 +497,8 @@ namespace SkVector4_Impl
       { "multiply",         mthd_op_multiply },
       { "multiply_assign",  mthd_op_multiply_assign },
       { "divide",           mthd_op_divide },
-	  { "divide_assign",    mthd_op_divide_assign },
-	  { "negated",			mthd_op_negated },
+      { "divide_assign",    mthd_op_divide_assign },
+      { "negated",          mthd_op_negated },
 
       { "set",              mthd_set },
       { "zero?",            mthd_zeroQ },
