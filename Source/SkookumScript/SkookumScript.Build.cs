@@ -31,16 +31,9 @@ public class SkookumScript : ModuleRules
     switch (Target.Platform)
     {
       case UnrealTargetPlatform.Win32:
-        bPlatformAllowed = true;
-        platformName = "Win32";
-        platPathSuffixes.Add(Path.Combine(platformName, WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 ? "VS2015" : "VS2013"));
-        libNameExt = ".lib";
-        libNamePrefix = "";
-        Definitions.Add("WIN32_LEAN_AND_MEAN");
-        break;
       case UnrealTargetPlatform.Win64:
         bPlatformAllowed = true;
-        platformName = "Win64";
+        platformName = Target.Platform == UnrealTargetPlatform.Win64 ? "Win64" : "Win32";
         platPathSuffixes.Add(Path.Combine(platformName, WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 ? "VS2015" : "VS2013"));
         libNameExt = ".lib";
         libNamePrefix = "";

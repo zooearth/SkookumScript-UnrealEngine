@@ -337,7 +337,7 @@ void SkUERuntime::on_binary_hierarchy_path_changed()
 // #Author(s):  Conan Reis
 SkBinaryHandle * SkUERuntime::get_binary_hierarchy()
   {
-  FString compiled_file = get_compiled_path() / TEXT("classes.sk-bin");
+  FString compiled_file = FPaths::ConvertRelativePathToFull(get_compiled_path() / TEXT("classes.sk-bin"));
 
   A_DPRINT("  Loading compiled binary file '%ls'...\n", *compiled_file);
 
@@ -371,7 +371,7 @@ SkBinaryHandle * SkUERuntime::get_binary_class_group(const SkClass & cls)
 // #Author(s):  Conan Reis
 SkBinaryHandle * SkUERuntime::get_binary_symbol_table()
   {
-  FString sym_file = get_compiled_path() / TEXT("classes.sk-sym");
+  FString sym_file = FPaths::ConvertRelativePathToFull(get_compiled_path() / TEXT("classes.sk-sym"));
 
   A_DPRINT("  Loading compiled binary symbol file '%ls'...\n", *sym_file);
 

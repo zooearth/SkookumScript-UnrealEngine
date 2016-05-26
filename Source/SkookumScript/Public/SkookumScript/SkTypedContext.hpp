@@ -18,6 +18,7 @@
 //=======================================================================================
 
 #include <AgogCore/AList.hpp>
+#include <AgogCore/AVArray.hpp>
 #include <SkookumScript/SkNamed.hpp>
 #include <SkookumScript/SkTyped.hpp>
 #include <SkookumScript/SkParameters.hpp>
@@ -40,7 +41,7 @@ class SkParameters;
   #include <AgogCore/AVCompactSorted.hpp>
 #endif
 
-typedef APArrayLogical<SkNamedIndexed, ASymbol> tSkNamedIndexedArray;
+typedef AVArrayLogical<AIdPtr<SkNamedIndexed>, ASymbol> tSkNamedIndexedArray;
 
 //---------------------------------------------------------------------------------------
 // Notes      Class Type Scope Context - used to track variable scope & type when

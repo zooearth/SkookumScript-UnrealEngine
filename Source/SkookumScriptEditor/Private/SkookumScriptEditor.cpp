@@ -493,6 +493,12 @@ void FSkookumScriptEditor::initialize_paths()
           project_path.Empty();
           }
         }
+
+      // Since project does not exist in the permanent location, make sure the binaries don't exist in the permanent location either
+      // Otherwise we'd get inconsistencies/malfunction when binaries are loaded
+      FString binary_path_stem(FPaths::GameDir() / TEXT("Content") / TEXT("SkookumScript") / TEXT("Classes"));
+      IFileManager::Get().Delete(*(binary_path_stem + TEXT(".sk-bin")), false, true, true);
+      IFileManager::Get().Delete(*(binary_path_stem + TEXT(".sk-sym")), false, true, true);
       }
     }
 

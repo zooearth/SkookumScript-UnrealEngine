@@ -69,28 +69,24 @@
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Shipping|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Shipping|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -337,6 +333,9 @@
     <ClInclude Include="Public\AgogCore\AMath.hpp" />
     <ClInclude Include="Public\AgogCore\ARandom.hpp" />
     <ClInclude Include="Public\AgogCore\ARegion.hpp" />
+    <ClInclude Include="Public\AgogCore\AVArray.hpp" />
+    <ClInclude Include="Public\AgogCore\AVArrayBase.hpp" />
+    <ClInclude Include="Public\AgogCore\AVSizedArrayBase.hpp" />
     <ClInclude Include="Public\AgogCore\AVCompactArray.hpp" />
     <ClInclude Include="Public\AgogCore\AVCompactArrayBase.hpp" />
     <ClInclude Include="Public\AgogCore\AVCompactSorted.hpp" />
