@@ -69,6 +69,7 @@ protected:
   bool                    is_property_type_supported_and_known(UProperty * property_p) const;
   void                    generate_class_script_files(UClass * ue_class_p, bool generate_data);
   void                    rename_class_script_files(UClass * ue_class_p, const FString & old_class_name);
+  void                    rename_class_script_files(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name);
   void                    delete_class_script_files(UClass * ue_class_p);
   void                    generate_used_class_script_files();
 
@@ -796,7 +797,7 @@ void FSkookumScriptEditor::generate_class_script_files(UClass * ue_class_p, bool
         }
       }
 
-    save_text_file_if_changed(*meta_file_path, meta_body);
+    bool anything_changed = save_text_file_if_changed(*meta_file_path, meta_body);
 
     // Create raw data member file
     if (generate_data)
@@ -838,11 +839,16 @@ void FSkookumScriptEditor::generate_class_script_files(UClass * ue_class_p, bool
       FString data_file_path = class_path / TEXT("!Data.sk");
       if (save_text_file_if_changed(*data_file_path, data_body))
         {
-        //tSourceControlCheckoutFunc checkout_f = ISourceControlModule::Get().IsEnabled() ? &SourceControlHelpers::CheckOutFile : nullptr;
-        tSourceControlCheckoutFunc checkout_f = nullptr; // Leaving this disabled for now as it might be bothersome
-        flush_saved_text_files(checkout_f);
-        get_runtime()->on_class_scripts_changed_by_editor(class_name, change_type);
+        anything_changed = true;
         }
+      }
+
+    if (anything_changed)
+      {
+      //tSourceControlCheckoutFunc checkout_f = ISourceControlModule::Get().IsEnabled() ? &SourceControlHelpers::CheckOutFile : nullptr;
+      tSourceControlCheckoutFunc checkout_f = nullptr; // Leaving this disabled for now as it might be bothersome
+      flush_saved_text_files(checkout_f);
+      get_runtime()->on_class_scripts_changed_by_editor(class_name, change_type);
       }
     }
 #if !PLATFORM_EXCEPTIONS_DISABLED
@@ -874,35 +880,68 @@ void FSkookumScriptEditor::generate_used_class_script_files()
 
 void FSkookumScriptEditor::rename_class_script_files(UClass * ue_class_p, const FString & old_class_name)
   {
+  // Rename this class
+  FString new_class_name = get_skookum_class_name(ue_class_p);
+  rename_class_script_files(ue_class_p, old_class_name, new_class_name);
+
+  // Also attempt to rename all child classes as they may have the name of the parent in its folder name
+  for (TObjectIterator<UClass> it; it; ++it)
+    {
+    if (it->GetSuperClass() == ue_class_p)
+      {
+      rename_class_script_files(*it, old_class_name, new_class_name);
+      }
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptEditor::rename_class_script_files(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name)
+  {
 #if !PLATFORM_EXCEPTIONS_DISABLED
   try
 #endif
     {
-    FString new_class_name;
-    const FString new_class_path = get_skookum_class_path(ue_class_p, &new_class_name);
-    FString old_class_path = new_class_path.Replace(*new_class_name, *skookify_class_name(old_class_name));
-    // Does old class folder exist?
-    if (FPaths::DirectoryExists(old_class_path))
+    FString this_class_name;
+    const FString this_class_path = get_skookum_class_path(ue_class_p, &this_class_name);
+    // Construct old path form new path
+    FString replace_from = new_class_name;
+    FString replace_to = skookify_class_name(old_class_name);
+    // If we are replacing a parent name, append a dot to avoid accidentally modifying the class name itself
+    if (this_class_name != new_class_name)
       {
-      // Old folder exists - decide how to change its name
-      // Does new class folder already exist?
-      if (FPaths::DirectoryExists(new_class_path))
-        {
-        // Yes, delete so we can rename the old folder
-        IFileManager::Get().DeleteDirectory(*new_class_path, false, true);
-        }
-      // Now rename old to new
-      if (!IFileManager::Get().Move(*new_class_path, *old_class_path, true, true))
-        {
-        FError::Throwf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_class_path, *new_class_path);
-        }
-      get_runtime()->on_class_scripts_changed_by_editor(old_class_name, ISkookumScriptRuntime::ChangeType_deleted);
-      get_runtime()->on_class_scripts_changed_by_editor(new_class_name, ISkookumScriptRuntime::ChangeType_created);
+      replace_from += TEXT(".");
+      replace_to += TEXT(".");
       }
-    else
+    FString old_class_path = this_class_path.Replace(*replace_from, *replace_to);
+    if (this_class_path != old_class_path)
       {
-      // Old folder does not exist - check that new folder exists, assuming the class has already been renamed
-      checkf(FPaths::DirectoryExists(new_class_path), TEXT("Couldn't rename class from '%s' to '%s'. Neither old nor new class folder exist."), *old_class_path, *new_class_path);
+      // Does old class folder exist?
+      if (FPaths::DirectoryExists(old_class_path))
+        {
+        // Old folder exists - decide how to change its name
+        // Does new class folder already exist?
+        if (FPaths::DirectoryExists(this_class_path))
+          {
+          // Yes, delete so we can rename the old folder
+          IFileManager::Get().DeleteDirectory(*this_class_path, false, true);
+          }
+        // Now rename old to new
+        if (!IFileManager::Get().Move(*this_class_path, *old_class_path, true, true))
+          {
+          FError::Throwf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_class_path, *this_class_path);
+          }
+        // Regenerate the meta file to correctly reflect the Blueprint it originated from
+        generate_class_script_files(ue_class_p, false);
+        // Inform the runtime module of the change
+        get_runtime()->on_class_scripts_changed_by_editor(old_class_name, ISkookumScriptRuntime::ChangeType_deleted);
+        get_runtime()->on_class_scripts_changed_by_editor(new_class_name, ISkookumScriptRuntime::ChangeType_created);
+        }
+      else
+        {
+        // Old folder does not exist - check that new folder exists, assuming the class has already been renamed
+        checkf(FPaths::DirectoryExists(this_class_path), TEXT("Couldn't rename class from '%s' to '%s'. Neither old nor new class folder exist."), *old_class_path, *this_class_path);
+        }
       }
     }
 #if !PLATFORM_EXCEPTIONS_DISABLED
