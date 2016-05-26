@@ -224,6 +224,18 @@ namespace SkVector2_Impl
     }
 
   //---------------------------------------------------------------------------------------
+  // # Skookum:	  -Vector2
+  // # Author(s): Zachary Burke
+  static void mthd_op_negated(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    // Do nothing if result not desired
+    if (result_pp)
+      {
+      *result_pp = SkVector2::new_instance(-scope_p->this_as<SkVector2>());
+      }
+    }
+
+  //---------------------------------------------------------------------------------------
   // # Skookum:   Vector2@set(Real x, Real y) Vector2
   // # Author(s): Markus Breyer
   static void mthd_set(SkInvokedMethod * scope_p, SkInstance ** result_pp)
@@ -424,6 +436,7 @@ namespace SkVector2_Impl
       { "multiply_assign",  mthd_op_multiply_assign },
       { "divide",           mthd_op_divide },
       { "divide_assign",    mthd_op_divide_assign },
+      { "negated",          mthd_op_negated },
 
       { "set",              mthd_set },
       { "zero?",            mthd_zeroQ },

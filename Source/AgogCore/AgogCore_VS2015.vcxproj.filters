@@ -180,6 +180,15 @@
     <ClInclude Include="Public\AgogCore\APSizedArrayBase.hpp">
       <Filter>Collections</Filter>
     </ClInclude>
+    <ClInclude Include="Public\AgogCore\AVArray.hpp">
+      <Filter>Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\AgogCore\AVArrayBase.hpp">
+      <Filter>Collections</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\AgogCore\AVSizedArrayBase.hpp">
+      <Filter>Collections</Filter>
+    </ClInclude>
     <ClInclude Include="Public\AgogCore\AVCompactArray.hpp">
       <Filter>Collections</Filter>
     </ClInclude>

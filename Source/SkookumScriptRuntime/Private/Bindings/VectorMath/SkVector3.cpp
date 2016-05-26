@@ -266,6 +266,18 @@ namespace SkVector3_Impl
     }
 
   //---------------------------------------------------------------------------------------
+  // # Skookum:	  -Vector3
+  // # Author(s): Zachary Burke
+  static void mthd_op_negated(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    // Do nothing if result not desired
+    if (result_pp)
+      {
+      *result_pp = SkVector3::new_instance(-scope_p->this_as<SkVector3>());
+      }
+    }
+
+  //---------------------------------------------------------------------------------------
   // # Skookum:   Vector3@rotate_by(Rotation rot) Vector3
   // # Author(s): Markus Breyer
   static void mthd_rotate_by(SkInvokedMethod * scope_p, SkInstance ** result_pp)
@@ -535,6 +547,7 @@ namespace SkVector3_Impl
       { "multiply_assign",  mthd_op_multiply_assign },
       { "divide",           mthd_op_divide },
       { "divide_assign",    mthd_op_divide_assign },
+      { "negated",          mthd_op_negated },
 
       { "rotate_by",        mthd_rotate_by },
       { "unrotate_by",      mthd_unrotate_by },
