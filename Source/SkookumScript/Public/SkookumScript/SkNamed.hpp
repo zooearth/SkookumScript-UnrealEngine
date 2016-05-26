@@ -18,6 +18,7 @@
 //=======================================================================================
 
 #include <AgogCore/ANamed.hpp>
+#include <AgogCore/AIdPtr.hpp>
 #include <AgogCore/ABinaryParse.hpp>
 #include <AgogCore/AVCompactSorted.hpp>
 #include <SkookumScript/SkookumScript.hpp>
@@ -35,8 +36,9 @@ struct SK_API SkNamedIndexed : ANamed
 
   // Common Methods
 
-    SkNamedIndexed() : m_data_idx(0) {}
-    SkNamedIndexed(const ASymbol & name, int32_t data_idx) : ANamed(name), m_data_idx((int16_t)data_idx) {}
+    SkNamedIndexed() : m_data_idx(0), m_ptr_id((uint16_t)(AIdPtr<SkNamedIndexed>::get_next_ptr_id() | 0x8000)) {} // or with 0x8000 to make sure it will _never_ match AIdPtr_null
+    SkNamedIndexed(const ASymbol & name, int32_t data_idx) : ANamed(name), m_data_idx((int16_t)data_idx), m_ptr_id((uint16_t)(AIdPtr<SkNamedIndexed>::get_next_ptr_id() | 0x8000)) {}
+    ~SkNamedIndexed() { m_ptr_id = (uint16_t)AIdPtr_null; }
 
     uint16_t        get_data_idx() const            { return m_data_idx; }
     void            set_data_idx(uint32_t data_idx) { m_data_idx = (uint16_t)data_idx; }
@@ -55,7 +57,11 @@ struct SK_API SkNamedIndexed : ANamed
 
   // Data Members
 
+    // The data index - might get patched during its lifespan
     int16_t  m_data_idx;
+
+    // So we can use an AIdPtr to point at this
+    uint16_t m_ptr_id;
 
   };
 
