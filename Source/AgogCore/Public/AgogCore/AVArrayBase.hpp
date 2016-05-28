@@ -882,7 +882,7 @@ inline AVArrayBase<_ElementType>::AVArrayBase(
 template<class _ElementType>
 inline _ElementType * AVArrayBase<_ElementType>::alloc_array(uint32_t needed)
   {
-  _ElementType * buffer_p = needed ? (_ElementType *)AgogCore::get_app_info()->malloc(sizeof(_ElementType*) * needed, "AVArrayBase.buffer") : nullptr;
+  _ElementType * buffer_p = needed ? (_ElementType *)AgogCore::get_app_info()->malloc(sizeof(_ElementType) * needed, "AVArrayBase.buffer") : nullptr;
 
   A_VERIFY_MEMORY(!needed || (buffer_p != nullptr), tAVArrayBase);
 

@@ -202,6 +202,18 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
           return instance_p;
           }
         }
+
+      // If we get here, there is no SkookumScriptComponent, i.e. we must not have data members
+      // So if we do anyway, we are in trouble!
+      // Recover by crawling up the class hierarchy until we find a parent class without data members
+      // This will cause a more graceful failure later on if downcasting is attempted
+      #if defined(SK_RUNTIME_RECOVER)
+        while (sk_class_p->get_total_data_count() > 0)
+          {
+          sk_class_p = sk_class_p->get_superclass();
+          }
+      #endif
+
       SkInstance * instance_p = SkInstance::new_instance(sk_class_p);
       static_cast<tBindingBase *>(instance_p)->construct(obj_p);
       return instance_p;
