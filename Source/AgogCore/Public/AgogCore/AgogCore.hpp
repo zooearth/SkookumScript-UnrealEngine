@@ -751,15 +751,6 @@ enum eATerm
   };
 
 //---------------------------------------------------------------------------------------
-// Used to specify whether something should be remembered/archived in some sort of a
-// history/memory or not.  [Used in the place of bool to give more obvious context.]
-enum eAHistory
-  {
-  AHistory_forget   = 0,   // Doomed to repeat it
-  AHistory_remember = 1
-  };
-
-//---------------------------------------------------------------------------------------
 // Specifies whether a user should be prompted or no prompt and proceed with action.
 // [Used in the place of `bool` to give more obvious context.]
 enum eAPrompt
