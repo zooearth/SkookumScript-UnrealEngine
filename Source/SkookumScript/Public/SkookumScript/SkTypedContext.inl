@@ -25,7 +25,7 @@
 A_INLINE SkTypeContext::SkTypeContext() :
   m_obj_scope_p(nullptr),
   m_params_p(nullptr),
-  m_top_scope(0),
+  m_top_scope(SkNestReason_Invocation, 0),
   m_current_scope_p(&m_top_scope),
   m_current_vars_p(&m_top_scope.m_vars),
   m_capture_current_p(nullptr)
@@ -95,14 +95,14 @@ A_INLINE bool SkTypeContext::is_locals() const
 // Appends a new scope nest level and makes it the current scope.
 // See:        unnest_locals(), accept_nest(), change_variable_types, merge_locals()
 // Author(s):   Conan Reis
-A_INLINE void SkTypeContext::nest_locals()
+A_INLINE void SkTypeContext::nest_locals(eSkNestReason nest_reason)
   {
   // $Revisit - CReis [Memory] These structures should come from a memory pool
-  ScopeVars * vars_p = SK_NEW(ScopeVars)(m_current_scope_p->m_data_idx_count);
+  ScopeVars * inner_scope_p = SK_NEW(ScopeVars)(nest_reason, nest_reason == SkNestReason_Invocation ? 0 : m_current_scope_p->m_data_idx_count);
 
-  m_current_scope_p = vars_p;
-  m_current_vars_p = &vars_p->m_vars;
-  m_scope_stack.append(vars_p);
+  m_current_scope_p = inner_scope_p;
+  m_current_vars_p = &inner_scope_p->m_vars;
+  m_scope_stack.append(inner_scope_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -110,28 +110,27 @@ A_INLINE void SkTypeContext::nest_locals()
 //             scope.
 // See:        nest_locals(), accept_nest(), change_variable_types, merge_locals()
 // Author(s):   Conan Reis
-A_INLINE void SkTypeContext::unnest_locals(
-  eAHistory history // = AHistory_remember
-  )
+A_INLINE void SkTypeContext::unnest_locals(eSkUnnestAction unnest_action)
   {
-  ScopeVars * old_vars_p = m_scope_stack.pop_last();
-  ScopeVars * vars_p     = m_scope_stack.get_last();
+  ScopeVars * inner_scope_p = m_scope_stack.pop_last();
+  ScopeVars * outer_scope_p = m_scope_stack.get_last();
 
-  m_current_scope_p = vars_p;
-  m_current_vars_p = &vars_p->m_vars;
+  m_current_scope_p = outer_scope_p;
+  m_current_vars_p = &outer_scope_p->m_vars;
 
-  if (history != AHistory_forget)
+  if (inner_scope_p->m_nest_reason == SkNestReason_Backtracking 
+   && unnest_action == eSkUnnestAction_Accept)
     {
     // Remember past variables
-    if (old_vars_p->m_var_history.is_filled())
+    if (inner_scope_p->m_var_history.is_filled())
       {
-      vars_p->m_var_history.xfer_absent_all_free_dupes(&old_vars_p->m_var_history);
+      outer_scope_p->m_var_history.xfer_absent_all_free_dupes(&inner_scope_p->m_var_history);
       }
 
     // Also remember data indices
-    vars_p->m_data_idx_count = old_vars_p->m_data_idx_count;
-    vars_p->m_data_idx_count_max = a_max(vars_p->m_data_idx_count_max, old_vars_p->m_data_idx_count_max);
+    outer_scope_p->m_data_idx_count = inner_scope_p->m_data_idx_count;
+    outer_scope_p->m_data_idx_count_max = a_max(outer_scope_p->m_data_idx_count_max, inner_scope_p->m_data_idx_count_max);
     }
 
-  delete old_vars_p;
+  delete inner_scope_p;
   }
