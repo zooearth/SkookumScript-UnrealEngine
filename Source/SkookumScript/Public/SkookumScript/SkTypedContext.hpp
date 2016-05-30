@@ -41,6 +41,7 @@ class SkParameters;
   #include <AgogCore/AVCompactSorted.hpp>
 #endif
 
+typedef AVArrayLogical<AIdPtr<SkIndexed>, ASymbol>      tSkIndexedArray;
 typedef AVArrayLogical<AIdPtr<SkNamedIndexed>, ASymbol> tSkNamedIndexedArray;
 
 //---------------------------------------------------------------------------------------
@@ -113,10 +114,11 @@ struct SK_API SkTypeContext
         // Parent scope at which the capture was created
         tSkTypedNamesIndexed * m_scope_p;
 
-        // Keep track of any indexed names used during this capture session
-        tSkNamedIndexedArray m_indices_to_patch;
+        // Keep track of any indices used during this capture session
+        tSkIndexedArray       m_indices_to_patch;
+        tSkNamedIndexedArray  m_named_indices_to_patch;
 
-      // Methods
+        // Methods
 
         SK_NEW_OPERATORS(CapturedVars);
 
@@ -182,6 +184,7 @@ struct SK_API SkTypeContext
       void                  merge_locals(tSkTypedNamesIndexed * merge_vars_p, bool first_path_b) const;
       void                  capture_locals_start();
       void                  capture_locals_stop(tSkIndexedNames * captured_p);
+      void                  on_local_data_index_created(SkIndexed * indexed_p);
       void                  on_identifier_created(SkIdentifierLocal * identifier_p);
       void                  nest_locals(eSkNestReason nest_reason);
       void                  unnest_locals(eSkUnnestAction unnest_action);
