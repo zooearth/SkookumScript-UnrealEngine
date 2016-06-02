@@ -60,7 +60,7 @@ namespace UnrealBuildTool.Rules
             "GameplayTasks",
             "GeometryCache",
             "HeadMountedDisplay",
-            "IOSRuntimeSettings",
+            //"IOSRuntimeSettings",
             "LaunchDaemonMessages",
             "InputCore",
             "JsonUtilities",
