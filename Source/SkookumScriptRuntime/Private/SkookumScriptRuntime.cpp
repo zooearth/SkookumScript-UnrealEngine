@@ -323,8 +323,18 @@ void FAppInfo::debug_print(const char * cstr_p)
   msg.RemoveFromStart(TEXT("\n"));
   UE_LOG(LogSkookum, Log, TEXT("%s"), *msg);
   */
-      
-  ADebug::print_std(cstr_p);
+
+#if WITH_EDITOR
+  if (GLogConsole && IsRunningCommandlet())
+    {
+    FString message(cstr_p);
+    GLogConsole->Serialize(*message, ELogVerbosity::Display, FName(TEXT("SkookumScript")));
+    }
+  else
+#endif
+    {
+    ADebug::print_std(cstr_p);
+    }
   }
 
 //---------------------------------------------------------------------------------------
