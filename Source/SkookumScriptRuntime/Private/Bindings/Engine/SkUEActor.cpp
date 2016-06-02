@@ -122,7 +122,8 @@ namespace SkUEActor_Impl
       APArray<SkInstance> & instances = list.get_instances();
       for (UObject ** RESTRICT obj_pp = object_array.GetData(), **RESTRICT end_pp = obj_pp + object_array.Num(); obj_pp != end_pp; ++obj_pp)
         {
-        if ((*obj_pp)->GetWorld() == world_p)
+        // Must be in this world and not about to die
+        if ((*obj_pp)->GetWorld() == world_p && !(*obj_pp)->IsPendingKill())
           {
           // This instance is already refcounted so directly append to underlying array
           instances.append(*SkUEActor::new_instance(static_cast<AActor *>(*obj_pp), uclass_p, class_p));
@@ -147,7 +148,8 @@ namespace SkUEActor_Impl
       UWorld * world_p = SkUEClassBindingHelper::get_world();
       for (UObject ** RESTRICT obj_pp = object_array.GetData(), **RESTRICT end_pp = obj_pp + object_array.Num(); obj_pp != end_pp; ++obj_pp)
         {
-        if ((*obj_pp)->GetWorld() == world_p)
+        // Must be in this world and not about to die
+        if ((*obj_pp)->GetWorld() == world_p && !(*obj_pp)->IsPendingKill())
           {
           *result_pp = SkUEActor::new_instance(static_cast<AActor *>(*obj_pp), uclass_p, class_p);
           return;
