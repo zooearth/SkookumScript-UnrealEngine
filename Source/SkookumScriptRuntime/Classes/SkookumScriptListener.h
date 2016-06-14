@@ -78,10 +78,10 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptListener : public UObject
     void OnDestroyed(AActor * destroyed_actor_p);
 
     UFUNCTION()
-    void OnClicked();
+    void OnClicked(AActor * touched_actor, FKey button_pressed);
 
     UFUNCTION()
-    void OnReleased();
+    void OnReleased(AActor * touched_actor, FKey button_released);
 
   protected:
 

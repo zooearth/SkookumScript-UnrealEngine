@@ -6,4 +6,4 @@
 // See: _on_begin_overlap_do, _on_end_overlap_do_until
 //---------------------------------------------------------------------------------------
 
-(() Boolean code)
+((Actor touched_actor Key button_released) Boolean code)

@@ -21,6 +21,7 @@
 #include "SkUEActor.generated.hpp"
 #include "SkUEDamageType.generated.hpp"
 #include "SkUEController.generated.hpp"
+#include "SkUEKey.generated.hpp"
 #include "SkUEPrimitiveComponent.generated.hpp"
 
 //=======================================================================================
@@ -165,14 +166,20 @@ void USkookumScriptListener::OnDestroyed(AActor * destroyed_actor_p)
 
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptListener::OnClicked()
+void USkookumScriptListener::OnClicked(AActor * touched_actor, FKey button_pressed)
   {
-  push_event_and_resume(alloc_event(), 0);
+  EventInfo * event_p = alloc_event();
+  event_p->m_argument_p[SkArg_1] = SkUEActor::new_instance(touched_actor);
+  event_p->m_argument_p[SkArg_2] = SkUEKey::new_instance(button_pressed);
+  push_event_and_resume(event_p, 2);
   }
 
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptListener::OnReleased()
+void USkookumScriptListener::OnReleased(AActor * touched_actor, FKey button_released)
   {
-  push_event_and_resume(alloc_event(), 0);
+  EventInfo * event_p = alloc_event();
+  event_p->m_argument_p[SkArg_1] = SkUEActor::new_instance(touched_actor);
+  event_p->m_argument_p[SkArg_2] = SkUEKey::new_instance(button_released);
+  push_event_and_resume(event_p, 2);
   }
