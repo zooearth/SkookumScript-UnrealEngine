@@ -259,6 +259,40 @@ namespace SkUEActor_Impl
         }
     };
 
+  //---------------------------------------------------------------------------------------
+  // Event handler template parameter for handling OnClicked events
+  class EventHandler_OnClicked
+    {
+    public:
+      // Add callback to object
+      static void install(UObject * obj_p, USkookumScriptListener * listener_p)
+        {
+        Cast<AActor>(obj_p)->OnClicked.AddDynamic(listener_p, &USkookumScriptListener::OnClicked);
+        }
+      // Remove callback from object
+      static void uninstall(UObject * obj_p, USkookumScriptListener * listener_p)
+        {
+        Cast<AActor>(obj_p)->OnClicked.RemoveDynamic(listener_p, &USkookumScriptListener::OnClicked);
+        }
+    };
+
+  //---------------------------------------------------------------------------------------
+  // Event handler template parameter for handling ActorReleased events
+  class EventHandler_OnReleased
+    {
+    public:
+      // Add callback to object
+      static void install(UObject * obj_p, USkookumScriptListener * listener_p)
+        {
+        Cast<AActor>(obj_p)->OnReleased.AddDynamic(listener_p, &USkookumScriptListener::OnReleased);
+        }
+      // Remove callback from object
+      static void uninstall(UObject * obj_p, USkookumScriptListener * listener_p)
+        {
+        Cast<AActor>(obj_p)->OnReleased.RemoveDynamic(listener_p, &USkookumScriptListener::OnReleased);
+        }
+    };
+
   #ifdef _MSC_VER
     #pragma warning(push)
     #pragma warning(disable : 4127) // Function below contains constant conditionals on purpose
@@ -404,6 +438,34 @@ namespace SkUEActor_Impl
     return coro_on_event<EventHandler_OnDestroyed, false>(scope_p);
     }
 
+  //---------------------------------------------------------------------------------------
+  // Actor@(() code)
+  static bool coro_on_clicked_do(SkInvokedCoroutine * scope_p)
+    {
+    return coro_on_event<EventHandler_OnClicked, false>(scope_p);
+    }
+
+  //---------------------------------------------------------------------------------------
+  // Actor@(() code)
+  static bool coro_on_clicked_do_until(SkInvokedCoroutine * scope_p)
+    {
+    return coro_on_event<EventHandler_OnClicked, true>(scope_p);
+    }
+
+  //---------------------------------------------------------------------------------------
+  // Actor@(() code)
+  static bool coro_on_released_do(SkInvokedCoroutine * scope_p)
+    {
+    return coro_on_event<EventHandler_OnReleased, false>(scope_p);
+    }
+
+  //---------------------------------------------------------------------------------------
+  // Actor@(() code)
+  static bool coro_on_released_do_until(SkInvokedCoroutine * scope_p)
+    {
+    return coro_on_event<EventHandler_OnReleased, true>(scope_p);
+    }
+
   static const SkClass::MethodInitializerFunc methods_c2[] =
     {
       { "find_named",       mthdc_find_named },
@@ -423,6 +485,10 @@ namespace SkUEActor_Impl
       { "_on_take_point_damage_do",       coro_on_take_point_damage_do },
       { "_on_take_point_damage_do_until", coro_on_take_point_damage_do_until },
       { "_on_destroyed_do",               coro_on_destroyed_do },
+      { "_on_clicked_do",                 coro_on_clicked_do },
+      { "_on_clicked_do_until",           coro_on_clicked_do_until },
+      { "_on_released_do",                coro_on_released_do },
+      { "_on_released_do_until",          coro_on_released_do_until },
     };
 
   } // SkUEActor_Impl

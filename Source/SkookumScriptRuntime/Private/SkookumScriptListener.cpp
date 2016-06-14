@@ -162,3 +162,17 @@ void USkookumScriptListener::OnDestroyed(AActor * destroyed_actor_p)
   {
   push_event_and_resume(alloc_event(), 0);
   }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptListener::OnClicked()
+  {
+  push_event_and_resume(alloc_event(), 0);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptListener::OnReleased()
+  {
+  push_event_and_resume(alloc_event(), 0);
+  }
