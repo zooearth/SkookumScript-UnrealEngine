@@ -399,11 +399,13 @@ void SkUERemote::on_cmd_freshen_compiled_reply(eCompiledState state)
 //---------------------------------------------------------------------------------------
 void SkUERemote::on_class_updated(SkClass * class_p)
   {
-  // Only care to do anything if editor is present
   #if WITH_EDITOR
-    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
-    SkUEBlueprintInterface::get()->reexpose_class(class_p, &on_class_updated_f);
+    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
+    tSkUEOnClassUpdatedFunc * on_class_updated_f = &editor_on_class_updated_f;
+  #else
+    tSkUEOnClassUpdatedFunc * on_class_updated_f = nullptr;
   #endif
+  SkUEBlueprintInterface::get()->reexpose_class(class_p, on_class_updated_f);
   }
 
 //---------------------------------------------------------------------------------------

@@ -58,7 +58,7 @@ void SkUEBlueprintInterface::clear()
 
 //---------------------------------------------------------------------------------------
 
-UClass * SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, AFunctionArgBase<UClass *> * on_class_updated_f)
+UClass * SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f)
   {
   UClass * ue_class_p = SkUEClassBindingHelper::get_static_ue_class_from_sk_class_super(sk_class_p);
   if (ue_class_p)
@@ -70,7 +70,7 @@ UClass * SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, AFunctionA
 
 //---------------------------------------------------------------------------------------
 
-void SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, UClass * ue_class_p, AFunctionArgBase<UClass *> * on_class_updated_f)
+void SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, UClass * ue_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f)
   {
   // Keep track of changes
   int32_t change_count = 0;
@@ -119,7 +119,7 @@ void SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, UClass * ue_cl
 
 //---------------------------------------------------------------------------------------
 
-void SkUEBlueprintInterface::reexpose_class_recursively(SkClass * sk_class_p, AFunctionArgBase<UClass *> * on_class_updated_f)
+void SkUEBlueprintInterface::reexpose_class_recursively(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f)
   {
   if (reexpose_class(sk_class_p, on_class_updated_f))
     {
@@ -134,7 +134,7 @@ void SkUEBlueprintInterface::reexpose_class_recursively(SkClass * sk_class_p, AF
 
 //---------------------------------------------------------------------------------------
 
-void SkUEBlueprintInterface::reexpose_all(AFunctionArgBase<UClass *> * on_class_updated_f)
+void SkUEBlueprintInterface::reexpose_all(tSkUEOnClassUpdatedFunc * on_class_updated_f)
   {
   // Clear out old mappings
   clear();
