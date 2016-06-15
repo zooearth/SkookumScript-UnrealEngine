@@ -53,6 +53,8 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptComponent : public UActorComponent,
 
       virtual void OnRegister() override;
       virtual void InitializeComponent() override;
+      virtual void BeginPlay() override;
+      virtual void EndPlay(const EEndPlayReason::Type end_play_reason) override;
       virtual void UninitializeComponent() override;
       virtual void OnUnregister() override;
 
