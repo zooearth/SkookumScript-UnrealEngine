@@ -58,20 +58,23 @@ void SkUEBlueprintInterface::clear()
 
 //---------------------------------------------------------------------------------------
 
-UClass * SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p)
+UClass * SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, AFunctionArgBase<UClass *> * on_class_updated_f)
   {
   UClass * ue_class_p = SkUEClassBindingHelper::get_static_ue_class_from_sk_class_super(sk_class_p);
   if (ue_class_p)
     {
-    reexpose_class(sk_class_p, ue_class_p);
+    reexpose_class(sk_class_p, ue_class_p, on_class_updated_f);
     }
   return ue_class_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, UClass * ue_class_p)
+void SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, UClass * ue_class_p, AFunctionArgBase<UClass *> * on_class_updated_f)
   {
+  // Keep track of changes
+  int32_t change_count = 0;
+
   // Find existing methods of this class and mark them for delete
   for (uint32_t i = 0; i < m_binding_entry_array.get_length(); ++i)
     {
@@ -79,21 +82,22 @@ void SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, UClass * ue_cl
     if (binding_entry_p && binding_entry_p->m_sk_class_p == sk_class_p)
       {
       binding_entry_p->m_marked_for_delete = true;
+      ++change_count;
       }
     }
 
   // Gather new methods/events
   for (auto method_p : sk_class_p->get_instance_methods())
     {
-    try_add_binding_entry(ue_class_p, method_p);
+    change_count += int32_t(try_add_binding_entry(ue_class_p, method_p) >= 0);
     }
   for (auto method_p : sk_class_p->get_class_methods())
     {
-    try_add_binding_entry(ue_class_p, method_p);
+    change_count += int32_t(try_add_binding_entry(ue_class_p, method_p) >= 0);
     }
   for (auto coroutine_p : sk_class_p->get_coroutines())
     {
-    try_add_binding_entry(ue_class_p, coroutine_p);
+    change_count += int32_t(try_add_binding_entry(ue_class_p, coroutine_p) >= 0);
     }
 
   // Now go and delete anything still marked for delete
@@ -105,32 +109,38 @@ void SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, UClass * ue_cl
       delete_binding_entry(i);
       }
     }
+
+  // Invoke callback if anything changed
+  if (on_class_updated_f && change_count > 0)
+    {
+    on_class_updated_f->invoke(ue_class_p);
+    }
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEBlueprintInterface::reexpose_class_recursively(SkClass * sk_class_p)
+void SkUEBlueprintInterface::reexpose_class_recursively(SkClass * sk_class_p, AFunctionArgBase<UClass *> * on_class_updated_f)
   {
-  if (reexpose_class(sk_class_p))
+  if (reexpose_class(sk_class_p, on_class_updated_f))
     {
     // Gather sub classes
     const tSkClasses & sub_classes = sk_class_p->get_subclasses();
     for (uint32_t i = 0; i < sub_classes.get_length(); ++i)
       {
-      reexpose_class_recursively(sub_classes[i]);
+      reexpose_class_recursively(sub_classes[i], on_class_updated_f);
       }
     }
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEBlueprintInterface::reexpose_all()
+void SkUEBlueprintInterface::reexpose_all(AFunctionArgBase<UClass *> * on_class_updated_f)
   {
   // Clear out old mappings
   clear();
 
   // Traverse Sk classes and gather methods that want to be exposed
-  reexpose_class_recursively(SkUEEntity::get_class());
+  reexpose_class_recursively(SkUEEntity::get_class(), on_class_updated_f);
   }
 
 //---------------------------------------------------------------------------------------
@@ -156,7 +166,7 @@ void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, 
   {
   const FunctionEntry & function_entry = static_cast<const FunctionEntry &>(*ms_singleton_p->m_binding_entry_array[stack.CurrentNativeFunction->RepOffset]);
   SK_ASSERTX(function_entry.m_type == BindingType_Function, "BindingEntry has bad type!");
-  SK_ASSERTX(function_entry.m_sk_invokable_p->get_invoke_type() == SkInvokable_method, "Must not be coroutine or atomic at this point.");
+  SK_ASSERTX(function_entry.m_sk_invokable_p->get_invoke_type() == SkInvokable_method, "Must be a method at this point.");
 
   SkInvokedMethod imethod(nullptr, this_p, static_cast<SkMethodBase *>(function_entry.m_sk_invokable_p), a_stack_allocate(function_entry.m_sk_invokable_p->get_invoked_data_array_size(), SkInstance*));
 
@@ -217,7 +227,7 @@ void SkUEBlueprintInterface::exec_coroutine(FFrame & stack, void * const result_
   {
   const FunctionEntry & function_entry = static_cast<const FunctionEntry &>(*ms_singleton_p->m_binding_entry_array[stack.CurrentNativeFunction->RepOffset]);
   SK_ASSERTX(function_entry.m_type == BindingType_Function, "BindingEntry has bad type!");
-  SK_ASSERTX(function_entry.m_sk_invokable_p->get_invoke_type() == SkInvokable_coroutine, "Must not be coroutine at this point.");
+  SK_ASSERTX(function_entry.m_sk_invokable_p->get_invoke_type() == SkInvokable_coroutine, "Must be a coroutine at this point.");
 
   // Create invoked coroutine
   SkInvokedCoroutine * icoroutine_p = SkInvokedCoroutine::pool_new(static_cast<SkCoroutine *>(function_entry.m_sk_invokable_p));
@@ -537,17 +547,21 @@ void SkUEBlueprintInterface::delete_binding_entry(uint32_t binding_index)
     if (binding_entry_p->m_ue_function_p.IsValid())
       {
       UFunction * ue_function_p = binding_entry_p->m_ue_function_p.Get();
-      UClass * ue_class_p = binding_entry_p->m_ue_class_p.Get();
-      // Unlink from its owner class
-      ue_class_p->RemoveFunctionFromFunctionMap(ue_function_p);
-      // Unlink from the Children list as well
-      UField ** prev_field_pp = &ue_class_p->Children;
-      for (UField * field_p = *prev_field_pp; field_p; prev_field_pp = &field_p->Next, field_p = *prev_field_pp)
+      // Detach from class if exists
+      if (binding_entry_p->m_ue_class_p.IsValid())
         {
-        if (field_p == ue_function_p)
+        UClass * ue_class_p = binding_entry_p->m_ue_class_p.Get();
+        // Unlink from its owner class
+        ue_class_p->RemoveFunctionFromFunctionMap(ue_function_p);
+        // Unlink from the Children list as well
+        UField ** prev_field_pp = &ue_class_p->Children;
+        for (UField * field_p = *prev_field_pp; field_p; prev_field_pp = &field_p->Next, field_p = *prev_field_pp)
           {
-          *prev_field_pp = field_p->Next;
-          break;
+          if (field_p == ue_function_p)
+            {
+            *prev_field_pp = field_p->Next;
+            break;
+            }
           }
         }
       // Destroy the function along with its attached properties
