@@ -120,7 +120,7 @@ void USkookumScriptComponent::InitializeComponent()
   {
   Super::InitializeComponent();
 
-  // Call SkookumScript constructor, but only if we are located inside the game world
+  // Create SkookumScript instance, but only if we are located inside the game world
   if (GetOwner()->GetWorld() == SkUEClassBindingHelper::get_world())
     {
     SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when InitializeComponent() is invoked.");
@@ -130,12 +130,24 @@ void USkookumScriptComponent::InitializeComponent()
   }
 
 //---------------------------------------------------------------------------------------
+void USkookumScriptComponent::BeginPlay()
+  {
+  Super::BeginPlay();
+  }
+
+//---------------------------------------------------------------------------------------
+void USkookumScriptComponent::EndPlay(const EEndPlayReason::Type end_play_reason)
+  {
+  Super::EndPlay(end_play_reason);
+  }
+
+//---------------------------------------------------------------------------------------
 void USkookumScriptComponent::UninitializeComponent()
   {
-  // Call SkookumScript destructor, but only if we are located inside the game world
-  if (m_instance_p && GetOwner()->GetWorld() == SkUEClassBindingHelper::get_world())
+  // Delete SkookumScript instance, but only if we are located inside the game world
+  if (GetOwner()->GetWorld() == SkUEClassBindingHelper::get_world())
     {
-    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
+    SK_ASSERTX(m_instance_p && SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "Must have instance, and SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
     delete_sk_instance();
     }
 
@@ -147,3 +159,4 @@ void USkookumScriptComponent::OnUnregister()
   {
   Super::OnUnregister();
   }
+

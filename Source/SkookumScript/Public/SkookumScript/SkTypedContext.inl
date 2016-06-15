@@ -118,7 +118,7 @@ A_INLINE void SkTypeContext::unnest_locals(eSkUnnestAction unnest_action)
   m_current_scope_p = outer_scope_p;
   m_current_vars_p = &outer_scope_p->m_vars;
 
-  if (inner_scope_p->m_nest_reason == SkNestReason_Backtracking 
+  if (inner_scope_p->m_nest_reason == SkNestReason_Exploratory 
    && unnest_action == eSkUnnestAction_Accept)
     {
     // Remember past variables
