@@ -13,6 +13,7 @@
 // Includes
 //=======================================================================================
 
+typedef AFunctionArgBase<UClass *> tSkUEOnClassUpdatedFunc;
 
 //---------------------------------------------------------------------------------------
 // Class for managing functions exposed to Blueprint graphs
@@ -25,9 +26,9 @@ class SkUEBlueprintInterface
     static SkUEBlueprintInterface * get() { return ms_singleton_p; }
 
     void      clear();
-    UClass *  reexpose_class(SkClass * sk_class_p, AFunctionArgBase<UClass *> * on_class_updated_f);
-    void      reexpose_class_recursively(SkClass * sk_class_p, AFunctionArgBase<UClass *> * on_class_updated_f);
-    void      reexpose_all(AFunctionArgBase<UClass *> * on_class_updated_f); // Gather methods from SkookumScript
+    UClass *  reexpose_class(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f);
+    void      reexpose_class_recursively(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f);
+    void      reexpose_all(tSkUEOnClassUpdatedFunc * on_class_updated_f); // Gather methods from SkookumScript
 
     bool      is_skookum_blueprint_function(UFunction * function_p) const;
     bool      is_skookum_blueprint_event(UFunction * function_p) const;
@@ -145,7 +146,7 @@ class SkUEBlueprintInterface
 
     static void         mthd_trigger_event(SkInvokedMethod * scope_p, SkInstance ** result_pp);
 
-    void                reexpose_class(SkClass * sk_class_p, UClass * ue_class_p, AFunctionArgBase<UClass *> * on_class_updated_f);
+    void                reexpose_class(SkClass * sk_class_p, UClass * ue_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f);
     bool                try_update_binding_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, int32_t * out_binding_index_p);
     int32_t             try_add_binding_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p);
     int32_t             add_function_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p);

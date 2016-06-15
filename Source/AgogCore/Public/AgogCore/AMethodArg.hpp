@@ -187,8 +187,8 @@ inline AMethodArg<_OwnerType, _ArgType>::AMethodArg(
   _OwnerType *        owner_p,                     // = nullptr
   void (_OwnerType::* method_p)(_ArgType arg) // = nullptr
   ) :
-  m_owner_p(owner_p),
-  m_method_p(method_p)
+  m_method_p(method_p),
+  m_owner_p(owner_p)
   {
   }
 
@@ -201,8 +201,8 @@ inline AMethodArg<_OwnerType, _ArgType>::AMethodArg(
 // Author(s):    Conan Reis
 template<class _OwnerType, class _ArgType>
 inline AMethodArg<_OwnerType, _ArgType>::AMethodArg(const tAMethodArg & method) :
-  m_owner_p(method.m_owner_p),
-  m_method_p(method.m_method_p)
+  m_method_p(method.m_method_p),
+  m_owner_p(method.m_owner_p)
   {
   }
 
@@ -216,8 +216,8 @@ inline AMethodArg<_OwnerType, _ArgType>::AMethodArg(const tAMethodArg & method) 
 template<class _OwnerType, class _ArgType>
 inline AMethodArg<_OwnerType, _ArgType> & AMethodArg<_OwnerType, _ArgType>::operator=(const tAMethodArg & method)
   {
-  m_owner_p  = method.m_owner_p;
   m_method_p = method.m_method_p;
+  m_owner_p  = method.m_owner_p;
   return *this;
   }
 
