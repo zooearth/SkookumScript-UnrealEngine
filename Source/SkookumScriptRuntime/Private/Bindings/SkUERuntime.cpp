@@ -178,8 +178,13 @@ void SkUERuntime::on_bind_routines()
   ensure_static_types_registered();                                                            // HACK
   SkUEBindings::register_all_bindings();
 
-  AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
-  m_blueprint_interface.reexpose_all(&on_class_updated_f); // Hook up Blueprint functions and events for static classes
+  #if WITH_EDITOR
+    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
+    tSkUEOnClassUpdatedFunc * on_class_updated_f = &editor_on_class_updated_f;
+  #else
+    tSkUEOnClassUpdatedFunc * on_class_updated_f = nullptr;
+  #endif
+  m_blueprint_interface.reexpose_all(on_class_updated_f); // Hook up Blueprint functions and events for static classes
   }
 
 //---------------------------------------------------------------------------------------
