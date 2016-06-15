@@ -20,6 +20,8 @@
 
 #include "../../Classes/SkookumScriptComponent.h"
 
+#include <AgogCore/AMethodArg.hpp>
+
 #include "GenericPlatformProcess.h"
 #include <chrono>
 
@@ -175,7 +177,9 @@ void SkUERuntime::on_bind_routines()
 
   ensure_static_types_registered();                                                            // HACK
   SkUEBindings::register_all_bindings();
-  m_blueprint_interface.reexpose_all(); // Hook up Blueprint functions and events for static classes
+
+  AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
+  m_blueprint_interface.reexpose_all(&on_class_updated_f); // Hook up Blueprint functions and events for static classes
   }
 
 //---------------------------------------------------------------------------------------
