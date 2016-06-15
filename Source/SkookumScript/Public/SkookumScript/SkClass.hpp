@@ -404,6 +404,11 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       static APSorted<SkCoroutineBase, SkQualifier, SkQualifierCompareName> ms_reparse_coroutines;
     #endif
 
+    // Initialization
+
+    static void initialize();
+    static void deinitialize();
+
   // Common Methods
 
     SK_NEW_OPERATORS(SkClass);
