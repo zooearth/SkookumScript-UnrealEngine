@@ -638,7 +638,7 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
     {
     // Determine if it has a SkookumScript component
     bool has_component = false;
-    for (TFieldIterator<UProperty> property_it(blueprint_p->GeneratedClass, EFieldIteratorFlags::ExcludeSuper); property_it; ++property_it)
+    for (TFieldIterator<UProperty> property_it(blueprint_p->GeneratedClass, EFieldIteratorFlags::IncludeSuper); property_it; ++property_it)
       {
       UObjectPropertyBase * obj_property_p = Cast<UObjectPropertyBase>(*property_it);
       if (obj_property_p)

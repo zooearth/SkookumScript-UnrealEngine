@@ -22,6 +22,7 @@
 #include <AssertionMacros.h>
 #include <Runtime/Launch/Resources/Version.h>
 //#include <ws2tcpip.h>
+#include <AgogCore/AMethodArg.hpp>
 
 
 //=======================================================================================
@@ -400,11 +401,8 @@ void SkUERemote::on_class_updated(SkClass * class_p)
   {
   // Only care to do anything if editor is present
   #if WITH_EDITOR
-    UClass * uclass_p = SkUEBlueprintInterface::get()->reexpose_class(class_p);
-    if (m_editor_interface_p && uclass_p)
-      {
-      m_editor_interface_p->on_class_updated(uclass_p);
-      }
+    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
+    SkUEBlueprintInterface::get()->reexpose_class(class_p, &on_class_updated_f);
   #endif
   }
 

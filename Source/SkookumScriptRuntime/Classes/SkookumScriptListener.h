@@ -77,6 +77,12 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptListener : public UObject
     UFUNCTION()
     void OnDestroyed(AActor * destroyed_actor_p);
 
+    UFUNCTION()
+    void OnClicked(AActor * touched_actor, FKey button_pressed);
+
+    UFUNCTION()
+    void OnReleased(AActor * touched_actor, FKey button_released);
+
   protected:
 
     friend class AObjReusePool<EventInfo>;
