@@ -48,8 +48,8 @@ typedef AVArrayLogical<AIdPtr<SkNamedIndexed>, ASymbol> tSkNamedIndexedArray;
 // Why we are nesting
 enum eSkNestReason
 {
-  SkNestReason_Invocation,    // The nested block will be invoked in its own invoked context scope
-  SkNestReason_Backtracking,  // The nested block is in the same invoked context scope as its parent scope, but might get discarded when backtracking
+  SkNestReason_Invocation,   // The nested block will be invoked in its own invoked context scope
+  SkNestReason_Exploratory,  // The nested block is in the same invoked context scope as its parent scope, but might get discarded when backtracking
 };
 
 //---------------------------------------------------------------------------------------
