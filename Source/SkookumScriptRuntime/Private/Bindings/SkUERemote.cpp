@@ -19,11 +19,11 @@
 
 #include "SkUERuntime.hpp"
 #include "Bindings/SkUEBlueprintInterface.hpp"
+#include "../SkookumScriptRuntimeGenerator.h"
 #include <AssertionMacros.h>
 #include <Runtime/Launch/Resources/Version.h>
 //#include <ws2tcpip.h>
 #include <AgogCore/AMethodArg.hpp>
-
 
 //=======================================================================================
 // Local Global Structures
@@ -44,12 +44,13 @@ namespace
 // Constructor
 // 
 // #Author(s): Conan Reis
-SkUERemote::SkUERemote() :
+SkUERemote::SkUERemote(FSkookumScriptRuntimeGenerator * runtime_generator_p) :
   m_socket_p(nullptr),
   m_data_idx(ADef_uint32),
   m_load_compiled_binaries_requested(false),
   m_compiled_binaries_have_errors(false),
-  m_editor_interface_p(nullptr)
+  m_editor_interface_p(nullptr),
+  m_runtime_generator_p(runtime_generator_p)
   {
   }
 
@@ -370,9 +371,9 @@ void SkUERemote::on_cmd_make_editable()
 
   FString error_msg(TEXT("Can't make project editable!"));
   #if WITH_EDITORONLY_DATA
-    if (m_editor_interface_p)
+    if (m_runtime_generator_p)
       {
-      error_msg = m_editor_interface_p->make_project_editable();
+      error_msg = m_runtime_generator_p->make_project_editable();
       }
   #endif
   if (error_msg.IsEmpty())
@@ -484,25 +485,27 @@ void SkUERemote::get_project_info(SkProjectInfo * out_project_info_p)
 
   // Get project paths if any
   #if WITH_EDITORONLY_DATA
-    if (m_editor_interface_p)
+    if (m_runtime_generator_p)
       {
-      out_project_info_p->m_project_path         = FStringToAString(m_editor_interface_p->get_project_path());
-      out_project_info_p->m_default_project_path = FStringToAString(m_editor_interface_p->get_default_project_path());
+      out_project_info_p->m_project_path         = FStringToAString(m_runtime_generator_p->get_project_path());
+      out_project_info_p->m_default_project_path = FStringToAString(m_runtime_generator_p->get_default_project_path());
       }
-  #else
-    // Is there an Sk project file in the usual location?
-    FString project_path(FPaths::GameDir() / TEXT("Scripts") / TEXT("Skookum-project.ini"));
-    if (FPaths::FileExists(project_path))
-      { 
-      out_project_info_p->m_project_path = FStringToAString(FPaths::ConvertRelativePathToFull(project_path));
-      }
-    // Is there an Sk default project file in the usual location?
-    FString default_project_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("Scripts") / TEXT("Skookum-project-default.ini"));
-    if (FPaths::FileExists(default_project_path))
-      {
-      out_project_info_p->m_default_project_path = FStringToAString(FPaths::ConvertRelativePathToFull(default_project_path));
-      }
+    else
   #endif
+      {
+      // Is there an Sk project file in the usual location?
+      FString project_path(FPaths::GameDir() / TEXT("Scripts") / TEXT("Skookum-project.ini"));
+      if (FPaths::FileExists(project_path))
+        { 
+        out_project_info_p->m_project_path = FStringToAString(FPaths::ConvertRelativePathToFull(project_path));
+        }
+      // Is there an Sk default project file in the usual location?
+      FString default_project_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("Scripts") / TEXT("Skookum-project-default.ini"));
+      if (FPaths::FileExists(default_project_path))
+        {
+        out_project_info_p->m_default_project_path = FStringToAString(FPaths::ConvertRelativePathToFull(default_project_path));
+        }
+      }
   }
 
 

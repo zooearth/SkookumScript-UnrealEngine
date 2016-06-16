@@ -8,6 +8,7 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
+
 #include "Bindings/SkUEBindings.hpp"
 #include "Bindings/SkUERuntime.hpp"
 #include "Bindings/SkUERemote.hpp"
@@ -18,6 +19,7 @@
 #include "Engine/World.h"
 #include "Stats.h"
 
+#include "SkookumScriptRuntimeGenerator.h"
 #include "../Classes/SkookumScriptComponent.h"
 
 #include <SkUEWorld.generated.hpp>
@@ -56,10 +58,14 @@ class FAppInfo : public AAppInfoCore, public SkAppInfo
 
 //---------------------------------------------------------------------------------------
 class FSkookumScriptRuntime : public ISkookumScriptRuntime
+#if WITH_EDITORONLY_DATA
+  , public ISkookumScriptRuntimeInterface
+#endif
   {
   public:
 
     FSkookumScriptRuntime();
+    ~FSkookumScriptRuntime();
 
   protected:
 
@@ -76,7 +82,6 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
     virtual bool  is_skookum_disabled() const override;    
     virtual void  startup_skookum() override;
-    virtual bool  is_skookum_initialized() const override;
     virtual bool  is_freshen_binaries_pending() const override;
 
     #if WITH_EDITOR
@@ -84,23 +89,40 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual void  set_editor_interface(ISkookumScriptRuntimeEditorInterface * editor_interface_p) override;
 
       virtual void  on_editor_map_opened() override;
-      virtual void  on_class_scripts_changed_by_editor(const FString & class_name, eChangeType change_type) override;
       virtual void  show_ide(const FString & focus_class_name, const FString & focus_member_name, bool is_data_member, bool is_class_member) override;
       virtual void  freshen_compiled_binaries_if_have_errors() override;
 
-      virtual bool  is_static_class_known_to_skookum(UClass * class_p) const override;
-      virtual bool  is_static_struct_known_to_skookum(UStruct * struct_p) const override;
-      virtual bool  is_static_enum_known_to_skookum(UEnum * enum_p) const override;
       virtual bool  has_skookum_default_constructor(UClass * class_p) const override;
       virtual bool  has_skookum_destructor(UClass * class_p) const override;
       virtual bool  is_skookum_component_class(UClass * class_p) const override;
       virtual bool  is_skookum_blueprint_function(UFunction * function_p) const override;
       virtual bool  is_skookum_blueprint_event(UFunction * function_p) const override;
 
+      virtual void  generate_class_script_files(UClass * ue_class_p, bool generate_data) override;
+      virtual void  generate_used_class_script_files() override;
+      virtual void  generate_all_class_script_files() override;
+      virtual void  rename_class_script_files(UClass * ue_class_p, const FString & old_class_name) override;
+      virtual void  rename_class_script_files(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name) override;
+      virtual void  delete_class_script_files(UClass * ue_class_p) override;
+
+    #endif
+
+    // Overridden from ISkookumScriptRuntimeGeneratorInterface
+
+    #if WITH_EDITORONLY_DATA
+
+      virtual bool  is_static_class_known_to_skookum(UClass * class_p) const override;
+      virtual bool  is_static_struct_known_to_skookum(UStruct * struct_p) const override;
+      virtual bool  is_static_enum_known_to_skookum(UEnum * enum_p) const override;
+
+      virtual void  on_class_scripts_changed_by_generator(const FString & class_name, eChangeType change_type) override;
+      virtual bool  check_out_file(const FString & file_path) const override;
+
     #endif
 
     // Local methods
 
+    bool          is_skookum_initialized() const;
     void          ensure_runtime_initialized();
 
     void          tick_game(float deltaTime);
@@ -121,6 +143,10 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
     FAppInfo            m_app_info;
 
     mutable SkUERuntime m_runtime;
+
+    #if WITH_EDITORONLY_DATA
+      FSkookumScriptRuntimeGenerator  m_generator;
+    #endif
 
     #ifdef SKOOKUM_REMOTE_UNREAL
       SkUERemote        m_remote_client;
@@ -381,13 +407,35 @@ ASymbol FAppInfo::get_custom_actor_class_name() const
 //---------------------------------------------------------------------------------------
 FSkookumScriptRuntime::FSkookumScriptRuntime()
   : m_is_skookum_disabled(false)
+#if WITH_EDITORONLY_DATA
+  , m_generator(this)
+#endif
 #ifdef SKOOKUM_REMOTE_UNREAL
-  , m_freshen_binaries_requested(WITH_EDITORONLY_DATA) // With cooked data, load binaries immediately and do not freshen
+#if WITH_EDITORONLY_DATA 
+  , m_remote_client(&m_generator)
+  , m_freshen_binaries_requested(true)
+#else
+  , m_remote_client(nullptr)
+  , m_freshen_binaries_requested(false) // With cooked data, load binaries immediately and do not freshen
+#endif
 #endif
   , m_game_world_p(nullptr)
   , m_editor_world_p(nullptr)
   {
   //m_runtime.set_compiled_path("Scripts" SK_BITS_ID "\\");
+
+  #if WITH_EDITORONLY_DATA 
+    SkUEClassBindingHelper::set_runtime_generator(&m_generator);
+  #endif
+  }
+
+//---------------------------------------------------------------------------------------
+
+FSkookumScriptRuntime::~FSkookumScriptRuntime()
+  {
+  #if WITH_EDITORONLY_DATA 
+    SkUEClassBindingHelper::set_runtime_generator(nullptr);
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
@@ -422,10 +470,13 @@ void FSkookumScriptRuntime::StartupModule()
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Start up SkookumScript
-  #if !WITH_EDITOR
-    // If no editor, initialize right away
-    startup_skookum();
+  #if WITH_EDITORONLY_DATA
+    if (!GIsEditor)
   #endif
+      {
+      // If no editor, initialize right away
+      startup_skookum();
+      }
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Send off connect request to IDE
@@ -582,6 +633,13 @@ void FSkookumScriptRuntime::ShutdownModule()
   FWorldDelegates::OnPreWorldInitialization.Remove(m_on_world_init_pre_handle);
   FWorldDelegates::OnPostWorldInitialization.Remove(m_on_world_init_post_handle);
   FWorldDelegates::OnWorldCleanup.Remove(m_on_world_cleanup_handle);
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptRuntime::is_skookum_initialized() const
+  {
+  return SkookumScript::is_flag_set(SkookumScript::Flag_evaluate);
   }
 
 //---------------------------------------------------------------------------------------
@@ -760,19 +818,12 @@ void FSkookumScriptRuntime::startup_skookum()
   m_runtime.startup();
 
 #if defined(SKOOKUM_REMOTE_UNREAL) && WITH_EDITORONLY_DATA // Always initialize here if there's no remote connection or cooked build
-  if (IsRunningCommandlet())
+  if (!GIsEditor || IsRunningCommandlet())
 #endif
     {
     bool success_b = m_runtime.load_compiled_scripts();
     SK_ASSERTX(success_b, AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
     }
-  }
-
-//---------------------------------------------------------------------------------------
-// 
-bool FSkookumScriptRuntime::is_skookum_initialized() const
-  {
-  return SkookumScript::is_flag_set(SkookumScript::Flag_evaluate);
   }
 
 //---------------------------------------------------------------------------------------
@@ -808,15 +859,6 @@ void FSkookumScriptRuntime::on_editor_map_opened()
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::on_class_scripts_changed_by_editor(const FString & class_name, eChangeType change_type)
-  {
-  #ifdef SKOOKUM_REMOTE_UNREAL
-    m_freshen_binaries_requested = true;
-  #endif
-  }
-
-//---------------------------------------------------------------------------------------
-// 
 void FSkookumScriptRuntime::show_ide(const FString & focus_class_name, const FString & focus_member_name, bool is_data_member, bool is_class_member)
   {
   #ifdef SKOOKUM_REMOTE_UNREAL
@@ -847,30 +889,6 @@ void FSkookumScriptRuntime::freshen_compiled_binaries_if_have_errors()
       m_freshen_binaries_requested = true;
       }
   #endif
-  }
-
-//---------------------------------------------------------------------------------------
-// 
-bool FSkookumScriptRuntime::is_static_class_known_to_skookum(UClass * class_p) const
-  {
-  m_runtime.ensure_static_types_registered();
-  return SkUEClassBindingHelper::is_static_class_registered(class_p);
-  }
-
-//---------------------------------------------------------------------------------------
-// 
-bool FSkookumScriptRuntime::is_static_struct_known_to_skookum(UStruct * struct_p) const
-  {
-  m_runtime.ensure_static_types_registered();
-  return SkUEClassBindingHelper::is_static_struct_registered(struct_p);
-  }
-
-//---------------------------------------------------------------------------------------
-// 
-bool FSkookumScriptRuntime::is_static_enum_known_to_skookum(UEnum * enum_p) const
-  {
-  m_runtime.ensure_static_types_registered();
-  return SkUEClassBindingHelper::is_static_enum_registered(enum_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -924,6 +942,97 @@ bool FSkookumScriptRuntime::is_skookum_blueprint_event(UFunction * function_p) c
   return m_runtime.get_blueprint_interface()->is_skookum_blueprint_event(function_p);
   }
 
-#endif
+//---------------------------------------------------------------------------------------
+// 
+void FSkookumScriptRuntime::generate_class_script_files(UClass * ue_class_p, bool generate_data)
+  {
+  m_generator.generate_class_script_files(ue_class_p, generate_data);
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+void FSkookumScriptRuntime::generate_used_class_script_files()
+  {
+  m_generator.generate_used_class_script_files();
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+void FSkookumScriptRuntime::generate_all_class_script_files()
+  {
+  m_generator.generate_all_class_script_files();
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+void FSkookumScriptRuntime::rename_class_script_files(UClass * ue_class_p, const FString & old_class_name)
+  {
+  m_generator.rename_class_script_files(ue_class_p, old_class_name);
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+void FSkookumScriptRuntime::rename_class_script_files(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name)
+  {
+  m_generator.rename_class_script_files(ue_class_p, old_class_name, new_class_name);
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+void FSkookumScriptRuntime::delete_class_script_files(UClass * ue_class_p)
+  {
+  m_generator.delete_class_script_files(ue_class_p);
+  }
+
+#endif // WITH_EDITOR
+
+#if WITH_EDITORONLY_DATA
+
+//---------------------------------------------------------------------------------------
+// 
+bool FSkookumScriptRuntime::is_static_class_known_to_skookum(UClass * class_p) const
+  {
+  m_runtime.ensure_static_types_registered();
+  return SkUEClassBindingHelper::is_static_class_registered(class_p);
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+bool FSkookumScriptRuntime::is_static_struct_known_to_skookum(UStruct * struct_p) const
+  {
+  m_runtime.ensure_static_types_registered();
+  return SkUEClassBindingHelper::is_static_struct_registered(struct_p);
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+bool FSkookumScriptRuntime::is_static_enum_known_to_skookum(UEnum * enum_p) const
+  {
+  m_runtime.ensure_static_types_registered();
+  return SkUEClassBindingHelper::is_static_enum_registered(enum_p);
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+void FSkookumScriptRuntime::on_class_scripts_changed_by_generator(const FString & class_name, eChangeType change_type)
+  {
+  #ifdef SKOOKUM_REMOTE_UNREAL
+    m_freshen_binaries_requested = true;
+  #endif
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+bool FSkookumScriptRuntime::check_out_file(const FString & file_path) const
+  {
+  if (!m_runtime.get_editor_interface())
+    {
+    return false;
+    }
+
+  return m_runtime.get_editor_interface()->check_out_file(file_path);
+  }
+
+#endif // WITH_EDITORONLY_DATA
 
 //#pragma optimize("g", on)

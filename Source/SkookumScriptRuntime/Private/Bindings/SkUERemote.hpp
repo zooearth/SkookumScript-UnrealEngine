@@ -16,7 +16,6 @@
 #include <SkookumScript/SkookumRemoteRuntimeBase.hpp>
 #include <Networking.h>
 
-
 //=======================================================================================
 // Global Structures
 //=======================================================================================
@@ -29,6 +28,8 @@
 
 #ifdef SKOOKUM_REMOTE_UNREAL
 
+class FSkookumScriptRuntimeGenerator;
+  
 //---------------------------------------------------------------------------------------
 // Communication commands that are specific to the SkookumIDE.
 class SkUERemote : public SkookumRemoteRuntimeBase
@@ -37,7 +38,7 @@ class SkUERemote : public SkookumRemoteRuntimeBase
 
   // Common Methods
 
-    SkUERemote();
+    SkUERemote(FSkookumScriptRuntimeGenerator * runtime_generator_p);
     ~SkUERemote();
 
     void                      process_incoming();
@@ -121,6 +122,9 @@ class SkUERemote : public SkookumRemoteRuntimeBase
 
     // Editor interface so we can notify it about interesting events
     ISkookumScriptRuntimeEditorInterface * m_editor_interface_p;
+
+    // Generator so we can get project information
+    FSkookumScriptRuntimeGenerator * m_runtime_generator_p;
 
   };  // SkUERemote
 
