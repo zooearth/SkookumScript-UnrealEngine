@@ -15,7 +15,7 @@
 #include "Engine/SkUEEntity.hpp"
 #include "VectorMath/SkColor.hpp"
 
-#include "../../SkookumScriptGenerator/Private/SkookumScriptGeneratorBase.inl"
+#include "../SkookumScriptRuntimeGenerator.h"
 
 //---------------------------------------------------------------------------------------
 
@@ -28,6 +28,10 @@ TMap<UEnum*, SkClass*>                              SkUEClassBindingHelper::ms_s
 #if WITH_EDITORONLY_DATA
 TMap<SkClassDescBase*, TWeakObjectPtr<UBlueprint>>  SkUEClassBindingHelper::ms_dynamic_class_map_s2u;
 TMap<UBlueprint*, SkClass*>                         SkUEClassBindingHelper::ms_dynamic_class_map_u2s;
+#endif
+
+#if WITH_EDITORONLY_DATA
+FSkookumScriptRuntimeGenerator *                    SkUEClassBindingHelper::ms_runtime_generator_p;
 #endif
 
 int32_t                                             SkUEClassBindingHelper::ms_world_data_idx = -1;
@@ -718,11 +722,10 @@ UClass * SkUEClassBindingHelper::add_dynamic_class_mapping(SkClassDescBase * sk_
   if (!blueprint_p)
     {
     // If we still can't find the blueprint, try to load it
-    ISkookumScriptRuntimeEditorInterface * editor_interface_p = SkUERuntime::get_singleton()->get_editor_interface();
-    if (editor_interface_p)
+    if (ms_runtime_generator_p)
       {
       bool class_deleted = false;
-      blueprint_p = editor_interface_p->load_blueprint_asset(AStringToFString(sk_class_desc_p->get_key_class()->get_class_path_str(editor_interface_p->get_overlay_path_depth())), &class_deleted);
+      blueprint_p = ms_runtime_generator_p->load_blueprint_asset(AStringToFString(sk_class_desc_p->get_key_class()->get_class_path_str(ms_runtime_generator_p->get_overlay_path_depth())), &class_deleted);
       if (class_deleted)
         {
         // Make class inert until we reloaded a new binary without the class
