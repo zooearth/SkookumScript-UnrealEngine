@@ -220,20 +220,20 @@ void SkClassBindingBase<_BindingClass, _DataType>::register_bindings(ASymbol cla
   static_assert(_BindingClass::Binding_has_ctor || sizeof(_DataType) <= sizeof(tUserData), "If _DataType does not fit inside m_user_data, it will be allocated from the heap, hence there must be a constructor to allocate the memory.");
   if (_BindingClass::Binding_has_ctor)
     {
-    _BindingClass::get_class()->register_method_func("!", _BindingClass::mthd_ctor, SkBindFlag_instance_no_rebind);
+    _BindingClass::get_class()->register_method_func(ASymbolX_ctor, _BindingClass::mthd_ctor, SkBindFlag_instance_no_rebind);
     }
   if (_BindingClass::Binding_has_ctor_copy)
     {
-    _BindingClass::get_class()->register_method_func("!copy", _BindingClass::mthd_ctor_copy, SkBindFlag_instance_no_rebind);
+    _BindingClass::get_class()->register_method_func(ASymbolX_ctor_copy, _BindingClass::mthd_ctor_copy, SkBindFlag_instance_no_rebind);
     }
   if (_BindingClass::Binding_has_assign)
     {
-    _BindingClass::get_class()->register_method_func("assign", _BindingClass::mthd_op_assign, SkBindFlag_instance_no_rebind);
+    _BindingClass::get_class()->register_method_func(ASymbol_assign, _BindingClass::mthd_op_assign, SkBindFlag_instance_no_rebind);
     }
   static_assert(_BindingClass::Binding_has_dtor || sizeof(_DataType) <= sizeof(tUserData), "If _DataType does not fit inside m_user_data, it will be allocated from the heap, hence there must be a destructor to free the memory.");
   if (_BindingClass::Binding_has_dtor)
     {
-    _BindingClass::get_class()->register_method_func("!!", _BindingClass::mthd_dtor, SkBindFlag_instance_no_rebind);
+    _BindingClass::get_class()->register_method_func(ASymbolX_dtor, _BindingClass::mthd_dtor, SkBindFlag_instance_no_rebind);
     }
   }
 
