@@ -21,6 +21,10 @@
 class SkUEName : public SkClassBindingSimple<SkUEName, FName>
   {
   public:
+
+    enum { Binding_has_ctor = false }; // Do not auto-generate constructor since we have a special one taking a String argument
+
     static void       register_bindings();
     static SkClass *  get_class();
+
   };
