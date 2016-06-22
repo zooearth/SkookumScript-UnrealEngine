@@ -1645,12 +1645,12 @@ FString FSkookumScriptGenerator::get_skookum_default_initializer(UFunction * fun
     {
     default_value = function_p->GetMetaData(*param_p->GetName());
     }
-  else
+  if (default_value.IsEmpty())
     {
     FName cpp_default_value_key(*(TEXT("CPP_Default_") + param_p->GetName()));
-    has_default_value = function_p->HasMetaData(cpp_default_value_key);
-    if (has_default_value)
+    if (function_p->HasMetaData(cpp_default_value_key))
       {
+      has_default_value = true;
       default_value = function_p->GetMetaData(cpp_default_value_key);
       }
     }
