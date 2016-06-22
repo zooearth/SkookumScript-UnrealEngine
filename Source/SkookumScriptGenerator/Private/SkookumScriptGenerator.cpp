@@ -1723,7 +1723,7 @@ FString FSkookumScriptGenerator::get_skookum_default_initializer(UFunction * fun
         case SkTypeID_Real:            break; // Leave as-is
         case SkTypeID_Boolean:         default_value = default_value.ToLower(); break;
         case SkTypeID_String:          default_value = TEXT("\"") + default_value + TEXT("\""); break;
-        case SkTypeID_Name:            default_value = TEXT("Name!(\"") + default_value + TEXT("\")"); break;
+        case SkTypeID_Name:            default_value = (default_value == TEXT("None") ? TEXT("Name!none") : TEXT("Name!(\"") + default_value + TEXT("\")")); break;
         case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".@") + skookify_var_name(default_value, false, true); break;
         case SkTypeID_Vector2:         default_value = TEXT("Vector2!xy") + default_value; break;
         case SkTypeID_Vector3:         default_value = TEXT("Vector3!xyz(") + default_value + TEXT(")"); break;
