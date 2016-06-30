@@ -70,7 +70,19 @@ void USkookumScriptComponent::create_sk_instance()
         {
         mapped_super_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(obj_uclass_p);
         }
-      SK_ASSERTX(class_p->is_mind_class() || (mapped_super_class_p && mapped_super_class_p == known_super_class_p), a_cstr_format("Script Class Name '%s' in SkookumScriptComponent of '%S' is not properly related to Actor. Either the Script Class Name must be derived from Mind, or both the Script Class Name '%s' and the UE4 class of '%S' ('%S') must share the topmost ancestor class known to both SkookumScript and UE4. Right now these ancestor classes are different ('%s' for '%s' and '%s' for '%S').", class_name_ascii.as_cstr(), *actor_p->GetName(), class_name_ascii.as_cstr(), *actor_p->GetName(), *actor_p->GetClass()->GetName(), known_super_class_p ? known_super_class_p->get_name_cstr_dbg() : "<none>", class_name_ascii.as_cstr(), mapped_super_class_p ? mapped_super_class_p->get_name_cstr_dbg() : "<none>", *actor_p->GetClass()->GetName()));
+      SK_ASSERTX(class_p->is_mind_class() || (mapped_super_class_p && mapped_super_class_p == known_super_class_p), a_cstr_format(
+        "Script Class Name '%s' in SkookumScriptComponent of '%S' is not properly related to Actor. "
+        "Either the Script Class Name must be derived from Mind, or both the Script Class Name '%s' and the UE4 class of '%S' ('%S') must share the topmost ancestor class known to both SkookumScript and UE4. "
+        "Right now these ancestor classes are different ('%s' for '%s' and '%s' for '%S').",
+        class_name_ascii.as_cstr(),
+        *actor_p->GetName(),
+        class_name_ascii.as_cstr(),
+        *actor_p->GetName(),
+        *actor_p->GetClass()->GetName(),
+        known_super_class_p ? known_super_class_p->get_name_cstr_dbg() : "<none>",
+        class_name_ascii.as_cstr(),
+        mapped_super_class_p ? mapped_super_class_p->get_name_cstr_dbg() : "<none>",
+        *actor_p->GetClass()->GetName()));
     #endif
     }
   else
@@ -125,8 +137,53 @@ void USkookumScriptComponent::InitializeComponent()
     {
     SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when InitializeComponent() is invoked.");
     create_sk_instance();
+    m_instance_p->get_class()->resolve_raw_data();
     m_instance_p->call_default_constructor();
     }
+
+  // 2016-06-22 Temporarily prompt user to change component's setup as architecture changed
+  #if WITH_EDITOR
+    static bool shown_once = false;
+    if (!shown_once)
+      {
+      shown_once = true;
+
+      SkClass * class_p = nullptr;
+      FString class_name = ScriptClassName;
+      if (!class_name.IsEmpty())
+        {
+        AString class_name_ascii(*class_name, class_name.Len());
+        class_p = SkBrain::get_class(class_name_ascii.as_cstr());
+        if (!class_p) goto set_default_class; // Recover from bad user input
+        }
+      else
+        {
+      set_default_class:
+        class_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_sk(GetOwner()->GetClass());
+        if (!class_p)
+          {
+          class_p = SkBrain::ms_actor_class_p; // Recover to prevent crash
+          }
+        }
+
+      // Display notification
+      FText title = FText::FromString(TEXT("Found deprecated SkookumScriptComponent!"));
+      FMessageDialog::Open(
+        EAppMsgType::Ok,
+        FText::Format(FText::FromString(TEXT(
+          "Beginning with release 3.0.2822 the use of SkookumScriptComponent is now deprecated. "
+          "Please use SkookumScriptClassDataComponent or SkookumScriptMindComponent instead.\n\n"
+          "To fix this issue, go to the Blueprint of the actor '{0}' and find its SkookumScriptComponent, then copy the class name '{1}' from the field 'Script Class Name'. "
+          "Create a new {2} and paste the class name into the '{3}' field. Delete '{0}'s SkookumScriptComponent. Save your Blueprint.\n\n"
+          "Sorry for the trouble - you need to do this only once!")),
+          FText::FromString(GetOwner()->GetName()),
+          FText::FromString(ScriptClassName),
+          FText::FromString(class_p->is_actor_class() ? TEXT("SkookumScriptClassDataComponent") : TEXT("SkookumScriptMindComponent")),
+          FText::FromString(class_p->is_actor_class() ? TEXT("Script Actor Class Name") : TEXT("Script Mind Class Name"))
+          ),
+        &title);
+      }
+  #endif
   }
 
 //---------------------------------------------------------------------------------------

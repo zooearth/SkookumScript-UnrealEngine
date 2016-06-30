@@ -108,9 +108,10 @@ class SK_API SkBrain
 
       static SkInstance * ms_nil_p;  // The single instance of the None object
 
-    // Name of actor class
+    // Names of special classes
 
       static ASymbol ms_actor_class_name;
+      static ASymbol ms_component_class_name;
 
     // File management members
 

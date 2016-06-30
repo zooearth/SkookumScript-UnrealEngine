@@ -81,7 +81,6 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
     // Overridden from ISkookumScriptRuntime
 
     virtual bool  is_skookum_disabled() const override;    
-    virtual void  startup_skookum() override;
     virtual bool  is_freshen_binaries_pending() const override;
 
     #if WITH_EDITOR
@@ -470,12 +469,15 @@ void FSkookumScriptRuntime::StartupModule()
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Start up SkookumScript
-  #if WITH_EDITORONLY_DATA
-    if (!GIsEditor)
-  #endif
+  // Originally, the compiled binaries were loaded with a delay when in UE4Editor to provide the user with a smoother startup sequence
+  // However this caused issues with the proper initialization of Skookum Blueprint nodes
+  // So to avoid glitches, SkookumScript is always initialized right away right here
+  //#if WITH_EDITORONLY_DATA
+  //  if (!GIsEditor)
+  //#endif
       {
-      // If no editor, initialize right away
-      startup_skookum();
+      // Initialize right away
+      ensure_runtime_initialized();
       }
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -658,7 +660,7 @@ void FSkookumScriptRuntime::ensure_runtime_initialized()
         m_remote_client.ensure_connected(0.0);
 
         // Alert user in case we are still not connected - and allow for corrective measures
-        bool load_binaries_if_not_connected = true;
+        bool load_binaries = true;
         #if WITH_EDITOR
           while (!m_remote_client.is_authenticated())
             {
@@ -681,30 +683,60 @@ void FSkookumScriptRuntime::ensure_runtime_initialized()
               &title);
             if (decision != EAppReturnType::Retry)
               {
-              load_binaries_if_not_connected = (decision == EAppReturnType::Continue);
+              load_binaries = (decision == EAppReturnType::Continue);
               break;
               }
             m_remote_client.ensure_connected(10.0);
             }
         #endif
-        if (m_remote_client.is_authenticated())
+
+        if (load_binaries && m_remote_client.is_authenticated())
           {
-          // Kick off re-compilation of the binaries
+        #if WITH_EDITOR
+          RetryCompilation:
+        #endif
+          // Block while binaries are being recompiled
           m_remote_client.cmd_compiled_state(true);
           m_freshen_binaries_requested = false; // Request satisfied
+          while (!m_remote_client.is_load_compiled_binaries_requested()
+              && !m_remote_client.is_compiled_binaries_have_errors())
+            {
+            m_remote_client.wait_for_update();
+            }
+          #if WITH_EDITOR
+            if (m_remote_client.is_compiled_binaries_have_errors())
+              {
+              FText title = FText::FromString(TEXT("Compilation errors!"));
+              EAppReturnType::Type decision = FMessageDialog::Open(
+                EAppMsgType::CancelRetryContinue,
+                FText::FromString(TEXT(
+                  "The SkookumScript compiled binaries could not be generated because errors were found in the script files.\n\n")),
+                &title);
+              if (decision == EAppReturnType::Retry)
+                {
+                m_remote_client.clear_load_compiled_binaries_requested();
+                goto RetryCompilation;
+                }
+              load_binaries = (decision == EAppReturnType::Continue);
+              }
+          #endif
+          m_remote_client.clear_load_compiled_binaries_requested();
           }
-        else if (load_binaries_if_not_connected)
+
+        if (load_binaries)
           {
-          // If no remote connection, attempt to load binaries at this point
+          // Attempt to load binaries at this point
           bool success_b = m_runtime.load_compiled_scripts();
           SK_ASSERTX(success_b, AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
           }
         }
-    #else
-      // If no remote connection, load binaries at this point
-      bool success_b = m_runtime.load_compiled_scripts();
-      SK_ASSERTX(success_b, AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
+      else
     #endif
+        {
+        // If no remote connection, or commandlet mode, load binaries at this point
+        bool success_b = m_runtime.load_compiled_scripts();
+        SK_ASSERTX(success_b, AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
+        }
     }
   }
 
@@ -813,28 +845,13 @@ bool FSkookumScriptRuntime::is_skookum_disabled() const
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::startup_skookum()
-  {
-  m_runtime.startup();
-
-#if defined(SKOOKUM_REMOTE_UNREAL) && WITH_EDITORONLY_DATA // Always initialize here if there's no remote connection or cooked build
-  if (!GIsEditor || IsRunningCommandlet())
-#endif
-    {
-    bool success_b = m_runtime.load_compiled_scripts();
-    SK_ASSERTX(success_b, AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
-    }
-  }
-
-//---------------------------------------------------------------------------------------
-// 
 bool FSkookumScriptRuntime::is_freshen_binaries_pending() const
   {
-#ifdef SKOOKUM_REMOTE_UNREAL
-  return m_freshen_binaries_requested;
-#else
-  return false;
-#endif
+  #ifdef SKOOKUM_REMOTE_UNREAL
+    return m_freshen_binaries_requested;
+  #else
+    return false;
+  #endif
   }
 
 #if WITH_EDITOR
