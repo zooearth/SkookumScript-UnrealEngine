@@ -45,6 +45,14 @@ class FSkookumScriptGeneratorBase
 
     typedef bool (*tSourceControlCheckoutFunc)(const FString & file_path);
 
+    struct FSuperClassEntry
+      {
+      FString   m_name;
+      UStruct * m_class_or_struct_p;
+
+      FSuperClassEntry(const FString & name, UStruct * class_or_struct_p) : m_name(name), m_class_or_struct_p(class_or_struct_p) {}
+      };
+
     //---------------------------------------------------------------------------------------
     // Methods
 

@@ -15,6 +15,7 @@
 #include "ModuleManager.h"
 #include "UnrealString.h"
 #include "IPluginManager.h"
+#include "UObjectGlobals.h"
 
 #include <AgogCore/AgogCore.hpp>
 #include <AgogCore/AString.hpp>
@@ -49,6 +50,7 @@
 
 #include "Bindings/SkUESymbol.hpp"
 #include "Bindings/SkUEUtils.hpp"
+#include "Bindings/SkUEClassBinding.hpp"
 
 #if WITH_EDITOR
   #include "UnrealEd.h"

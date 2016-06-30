@@ -14,6 +14,7 @@
 //=======================================================================================
 
 #include <SkookumScript/SkClassBindingBase.hpp>
+#include "SkookumScriptBehaviorComponent.h"
 
 //---------------------------------------------------------------------------------------
 
@@ -71,11 +72,14 @@ class SkUEClassBindingHelper
     static SkClass *      get_static_sk_class_from_ue_struct(UStruct * ue_struct_p);
     static UStruct *      get_static_ue_struct_from_sk_class(SkClassDescBase * sk_class_p);
     static SkClass *      get_static_sk_class_from_ue_enum(UEnum * ue_enum_p);
+    static SkClass *      find_most_derived_super_class_known_to_ue(SkClass * sk_class_p);
+    static SkClass *      find_most_derived_super_class_known_to_ue(SkClass * sk_class_p, UClass ** out_ue_class_pp);
+    static SkClass *      find_most_derived_super_class_known_to_sk(UClass * ue_class_p);
     static SkClass *      get_object_class(UObject * obj_p, UClass * def_uclass_p = nullptr, SkClass * def_class_p = nullptr); // Determine SkookumScript class from UClass
-    static SkInstance *   get_actor_component_instance(AActor * actor_p); // Return SkInstance of an actor's SkookumScriptComponent if present, nullptr otherwise
+    static SkInstance *   get_actor_component_instance(AActor * actor_p); // Return SkInstance of an actor's SkookumScriptClassDataComponent if present, nullptr otherwise
 
     static tSkRawDataInfo compute_raw_data_info(UProperty * ue_var_p);
-    static void           resolve_raw_data(SkClass * class_p);
+    static bool           resolve_raw_data(SkClass * class_p);
     static void           resolve_raw_data(SkClass * class_p, UStruct * ue_struct_or_class_p);
     static void           resolve_raw_data_struct(SkClass * class_p, const TCHAR * ue_struct_name_p);
 
@@ -182,7 +186,7 @@ class SkUEWeakObjectPtr
 //---------------------------------------------------------------------------------------
 // Binding class encapsulating a (weak pointer to a) UObject
 template<class _BindingClass, class _UObjectType>
-class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeakObjectPtr<_UObjectType>>, public SkUEClassBindingHelper
+class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeakObjectPtr<_UObjectType>>
   {
   public:
 
@@ -216,8 +220,15 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
           return instance_p;
           }
         }
+      else if (sk_class_p->is_component_class())
+        {
+        USkookumScriptBehaviorComponent * component_p = static_cast<USkookumScriptBehaviorComponent *>(static_cast<UObject *>(obj_p));
+        SkInstance * instance_p = component_p->get_sk_component_instance();
+        instance_p->reference();
+        return instance_p;
+        }
 
-      // If we get here, there is no SkookumScriptComponent, i.e. we must not have data members
+      // If we get here, there is no SkookumScriptClassDataComponent or SkookumScriptBehaviorComponent, i.e. we must not have data members
       // So if we do anyway, we are in trouble!
       // Recover by crawling up the class hierarchy until we find a parent class without data members
       // This will cause a more graceful failure later on if downcasting is attempted
@@ -239,7 +250,7 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
     // which may be a sub class of tBindingAbstract::ms_class_p 
     static SkInstance * new_instance(_UObjectType * obj_p, UClass * def_uclass_p = nullptr, SkClass * def_class_p = nullptr)
       {
-      SkClass * sk_class_p = get_object_class(obj_p, def_uclass_p ? def_uclass_p : ms_uclass_p, def_class_p ? def_class_p : tBindingAbstract::ms_class_p);
+      SkClass * sk_class_p = SkUEClassBindingHelper::get_object_class(obj_p, def_uclass_p ? def_uclass_p : ms_uclass_p, def_class_p ? def_class_p : tBindingAbstract::ms_class_p);
       return new_instance(obj_p, sk_class_p);
       }
 
@@ -279,10 +290,10 @@ class SkUEClassBindingActor : public SkUEClassBindingEntity<_BindingClass, _AAct
     // Allocate and initialize a new instance of this SkookumScript type
     // We override this so we can properly determine the actual class of the SkInstance
     // which may be a sub class of tBindingAbstract::ms_class_p 
-    // The actor may also contain its own SkInstance inside its SkookumScriptComponent
+    // The actor may also contain its own SkInstance inside its SkookumScriptClassDataComponent
     static SkInstance * new_instance(_AActorType * actor_p, UClass * def_uclass_p = nullptr, SkClass * def_class_p = nullptr)
       {
-      // Check if we can get an instance from a SkookumScriptComponent
+      // Check if we can get an instance from a SkookumScriptClassDataComponent
       // If not, create new entity instance
       SkInstance * instance_p = SkUEClassBindingHelper::get_actor_component_instance(actor_p);
       if (instance_p)
@@ -486,6 +497,43 @@ inline UClass * SkUEClassBindingHelper::get_ue_class_from_sk_class(SkClassDescBa
   #else
     return add_static_class_mapping(sk_class_p);
   #endif
+  }
+
+//---------------------------------------------------------------------------------------
+// Given a SkookumScript class, find most derived SkookumScript class known to UE4
+inline SkClass * SkUEClassBindingHelper::find_most_derived_super_class_known_to_ue(SkClass * sk_class_p)
+  {
+  for (; sk_class_p; sk_class_p = sk_class_p->get_superclass())
+    {
+    if (get_ue_class_from_sk_class(sk_class_p)) break;
+    }
+  return sk_class_p;
+  }
+
+//---------------------------------------------------------------------------------------
+// Given a SkookumScript class, find most derived SkookumScript class known to UE4
+inline SkClass * SkUEClassBindingHelper::find_most_derived_super_class_known_to_ue(SkClass * sk_class_p, UClass ** out_ue_class_pp)
+  {
+  UClass * ue_class_p = nullptr;
+  for (; sk_class_p; sk_class_p = sk_class_p->get_superclass())
+    {
+    ue_class_p = get_ue_class_from_sk_class(sk_class_p);
+    if (ue_class_p) break;
+    }
+  *out_ue_class_pp = ue_class_p;
+  return sk_class_p;
+  }
+
+//---------------------------------------------------------------------------------------
+// Given a UE4 class, find most derived UE4 class known to SkookumScript and return its SkookumScript class
+inline SkClass * SkUEClassBindingHelper::find_most_derived_super_class_known_to_sk(UClass * ue_class_p)
+  {
+  SkClass * sk_class_p;
+  for (sk_class_p = nullptr; !sk_class_p && ue_class_p; ue_class_p = ue_class_p->GetSuperClass())
+    {
+    sk_class_p = get_sk_class_from_ue_class(ue_class_p);
+    }
+  return sk_class_p;
   }
 
 //---------------------------------------------------------------------------------------

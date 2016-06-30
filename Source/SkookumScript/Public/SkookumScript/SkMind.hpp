@@ -21,6 +21,7 @@
 #include <AgogCore/AList.hpp>
 #include <SkookumScript/SkDataInstance.hpp>
 #include <SkookumScript/SkClassBindingAbstract.hpp>
+#include <SkookumScript/SkInvokedBase.hpp>
 
 
 //=======================================================================================
@@ -113,6 +114,7 @@ class SK_API SkMind : public SkClassBindingAbstract<SkMind>, public SkDataInstan
       AList<SkInvokedCoroutine> & get_invoked_coroutines()         { return m_icoroutines_to_update; }
 
       virtual void clear_coroutines() override;
+      void         clear_coroutines_on_object(SkObjectBase * object_p);
       void         suspend_coroutines();
       void         resume_coroutines();
 
@@ -137,6 +139,7 @@ class SK_API SkMind : public SkClassBindingAbstract<SkMind>, public SkDataInstan
     static const AList<SkMind> & get_updating_minds()    { return ms_minds_to_update; }
     static void                  update_all();
     static void                  clear_all_coroutines();
+    static void                  clear_all_coroutines_on_object(SkObjectBase * object_p);
 
  // SkookumScript Bindings
 
@@ -167,6 +170,8 @@ class SK_API SkMind : public SkClassBindingAbstract<SkMind>, public SkDataInstan
     void coroutine_track_stop(SkInvokedCoroutine * icoro_p);
     void coroutine_track_updating(SkInvokedCoroutine * icoro_p);
     void coroutine_track_pending(SkInvokedCoroutine * icoro_p);
+
+    void coroutine_track_abort(SkInvokedCoroutine * icoro_p, eSkNotify notify_caller);
 
     //---------------------------------------------------------------------------------------
     // Finds first mind object of the specified class (same class or derived subclass).

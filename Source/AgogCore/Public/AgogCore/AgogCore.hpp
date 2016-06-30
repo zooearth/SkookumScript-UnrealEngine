@@ -165,6 +165,8 @@
 
   #endif  // _MSC_VER
 
+  #include <malloc.h>   // alloca
+
 #endif  // A_PLAT_PC
 
 

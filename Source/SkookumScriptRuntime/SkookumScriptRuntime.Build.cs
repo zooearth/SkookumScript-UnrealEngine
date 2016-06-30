@@ -58,7 +58,7 @@ namespace UnrealBuildTool.Rules
             "GameplayAbilities",
             "GameplayTags",
             "GameplayTasks",
-            "GeometryCache",
+            //"GeometryCache",
             "HeadMountedDisplay",
             //"IOSRuntimeSettings",
             "LaunchDaemonMessages",
