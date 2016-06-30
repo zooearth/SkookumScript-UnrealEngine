@@ -312,11 +312,11 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_cla
     if (blueprint_p)
       {
       meta_body += TEXT("// UE4 Asset Name: ") + blueprint_p->GetName() + TEXT("\r\n");
-      UPackage * package_p = Cast<UPackage>(blueprint_p->GetOuter());
-      if (package_p)
+      UPackage * blueprint_package_p = Cast<UPackage>(blueprint_p->GetOuter());
+      if (blueprint_package_p)
         {
-        meta_body += m_package_name_key + package_p->GetName() + TEXT("\"\r\n");
-        meta_body += m_package_path_key + package_p->FileName.ToString() + TEXT("\"\r\n");
+        meta_body += m_package_name_key + blueprint_package_p->GetName() + TEXT("\"\r\n");
+        meta_body += m_package_path_key + blueprint_package_p->FileName.ToString() + TEXT("\"\r\n");
         }
       }
 
