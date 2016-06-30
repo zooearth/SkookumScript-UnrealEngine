@@ -27,6 +27,7 @@
 #include "Engine/SkUEActor.hpp"
 #include "Engine/SkUEEntity.hpp"
 #include "Engine/SkUEEntityClass.hpp"
+#include "Engine/SkUESkookumScriptBehaviorComponent.hpp"
 
 //=======================================================================================
 // Engine-Generated
@@ -69,7 +70,11 @@
 // Registers UE classes, structs and enums
 void SkUEBindings::register_static_types()
   {
+  // Register generated classes
   SkUE::register_static_types();
+
+  // Manually register additional classes
+  SkUEClassBindingHelper::register_static_class(SkUESkookumScriptBehaviorComponent::ms_uclass_p = USkookumScriptBehaviorComponent::StaticClass());
   }
 
 //---------------------------------------------------------------------------------------
@@ -100,6 +105,7 @@ void SkUEBindings::register_all_bindings()
   SkUEEntity_Ext::register_bindings();
   SkUEEntityClass_Ext::register_bindings();
   SkUEActor_Ext::register_bindings();
+  SkUESkookumScriptBehaviorComponent::register_bindings();
   SkUEName::register_bindings();
   SkUEName::get_class()->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_struct<SkUEName>);
   }

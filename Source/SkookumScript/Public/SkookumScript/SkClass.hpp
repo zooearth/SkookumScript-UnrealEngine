@@ -112,7 +112,7 @@ enum eSkBindFlag
 
 //---------------------------------------------------------------------------------------
 // Function to resolve the m_raw_data_info member of all raw data members of this class
-typedef void (*tSkRawResolveFunc)(SkClass * class_p);
+typedef bool (*tSkRawResolveFunc)(SkClass * class_p);
 
 //---------------------------------------------------------------------------------------
 // Function to get/set raw data of this class type
@@ -307,16 +307,19 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       Flag_demand_load_lock = 1 << 2,  // Once loaded do not allow it to be unloaded
       Flag_demand_unload    = 1 << 3,  // Deferred unload - unload when next possible to do so
       
-      Flag_is_mind          = 1 << 4,  // For fast lookup if this class is derived from SkMind
-      Flag_is_actor         = 1 << 5,  // For fast lookup if this class is derived from the (custom or built-in) actor class
+      Flag_raw_resolved     = 1 << 4,  // Set when all raw members of this class have been resolved
+
+      Flag_is_mind          = 1 << 5,  // For fast lookup if this class is derived from SkMind
+      Flag_is_actor         = 1 << 6,  // For fast lookup if this class is derived from the (custom or built-in) actor class
+      Flag_is_component     = 1 << 7,  // For fast lookup if this class is derived from a component (custom for each engine)
 
       // Object id flags - look-up/validate for this class - i.e. Class@'name'
-        Flag_object_id_lookup = 1 << 6,
+        Flag_object_id_lookup = 1 << 8,
 
         // Validation flags - use masks below
-          Flag_object_id_parse_any   = 1 << 7,
-          Flag_object_id_parse_list  = 1 << 8,
-          Flag_object_id_parse_defer = 1 << 9,
+          Flag_object_id_parse_any   = 1 << 9,
+          Flag_object_id_parse_list  = 1 << 10,
+          Flag_object_id_parse_defer = 1 << 11,
 
         // Object id validation setting (masks):
           // Accept none during compile [used to temporarily disable object ids]
@@ -528,6 +531,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       AString                    get_class_path_str(int32_t scripts_path_depth) const;
       bool                       is_actor_class() const                 { return (m_flags & Flag_is_actor) != 0; }
       bool                       is_mind_class() const                  { return (m_flags & Flag_is_mind) != 0; }
+      bool                       is_component_class() const             { return (m_flags & Flag_is_component) != 0; }
       bool                       is_class(const SkClass & cls) const;
       bool                       is_subclass(const SkClass & superclass) const;
       bool                       is_superclass(const SkClass & subclass) const;

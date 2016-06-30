@@ -23,6 +23,10 @@
 // Global Macros / Defines
 //=======================================================================================
 
+// Trace instance reference counting
+//#define SK_INSTANCE_REF_DBG
+
+
 //=======================================================================================
 // Global Structures
 //=======================================================================================
@@ -267,7 +271,7 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
   // Coroutine related
 
   // Instances do not update coroutines though their subclasses `SkMind` do.
-  virtual void clear_coroutines() {}
+  virtual void clear_coroutines();
 
   //---------------------------------------------------------------------------------------
   // Evaluates the coroutine call with 0 or more arguments.
@@ -358,8 +362,14 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
       virtual bool is_ref_counted() const                                               { return true; }
       virtual void on_no_references();
 
+      #ifdef SK_INSTANCE_REF_DBG
+        void reference() const;
+        void reference(uint32_t increment_by) const;
+      #endif
 
   // Class Methods
+
+    static void initialize_post_load();
 
     template<typename _UserType>
     static SkInstance * new_instance(SkClass * class_p, const _UserType & user_data);

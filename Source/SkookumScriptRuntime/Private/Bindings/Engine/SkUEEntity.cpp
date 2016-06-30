@@ -14,6 +14,7 @@
 #include "../../SkookumScriptRuntimePrivatePCH.h"
 #include "SkUEEntity.hpp"
 #include "SkUEEntityClass.hpp"
+#include "SkUEName.hpp"
 
 //---------------------------------------------------------------------------------------
 
@@ -21,7 +22,22 @@ namespace SkUEEntity_Impl
   {
 
   //---------------------------------------------------------------------------------------
-  // Copy constructor - copies class pointer as well
+  // !new constructor - creates new object
+  void mthd_ctor_new(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    UObject * outer_p = scope_p->get_arg<SkUEEntity>(SkArg_1);
+    FName name = scope_p->get_arg<SkUEName>(SkArg_2);
+    uint32_t flags = scope_p->get_arg<SkInteger>(SkArg_3);
+    
+    // The scope of a constructor is always some form of an SkInstance
+    SkInstance * receiver_p = static_cast<SkInstance *>(scope_p->m_scope_p.get_obj());
+
+    UClass * ue_class_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(receiver_p->get_class());
+    scope_p->get_this()->construct<SkUEEntity>(NewObject<UObject>(outer_p, ue_class_p, name, EObjectFlags(flags)));
+    }
+
+  //---------------------------------------------------------------------------------------
+  // !copy constructor - copies class pointer as well
   void mthd_ctor_copy(SkInvokedMethod * scope_p, SkInstance ** result_pp)
     {
     SkInstance * this_p = scope_p->get_this();
@@ -199,6 +215,7 @@ namespace SkUEEntity_Impl
 
   static const SkClass::MethodInitializerFunc methods_i2[] =
     {
+      { "!new",         mthd_ctor_new },
       { "!copy",        mthd_ctor_copy },
       { "!null",        mthd_ctor_null },
       { "assign",       mthd_op_assign },

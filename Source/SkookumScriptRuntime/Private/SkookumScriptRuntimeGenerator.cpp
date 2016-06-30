@@ -76,7 +76,11 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files()
     GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array, false, RF_ClassDefaultObject);
     for (UObject * obj_p : blueprint_array)
       {
-      generate_class_script_files(static_cast<UBlueprint *>(obj_p)->GeneratedClass, true);
+      UClass * ue_class_p = static_cast<UBlueprint *>(obj_p)->GeneratedClass;
+      if (ue_class_p)
+        {
+        generate_class_script_files(ue_class_p, true);
+        }
       }
 
     generate_used_class_script_files();
@@ -177,6 +181,18 @@ UBlueprint * FSkookumScriptRuntimeGenerator::load_blueprint_asset(const FString 
     {
     // Found meta file - try to extract asset path contained in it
     int32 package_path_begin_pos = meta_file_text.Find(m_package_name_key);
+
+    // Temporary clean-up hack (2016-06-19): We only support Game assets now, so if not a game asset, it's an old script file lingering around
+    if (package_path_begin_pos < 0 || meta_file_text.Mid(package_path_begin_pos + m_package_name_key.Len(), 5) != TEXT("/Game"))
+      {
+      // If it has a path and it's not "/Game" then delete it and pretend it never existed
+      if (package_path_begin_pos >= 0)
+        {
+        IFileManager::Get().DeleteDirectory(*full_class_path, false, true);
+        }
+      return nullptr;
+      }
+
     if (package_path_begin_pos >= 0)
       {
       package_path_begin_pos += m_package_name_key.Len();
@@ -267,6 +283,19 @@ bool FSkookumScriptRuntimeGenerator::is_property_type_supported_and_known(UPrope
 void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_class_p, bool generate_data)
   {
   check(!m_overlay_path.IsEmpty());
+
+  // Do not generate any script files in commandlet mode
+  if (IsRunningCommandlet())
+    {
+    return;
+    }
+
+  // Only generate script files for game assets
+  UPackage * package_p = Cast<UPackage>(ue_class_p->GetOutermost());
+  if (!package_p || !package_p->FileName.ToString().StartsWith(TEXT("/Game")))
+    {
+    return;
+    }
 
 #if !PLATFORM_EXCEPTIONS_DISABLED
   try
@@ -527,7 +556,7 @@ void FSkookumScriptRuntimeGenerator::initialize_paths()
     }
 
   // Set overlay path and depth
-  m_overlay_path = scripts_path / overlay_name_p;
+  m_overlay_path = FPaths::ConvertRelativePathToFull(scripts_path / overlay_name_p);
   compute_scripts_path_depth(scripts_path / TEXT("Skookum-project.ini"), overlay_name_p);
   }
 

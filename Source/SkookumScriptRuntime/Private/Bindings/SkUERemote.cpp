@@ -47,8 +47,6 @@ namespace
 SkUERemote::SkUERemote(FSkookumScriptRuntimeGenerator * runtime_generator_p) :
   m_socket_p(nullptr),
   m_data_idx(ADef_uint32),
-  m_load_compiled_binaries_requested(false),
-  m_compiled_binaries_have_errors(false),
   m_editor_interface_p(nullptr),
   m_runtime_generator_p(runtime_generator_p)
   {
@@ -391,10 +389,6 @@ void SkUERemote::on_cmd_freshen_compiled_reply(eCompiledState state)
   {
   // Call base class
   SkookumRemoteRuntimeBase::on_cmd_freshen_compiled_reply(state);
-
-  // Trigger load of binaries
-  m_load_compiled_binaries_requested = (state == CompiledState_fresh);
-  m_compiled_binaries_have_errors = (state == CompiledState_errors);
   }
 
 //---------------------------------------------------------------------------------------

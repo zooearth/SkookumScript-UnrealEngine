@@ -16,7 +16,6 @@
 #include "SkUERuntime.hpp"
 #include "SkUERemote.hpp"
 #include "SkUEBindings.hpp"
-#include "SkUEClassBinding.hpp"
 
 #include "../../Classes/SkookumScriptComponent.h"
 
@@ -112,6 +111,8 @@ void SkUERuntime::startup()
     SkDebug::register_print_with_agog();
   #endif
 
+  SkBrain::ms_component_class_name = ASymbol::create("SkookumScriptBehaviorComponent");
+
   SkBrain::register_bind_atomics_func(SkookumRuntimeBase::bind_routines);
   SkClass::register_raw_resolve_func(SkUEClassBindingHelper::resolve_raw_data);
 
@@ -147,6 +148,12 @@ void SkUERuntime::shutdown()
   // Gets rid of registered bind functions
   SkBrain::unregister_all_bind_atomics_funcs();
 
+  // Get rid of symbol so references are released
+  SkBrain::ms_component_class_name = ASymbol::get_null();
+
+  // Deinitialize custom UE4 classes
+  USkookumScriptBehaviorComponent::deinitialize();
+
   m_is_initialized = false;
   }
 
@@ -175,8 +182,9 @@ void SkUERuntime::on_bind_routines()
     SkUEClassBindingHelper::reset_dynamic_class_mappings(); // Start over fresh
   #endif
 
-  ensure_static_types_registered();                                                            // HACK
+  ensure_static_types_registered();                                                            // HACK                                                                                               // Initialize custom UE4 classes
   SkUEBindings::register_all_bindings();
+  USkookumScriptBehaviorComponent::initialize();
 
   #if WITH_EDITOR
     AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);

@@ -455,12 +455,12 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
 
   // Make array of the super classes
   bool parent_to_sk_ustruct = !is_class;
-  TArray<FString> super_class_stack;
+  TArray<FSuperClassEntry> super_class_stack;
   super_class_stack.Reserve(32);
   UStruct * super_p = class_or_struct_p;
   while ((super_p = super_p->GetSuperStruct()) != nullptr)
     {
-    super_class_stack.Push(get_skookum_class_name(super_p));
+    super_class_stack.Push(FSuperClassEntry(get_skookum_class_name(super_p), super_p));
     m_used_classes.AddUnique(super_p); // All super classes are also considered used
     // Turn `Vector` into built-in `Vector3`:
     if (super_p->GetName() == TEXT("Vector"))
@@ -472,7 +472,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
   // If it's a UStruct, group under virtual parent class "UStruct"
   if (parent_to_sk_ustruct)
     {
-    super_class_stack.Push(TEXT("UStruct"));
+    super_class_stack.Push(FSuperClassEntry(TEXT("UStruct"), nullptr));
     }
 
   // Build path
@@ -480,17 +480,20 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
   FString class_path = m_overlay_path / TEXT("Object");
   for (int32 i = 0; i < max_super_class_nesting && super_class_stack.Num(); ++i)
     {
-    class_path /= super_class_stack.Pop();
+    class_path /= super_class_stack.Pop().m_name;
     }
   if (super_class_stack.Num())
     {
-    class_name = super_class_stack[0] + TEXT(".") + class_name;
-
-    // Make sure parent path exists
-    FString parent_class_path(class_path / (super_class_stack.Num() <= 1 ? super_class_stack[0] : super_class_stack[1] + TEXT(".") + super_class_stack[0]));
-    if (!FPaths::DirectoryExists(parent_class_path))
+    class_name = super_class_stack[0].m_name + TEXT(".") + class_name;
+    // Make sure all parent paths exist
+    for (int32 i = 0; i < super_class_stack.Num(); ++i)
       {
-      generate_class_meta_file(class_or_struct_p->GetSuperStruct(), parent_class_path, super_class_stack[0]);
+      const FSuperClassEntry & parent = super_class_stack[i];
+      FString parent_class_path(class_path / (i == super_class_stack.Num() - 1 ? parent.m_name : super_class_stack[i + 1].m_name + TEXT(".") + parent.m_name));
+      if (!FPaths::DirectoryExists(parent_class_path))
+        {
+        generate_class_meta_file(parent.m_class_or_struct_p, parent_class_path, parent.m_name);
+        }
       }
     }
   return class_path / class_name;

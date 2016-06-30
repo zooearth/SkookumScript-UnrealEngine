@@ -451,7 +451,7 @@ void FSkookumScriptGenerator::generate_class_header_file(UStruct * class_or_stru
     FString relative_path(source_header_file_name);
     if (!FPaths::IsRelative(relative_path))
       {
-      FPaths::MakePathRelativeTo(relative_path, *m_runtime_plugin_root_path);
+      FPaths::MakePathRelativeTo(relative_path, *(m_unreal_engine_root_path_local / TEXT("Engine/Source/")));
       }
     generated_code += FString::Printf(TEXT("#include <%s>\r\n\r\n"), *relative_path);
     }
@@ -544,6 +544,11 @@ void FSkookumScriptGenerator::generate_class_binding_file(UStruct * class_or_str
       generated_code += FString::Printf(TEXT("  ms_class_p->register_method_func_bulk(SkUE%s_Impl::methods_%c, %d, %s);\r\n"), *skookum_class_name, scope ? TCHAR('c') : TCHAR('i'), bindings[scope].Num(), scope ? TEXT("SkBindFlag_class_no_rebind") : TEXT("SkBindFlag_instance_no_rebind"));
       }
     }
+
+  // Generate static class mapping
+  const TCHAR * class_or_struct_text_p = class_p ? TEXT("class") : TEXT("struct");
+  generated_code += FString::Printf(TEXT("\r\n  SkUEClassBindingHelper::add_static_%s_mapping(get_class(), ms_u%s_p);\r\n"), class_or_struct_text_p, class_or_struct_text_p);
+
   generated_code += TEXT("  }\r\n");
 
   save_text_file_if_changed(m_binding_code_path / class_binding_file_name, generated_code);
@@ -1356,6 +1361,9 @@ void FSkookumScriptGenerator::generate_master_binding_file()
 
   generated_code += TEXT("  void register_bindings()\r\n    {\r\n");
 
+  // Clear out old sk class pointers if any
+  generated_code += TEXT("\r\n    SkUEClassBindingHelper::forget_sk_classes_in_all_mappings();\r\n\r\n");
+
   // Bind all classes & structs
   for (auto class_or_struct_p : m_exported_classes)
     {
@@ -1363,30 +1371,11 @@ void FSkookumScriptGenerator::generate_master_binding_file()
     }
 
   // Set up enum classes
-  generated_code += TEXT("\r\n    register_enum_bindings();\r\n\r\n");
+  generated_code += TEXT("\r\n    register_enum_bindings();\r\n");
 
-  // Clear out old sk class pointers if any
-  generated_code += TEXT("\r\n    SkUEClassBindingHelper::forget_sk_classes_in_all_mappings();\r\n\r\n");  
-
-  // Generate static class mappings
-  for (auto class_p : m_exported_classes)
-    {
-    if (Cast<UClass>(class_p))
-      {
-      generated_code += FString::Printf(TEXT("    SkUEClassBindingHelper::add_static_class_mapping(SkUE%s::get_class(), SkUE%s::ms_uclass_p);\r\n"), *get_skookum_class_name(class_p), *get_skookum_class_name(class_p));
-      }
-    }
-
-  // Generate static struct mappings
-  for (auto class_p : m_exported_classes)
-    {
-    if (!Cast<UClass>(class_p))
-      {
-      generated_code += FString::Printf(TEXT("    SkUEClassBindingHelper::add_static_struct_mapping(SkUE%s::get_class(), SkUE%s::ms_ustruct_p);\r\n"), *get_skookum_class_name(class_p), *get_skookum_class_name(class_p));
-      }
-    }
   generated_code += TEXT("\r\n    }\r\n");
 
+  // Close namespace
   generated_code += TEXT("\r\n  } // SkUE\r\n");
 
   FString master_binding_file_name = m_binding_code_path / TEXT("SkUE.generated.inl");
