@@ -21,7 +21,7 @@ DEFINE_LOG_CATEGORY(LogSkookumScriptEditor);
 
 //---------------------------------------------------------------------------------------
 
-class FSkookumScriptEditor : public ISkookumScriptEditor, public ISkookumScriptRuntimeEditorInterface, public FSkookumScriptGeneratorBase
+class FSkookumScriptEditor : public ISkookumScriptEditor, public ISkookumScriptRuntimeEditorInterface
 {
 public:
 
@@ -98,12 +98,7 @@ void FSkookumScriptEditor::StartupModule()
   // Tell runtime that editor is present (needed even in commandlet mode as we might have to demand-load blueprints)
   get_runtime()->set_editor_interface(this);
 
-  if (IsRunningCommandlet())
-    {
-    // Tell runtime to start skookum now
-    get_runtime()->startup_skookum();
-    }
-  else
+  if (!IsRunningCommandlet())
     {
     // Hook up delegates
     m_on_asset_loaded_handle = FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FSkookumScriptEditor::on_asset_loaded);
@@ -137,7 +132,6 @@ void FSkookumScriptEditor::ShutdownModule()
 
   if (!IsRunningCommandlet())
     {
-
     // Remove delegates
     FCoreUObjectDelegates::OnAssetLoaded.Remove(m_on_asset_loaded_handle);
     FCoreUObjectDelegates::OnObjectModified.Remove(m_on_object_modified_handle);
@@ -252,14 +246,11 @@ void FSkookumScriptEditor::on_asset_loaded(UObject * obj_p)
 //
 void FSkookumScriptEditor::on_object_modified(UObject * obj_p)
   {
-  if (!m_overlay_path.IsEmpty())
+  // Is this a blueprint?
+  UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
+  if (blueprint_p)
     {
-    // Is this a blueprint?
-    UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-    if (blueprint_p)
-      {
-      get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
-      }
+    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
     }
   }
 
@@ -279,14 +270,11 @@ void FSkookumScriptEditor::on_assets_deleted(const TArray<UClass*> & deleted_ass
 //
 void FSkookumScriptEditor::on_asset_post_import(UFactory * factory_p, UObject * obj_p)
   {
-  if (!m_overlay_path.IsEmpty())
+  UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
+  if (blueprint_p)
     {
-    UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-    if (blueprint_p)
-      {
-      get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
-      get_runtime()->generate_used_class_script_files();
-      }
+    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
+    get_runtime()->generate_used_class_script_files();
     }
   }
 
@@ -302,7 +290,7 @@ void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const
   {
   static FName s_blueprint_class_name(TEXT("Blueprint"));
 
-  if (!m_overlay_path.IsEmpty() && asset_data.AssetClass == s_blueprint_class_name)
+  if (asset_data.AssetClass == s_blueprint_class_name)
     {
     UBlueprint * blueprint_p = FindObjectChecked<UBlueprint>(ANY_PACKAGE, *asset_data.AssetName.ToString());
     if (blueprint_p)
@@ -323,13 +311,10 @@ void FSkookumScriptEditor::on_in_memory_asset_created(UObject * obj_p)
 //
 void FSkookumScriptEditor::on_in_memory_asset_deleted(UObject * obj_p)
   {
-  if (!m_overlay_path.IsEmpty())
+  UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
+  if (blueprint_p)
     {
-    UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-    if (blueprint_p)
-      {
-      get_runtime()->delete_class_script_files(blueprint_p->GeneratedClass);
-      }
+    get_runtime()->delete_class_script_files(blueprint_p->GeneratedClass);
     }
   }
 
@@ -349,10 +334,7 @@ void FSkookumScriptEditor::on_map_opened(const FString & file_name, bool as_temp
 void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
   {
   // Re-generate script files for this class as things might have changed
-  if (!m_overlay_path.IsEmpty())
-    {
-    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
-    }
+  get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
 
   // Check that there's no dangling default constructor
   bool has_skookum_default_constructor = get_runtime()->has_skookum_default_constructor(blueprint_p->GeneratedClass);
@@ -443,11 +425,8 @@ void FSkookumScriptEditor::on_new_asset(UObject * obj_p)
     // Register callback so we know when this Blueprint has been compiled
     blueprint_p->OnCompiled().AddRaw(this, &FSkookumScriptEditor::on_blueprint_compiled);
 
-    if (!m_overlay_path.IsEmpty())
-      {
-      get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
-      get_runtime()->generate_used_class_script_files();
-      }
+    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
+    get_runtime()->generate_used_class_script_files();
     }
   }
 

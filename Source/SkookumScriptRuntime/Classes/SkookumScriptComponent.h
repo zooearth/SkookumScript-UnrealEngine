@@ -27,7 +27,7 @@
 //=======================================================================================
 
 //---------------------------------------------------------------------------------------
-// Adds SkookumScript text-based scripting capabilities to an actor.
+// DEPRECATED - do not use - use SkookumScriptClassDataComponent instead
 UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent), EarlyAccessPreview)
 class SKOOKUMSCRIPTRUNTIME_API USkookumScriptComponent : public UActorComponent, public AListNode<USkookumScriptComponent>
   {

@@ -1,0 +1,12 @@
+//---------------------------------------------------------------------------------------
+// Computes the Fibonacci number at a given index in the Fibonacci series
+//
+// #Examples
+//   34.fibonacci
+//   42.fibonacci
+//
+// #See Also   negated() [also negation operator -num]
+// #Author(s)  Markus Breyer
+//---------------------------------------------------------------------------------------
+
+() Integer

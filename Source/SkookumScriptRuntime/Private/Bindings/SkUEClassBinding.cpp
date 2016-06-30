@@ -8,9 +8,9 @@
 //=======================================================================================
 
 #include "../SkookumScriptRuntimePrivatePCH.h"
-#include "SkUEClassBinding.hpp"
 #include "SkUERuntime.hpp"
 #include "../Classes/SkookumScriptComponent.h"
+#include "../Classes/SkookumScriptClassDataComponent.h"
 #include <SkUEWorld.generated.hpp>
 #include "Engine/SkUEEntity.hpp"
 #include "VectorMath/SkColor.hpp"
@@ -107,10 +107,15 @@ SkInstance * SkUEClassBindingHelper::get_actor_component_instance(AActor * actor
   // If the actor has component, return the instance contained in the component
   if (actor_p)
     {
-    USkookumScriptComponent * component_p = static_cast<USkookumScriptComponent *>(actor_p->GetComponentByClass(USkookumScriptComponent::StaticClass()));
+    USkookumScriptComponent * sk_component_p = static_cast<USkookumScriptComponent *>(actor_p->GetComponentByClass(USkookumScriptComponent::StaticClass()));
+    if (sk_component_p)
+      {
+      return sk_component_p->get_sk_instance();
+      }
+    USkookumScriptClassDataComponent * component_p = static_cast<USkookumScriptClassDataComponent *>(actor_p->GetComponentByClass(USkookumScriptClassDataComponent::StaticClass()));
     if (component_p)
       {
-      return component_p->get_sk_instance();
+      return component_p->get_sk_actor_instance();
       }
     }
 
@@ -164,7 +169,7 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
 
 //---------------------------------------------------------------------------------------
 // Resolve the raw data info of each raw data member of the given class
-void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p)
+bool SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p)
   {
   // By default, inherit raw pointer and accessor functions from super class
   SkClass * super_class_p = class_p->get_superclass();
@@ -192,34 +197,34 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p)
     {
     // Resolve raw data
     resolve_raw_data(class_p, ue_struct_or_class_p);
+    return true;
     }
-  else
-    {
-    // In cooked builds, don't bother as unused classes might have been optimized out
-    #if WITH_EDITORONLY_DATA
 
-      // Potentially report error
-      tSkTypedNameRawArray & raw_data = class_p->get_instance_data_raw_for_resolving();
-      if (!raw_data.is_empty())
+  // In cooked builds, don't bother as unused classes might have been optimized out
+  #if WITH_EDITORONLY_DATA
+
+    // Potentially report error
+    tSkTypedNameRawArray & raw_data = class_p->get_instance_data_raw_for_resolving();
+    if (!raw_data.is_empty())
+      {
+      // Check if maybe all variables are already resolved
+      bool all_resolved = true;
+      for (auto var_p : raw_data)
         {
-        // Check if maybe all variables are already resolved
-        bool all_resolved = true;
-        for (auto var_p : raw_data)
+        if (var_p->m_raw_data_info == SkRawDataInfo_Invalid)
           {
-          if (var_p->m_raw_data_info == SkRawDataInfo_Invalid)
-            {
-            all_resolved = false;
-            break;
-            }
+          all_resolved = false;
+          break;
           }
-
-        // In commandlet mode, SkookumScript code is never run
-        // If all resolved already, no problem either
-        SK_ASSERTX(all_resolved || IsRunningCommandlet(), a_str_format("Class '%s' has raw data but no known class mapping to UE4 for resolving.", class_p->get_name_cstr_dbg()));
         }
 
-    #endif
-    }
+      // In commandlet mode, SkookumScript code is never run
+      // If all resolved already, no problem either
+      SK_ASSERTX(all_resolved || IsRunningCommandlet(), a_str_format("Class '%s' has raw data but no known class mapping to UE4 for resolving.", class_p->get_name_cstr_dbg()));
+      }
+
+  #endif
+  return false;
   }
 
 //---------------------------------------------------------------------------------------
