@@ -100,7 +100,7 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual bool  is_skookum_blueprint_function(UFunction * function_p) const override;
       virtual bool  is_skookum_blueprint_event(UFunction * function_p) const override;
 
-      virtual void  generate_class_script_files(UClass * ue_class_p, bool generate_data) override;
+      virtual void  generate_class_script_files(UClass * ue_class_p, bool generate_data, bool check_if_reparented) override;
       virtual void  generate_used_class_script_files() override;
       virtual void  generate_all_class_script_files() override;
       virtual void  rename_class_script_files(UClass * ue_class_p, const FString & old_class_name) override;
@@ -967,9 +967,9 @@ bool FSkookumScriptRuntime::is_skookum_blueprint_event(UFunction * function_p) c
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::generate_class_script_files(UClass * ue_class_p, bool generate_data)
+void FSkookumScriptRuntime::generate_class_script_files(UClass * ue_class_p, bool generate_data, bool check_if_reparented)
   {
-  m_generator.generate_class_script_files(ue_class_p, generate_data);
+  m_generator.generate_class_script_files(ue_class_p, generate_data, check_if_reparented);
   }
 
 //---------------------------------------------------------------------------------------

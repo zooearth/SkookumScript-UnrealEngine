@@ -79,7 +79,7 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files()
       UClass * ue_class_p = static_cast<UBlueprint *>(obj_p)->GeneratedClass;
       if (ue_class_p)
         {
-        generate_class_script_files(ue_class_p, true);
+        generate_class_script_files(ue_class_p, true, false);
         }
       }
 
@@ -280,7 +280,7 @@ bool FSkookumScriptRuntimeGenerator::is_property_type_supported_and_known(UPrope
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_class_p, bool generate_data)
+void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_class_p, bool generate_data, bool check_if_reparented)
   {
   check(!m_overlay_path.IsEmpty());
 
@@ -303,6 +303,30 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_cla
     {
     FString class_name;
     const FString class_path = get_skookum_class_path(ue_class_p, &class_name);
+
+    // Make sure there is no other folder with the same name around
+    if (check_if_reparented)
+      {
+      TArray<FString> found_folders;
+      // 1) Try to find any folder with the exact class_name
+      IFileManager::Get().FindFilesRecursive(found_folders, *m_overlay_path, *class_name, false, true);
+      if (found_folders.Num() == 0)
+        {
+        // 2) Try to find any folder with the pattern parent_name.class_name
+        FString pattern = TEXT("*.") + class_name;
+        IFileManager::Get().FindFilesRecursive(found_folders, *m_overlay_path, *pattern, false, true);
+        }
+      // Found anything?
+      for (FString & folder_path : found_folders)
+        {
+        // Is it the same as the one we are in already?
+        if (IFileManager::Get().ConvertToRelativePath(*folder_path) != IFileManager::Get().ConvertToRelativePath(*class_path))
+          {
+          // No, delete
+          IFileManager::Get().DeleteDirectory(*folder_path, false, true);
+          }
+        }
+      }
 
     // Create class meta file
     const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
@@ -392,7 +416,7 @@ void FSkookumScriptRuntimeGenerator::generate_used_class_script_files()
     UClass * class_p = Cast<UClass>(struct_p);
     if (class_p)
       {
-      generate_class_script_files(class_p, false);
+      generate_class_script_files(class_p, false, false);
       }
     }
 
@@ -455,7 +479,7 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UClass * ue_class
           FError::Throwf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_class_path, *this_class_path);
           }
         // Regenerate the meta file to correctly reflect the Blueprint it originated from
-        generate_class_script_files(ue_class_p, false);
+        generate_class_script_files(ue_class_p, false, false);
         // Inform the runtime module of the change
         m_runtime_interface_p->on_class_scripts_changed_by_generator(old_class_name, ISkookumScriptRuntimeInterface::ChangeType_deleted);
         m_runtime_interface_p->on_class_scripts_changed_by_generator(new_class_name, ISkookumScriptRuntimeInterface::ChangeType_created);
