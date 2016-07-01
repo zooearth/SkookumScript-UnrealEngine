@@ -43,7 +43,7 @@ SkookumScriptListenerManager::~SkookumScriptListenerManager()
     if (listener_p->IsValidLowLevel())
       {
       listener_p->RemoveFromRoot(); // Make listener object garbage collectable
-      listener_p->ConditionalBeginDestroy();
+      listener_p->MarkPendingKill();
       }
     }
   while (!m_inactive_list.is_empty())
@@ -52,7 +52,7 @@ SkookumScriptListenerManager::~SkookumScriptListenerManager()
     if (listener_p->IsValidLowLevel())
       {
       listener_p->RemoveFromRoot(); // Make listener object garbage collectable
-      listener_p->ConditionalBeginDestroy();
+      listener_p->MarkPendingKill();
       }
     }
   }
