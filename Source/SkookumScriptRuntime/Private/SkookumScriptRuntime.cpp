@@ -21,6 +21,9 @@
 
 #include "SkookumScriptRuntimeGenerator.h"
 #include "../Classes/SkookumScriptComponent.h"
+#include "../Classes/SkookumScriptBehaviorComponent.h"
+#include "../Classes/SkookumScriptClassDataComponent.h"
+#include "../Classes/SkookumScriptMindComponent.h"
 
 #include <SkUEWorld.generated.hpp>
 
@@ -942,7 +945,10 @@ bool FSkookumScriptRuntime::has_skookum_destructor(UClass * class_p) const
 // 
 bool FSkookumScriptRuntime::is_skookum_component_class(UClass * class_p) const
   {
-  return (class_p == USkookumScriptComponent::StaticClass());
+  return class_p == USkookumScriptComponent::StaticClass()
+      || class_p == USkookumScriptClassDataComponent::StaticClass()
+      || class_p == USkookumScriptMindComponent::StaticClass()
+      || class_p->IsChildOf(USkookumScriptBehaviorComponent::StaticClass());
   }
 
 //---------------------------------------------------------------------------------------

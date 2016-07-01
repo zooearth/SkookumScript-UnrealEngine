@@ -28,7 +28,7 @@
 
 //---------------------------------------------------------------------------------------
 // DEPRECATED - do not use - use SkookumScriptClassDataComponent instead
-UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent), EarlyAccessPreview)
+UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent))
 class SKOOKUMSCRIPTRUNTIME_API USkookumScriptComponent : public UActorComponent, public AListNode<USkookumScriptComponent>
   {
 

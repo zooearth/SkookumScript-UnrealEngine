@@ -27,7 +27,7 @@
 
 //---------------------------------------------------------------------------------------
 // Allows you to specify a custom SkookumScript class for this actor, to store SkookumScript data members, and to have a constructor/destructor invoked when an instance of this actor gets created/destroyed
-UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent), EarlyAccessPreview)
+UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent))
 class SKOOKUMSCRIPTRUNTIME_API USkookumScriptClassDataComponent : public UActorComponent
   {
 

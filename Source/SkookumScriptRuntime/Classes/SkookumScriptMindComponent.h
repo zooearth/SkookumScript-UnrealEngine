@@ -26,7 +26,7 @@
 
 //---------------------------------------------------------------------------------------
 // Allows you to instantiate and delete a custom SkookumScript Mind instance along with the actor this component belongs to
-UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent), EarlyAccessPreview)
+UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent))
 class SKOOKUMSCRIPTRUNTIME_API USkookumScriptMindComponent : public UActorComponent
   {
 
