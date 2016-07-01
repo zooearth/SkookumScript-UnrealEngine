@@ -66,7 +66,7 @@ namespace SkUESkookumScriptBehaviorComponent_Impl
     if (component_p)
       {
       component_p->UnregisterComponent();
-      component_p->ConditionalBeginDestroy();
+      component_p->MarkPendingKill();
       }
     }
 

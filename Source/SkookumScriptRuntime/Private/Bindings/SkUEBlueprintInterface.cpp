@@ -565,7 +565,7 @@ void SkUEBlueprintInterface::delete_binding_entry(uint32_t binding_index)
           }
         }
       // Destroy the function along with its attached properties
-      ue_function_p->ConditionalBeginDestroy();
+      ue_function_p->MarkPendingKill();
       }
     FMemory::Free(binding_entry_p);
     m_binding_entry_array.set_at(binding_index, nullptr);
@@ -634,7 +634,7 @@ UFunction * SkUEBlueprintInterface::build_ue_function(UClass * ue_class_p, SkInv
     if (!result_param_p)
       {
       // If any parameters can not be mapped, skip building this entire function
-      ue_function_p->ConditionalBeginDestroy();
+      ue_function_p->MarkPendingKill();
       return nullptr;
       }
 
@@ -653,7 +653,7 @@ UFunction * SkUEBlueprintInterface::build_ue_function(UClass * ue_class_p, SkInv
     if (!build_ue_param(ue_function_p, input_param->get_expected_type(), input_param->get_name_cstr(), out_param_info_array_p ? out_param_info_array_p + i : nullptr))
       {
       // If any parameters can not be mapped, skip building this entire function
-      ue_function_p->ConditionalBeginDestroy();
+      ue_function_p->MarkPendingKill();
       return nullptr;
       }
     }
