@@ -57,7 +57,7 @@ class ISkookumScriptRuntime : public IModuleInterface
       virtual bool  is_skookum_blueprint_function(UFunction * function_p) const = 0;
       virtual bool  is_skookum_blueprint_event(UFunction * function_p) const = 0;
 
-      virtual void  generate_class_script_files(UClass * ue_class_p, bool generate_data) = 0;
+      virtual void  generate_class_script_files(UClass * ue_class_p, bool generate_data, bool check_if_reparented) = 0;
       virtual void  generate_used_class_script_files() = 0;
       virtual void  generate_all_class_script_files() = 0;
       virtual void  rename_class_script_files(UClass * ue_class_p, const FString & old_class_name) = 0;
