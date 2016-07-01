@@ -135,10 +135,10 @@ void USkookumScriptClassDataComponent::InitializeComponent()
 
 void USkookumScriptClassDataComponent::UninitializeComponent()
   {
-  // Delete SkookumScript instance, but only if we are located inside the game world
-  if (GetOwner()->GetWorld() == SkUEClassBindingHelper::get_world())
+  // Delete SkookumScript instance if present
+  if (m_actor_instance_p)
     {
-    SK_ASSERTX(m_actor_instance_p && SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "Must have instance, and SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
     delete_sk_instance();
     }
 
