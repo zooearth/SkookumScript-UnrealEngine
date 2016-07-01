@@ -183,7 +183,7 @@ UBlueprint * FSkookumScriptRuntimeGenerator::load_blueprint_asset(const FString 
     int32 package_path_begin_pos = meta_file_text.Find(m_package_name_key);
 
     // Temporary clean-up hack (2016-06-19): We only support Game assets now, so if not a game asset, it's an old script file lingering around
-    if (package_path_begin_pos < 0 || meta_file_text.Mid(package_path_begin_pos + m_package_name_key.Len(), 5) != TEXT("/Game/"))
+    if (package_path_begin_pos < 0 || meta_file_text.Mid(package_path_begin_pos + m_package_name_key.Len(), 6) != TEXT("/Game/"))
       {
       // If it has a path and it's not "/Game/" then delete it and pretend it never existed
       if (package_path_begin_pos >= 0)
