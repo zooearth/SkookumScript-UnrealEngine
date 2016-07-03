@@ -75,8 +75,10 @@ void SkUEBindings::register_static_types()
 
   // Manually register additional classes
   SkUESkookumScriptBehaviorComponent::ms_uclass_p = USkookumScriptBehaviorComponent::StaticClass();
-  SkUESkookumScriptBehaviorComponent::ms_uclass_p->SetMetaData(TEXT("IsBlueprintBase"), TEXT("true")); // So it will get recognized as a component allowing Blueprints to be derived from
   SkUEClassBindingHelper::register_static_class(SkUESkookumScriptBehaviorComponent::ms_uclass_p);
+  #if WITH_EDITOR || HACK_HEADER_GENERATOR
+    SkUESkookumScriptBehaviorComponent::ms_uclass_p->SetMetaData(TEXT("IsBlueprintBase"), TEXT("true")); // So it will get recognized as a component allowing Blueprints to be derived from
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
