@@ -435,8 +435,11 @@ void FSkookumScriptEditor::on_new_asset(UObject * obj_p)
     // Register callback so we know when this Blueprint has been compiled
     blueprint_p->OnCompiled().AddRaw(this, &FSkookumScriptEditor::on_blueprint_compiled);
 
-    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
-    get_runtime()->generate_used_class_script_files();
+    if (blueprint_p->GeneratedClass)
+      {
+      get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
+      get_runtime()->generate_used_class_script_files();
+      }
     }
   }
 
