@@ -211,21 +211,24 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
     // Allocate and initialize a new instance of this SkookumScript type with given sub class
     static SkInstance * new_instance(_UObjectType * obj_p, SkClass * sk_class_p)
       {
-      if (sk_class_p->is_actor_class())
+      if (obj_p)
         {
-        SkInstance * instance_p = SkUEClassBindingHelper::get_actor_component_instance(static_cast<AActor *>(static_cast<UObject *>(obj_p)));
-        if (instance_p)
+        if (sk_class_p->is_actor_class())
           {
+          SkInstance * instance_p = SkUEClassBindingHelper::get_actor_component_instance(static_cast<AActor *>(static_cast<UObject *>(obj_p)));
+          if (instance_p)
+            {
+            instance_p->reference();
+            return instance_p;
+            }
+          }
+        else if (sk_class_p->is_component_class())
+          {
+          USkookumScriptBehaviorComponent * component_p = static_cast<USkookumScriptBehaviorComponent *>(static_cast<UObject *>(obj_p));
+          SkInstance * instance_p = component_p->get_sk_component_instance();
           instance_p->reference();
           return instance_p;
           }
-        }
-      else if (sk_class_p->is_component_class())
-        {
-        USkookumScriptBehaviorComponent * component_p = static_cast<USkookumScriptBehaviorComponent *>(static_cast<UObject *>(obj_p));
-        SkInstance * instance_p = component_p->get_sk_component_instance();
-        instance_p->reference();
-        return instance_p;
         }
 
       // If we get here, there is no SkookumScriptClassDataComponent or SkookumScriptBehaviorComponent, i.e. we must not have data members
