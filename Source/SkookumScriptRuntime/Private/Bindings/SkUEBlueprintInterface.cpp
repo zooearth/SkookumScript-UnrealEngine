@@ -216,7 +216,7 @@ void SkUEBlueprintInterface::exec_class_method(FFrame & stack, void * const resu
 
 void SkUEBlueprintInterface::exec_instance_method(FFrame & stack, void * const result_p)
   {
-  SkInstance * this_p = SkUEEntity::new_instance(stack.Object);
+  SkInstance * this_p = SkUEEntity::new_instance((UObject *)this);
   exec_method(stack, result_p, this_p);
   this_p->dereference();
   }
@@ -233,7 +233,7 @@ void SkUEBlueprintInterface::exec_coroutine(FFrame & stack, void * const result_
   SkInvokedCoroutine * icoroutine_p = SkInvokedCoroutine::pool_new(static_cast<SkCoroutine *>(function_entry.m_sk_invokable_p));
 
   // Get instance of this object
-  SkInstance * this_p = SkUEEntity::new_instance(stack.Object);
+  SkInstance * this_p = SkUEEntity::new_instance((UObject *)this);
 
   // Set parameters
   icoroutine_p->reset(SkCall_interval_always, nullptr, this_p, nullptr, nullptr);
