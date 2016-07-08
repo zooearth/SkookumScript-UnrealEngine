@@ -109,6 +109,7 @@ void USkookumScriptBehaviorComponent::set_sk_component_instance(SkInstance * com
   {
   SK_ASSERTX(!m_component_instance_p, "Tried to create actor instance when instance already present!");
 
+  component_instance_p->reference();
   m_component_instance_p = component_instance_p;
   m_is_instance_externally_owned = true;
   }
@@ -129,11 +130,7 @@ void USkookumScriptBehaviorComponent::InitializeComponent()
   // Create SkookumScript instance, but only if we are located inside the game world
   if (GetOwner()->GetWorld() == SkUEClassBindingHelper::get_world())
     {
-    if (m_is_instance_externally_owned)
-      {
-      m_component_instance_p->reference();
-      }
-    else
+    if (!m_is_instance_externally_owned)
       {
       SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when InitializeComponent() is invoked.");
       create_sk_instance();
