@@ -18,7 +18,7 @@
 
 //---------------------------------------------------------------------------------------
 // SkookumScript transform (position + rotation + scale) class
-class SkTransform : public SkClassBindingSimple<SkTransform, FTransform>
+class SKOOKUMSCRIPTRUNTIME_API SkTransform : public SkClassBindingSimple<SkTransform, FTransform>
   {
   public:
 

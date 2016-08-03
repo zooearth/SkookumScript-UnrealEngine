@@ -13,9 +13,9 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
-#include "../Classes/SkookumScriptComponent.h"
+#include "SkookumScriptComponent.h"
 #include "Bindings/SkUEBindings.hpp"
-#include "SkUEActor.generated.hpp"
+#include <SkUEGeneratedBindings.generated.hpp>
 
 
 //=======================================================================================

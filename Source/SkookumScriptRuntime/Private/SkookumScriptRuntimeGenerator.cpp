@@ -28,13 +28,6 @@ FSkookumScriptRuntimeGenerator::FSkookumScriptRuntimeGenerator(ISkookumScriptRun
   // Reset super classes
   m_used_classes.Empty();
 
-  // Label used to extract package path from Sk class meta file
-  m_package_name_key = TEXT("// UE4 Package Name: \"");
-  m_package_path_key = TEXT("// UE4 Package Path: \"");
-
-  // String to insert into/remove from Sk project ini file
-  m_editable_ini_settings_p = TEXT("Editable=false\r\nCanMakeEditable=true\r\n");
-
   // Set up project and overlay paths
   initialize_paths();
   }
@@ -79,7 +72,7 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files()
       UClass * ue_class_p = static_cast<UBlueprint *>(obj_p)->GeneratedClass;
       if (ue_class_p)
         {
-        generate_class_script_files(ue_class_p, true, false);
+        generate_class_script_files(ue_class_p, true, true, false);
         }
       }
 
@@ -154,7 +147,7 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
           // Change project to be editable
           FString proj_ini;
           verify(FFileHelper::LoadFileToString(proj_ini, *editable_project_path));
-          proj_ini = proj_ini.Replace(m_editable_ini_settings_p, TEXT("")); // Remove editable settings
+          proj_ini = proj_ini.Replace(ms_editable_ini_settings_p, TEXT("")); // Remove editable settings
           proj_ini += TEXT("Overlay7=Project|Project\r\n"); // Create Project overlay definition
           verify(FFileHelper::SaveStringToFile(proj_ini, *editable_project_path, FFileHelper::EEncodingOptions::ForceAnsi));
 
@@ -180,10 +173,10 @@ UBlueprint * FSkookumScriptRuntimeGenerator::load_blueprint_asset(const FString 
   if (FFileHelper::LoadFileToString(meta_file_text, *meta_file_path))
     {
     // Found meta file - try to extract asset path contained in it
-    int32 package_path_begin_pos = meta_file_text.Find(m_package_name_key);
+    int32 package_path_begin_pos = meta_file_text.Find(ms_package_name_key);
 
     // Temporary clean-up hack (2016-06-19): We only support Game assets now, so if not a game asset, it's an old script file lingering around
-    if (package_path_begin_pos < 0 || meta_file_text.Mid(package_path_begin_pos + m_package_name_key.Len(), 6) != TEXT("/Game/"))
+    if (package_path_begin_pos < 0 || meta_file_text.Mid(package_path_begin_pos + ms_package_name_key.Len(), 6) != TEXT("/Game/"))
       {
       // If it has a path and it's not "/Game/" then delete it and pretend it never existed
       if (package_path_begin_pos >= 0)
@@ -195,7 +188,7 @@ UBlueprint * FSkookumScriptRuntimeGenerator::load_blueprint_asset(const FString 
 
     if (package_path_begin_pos >= 0)
       {
-      package_path_begin_pos += m_package_name_key.Len();
+      package_path_begin_pos += ms_package_name_key.Len();
       int32 package_path_end_pos = meta_file_text.Find(TEXT("\""), ESearchCase::CaseSensitive, ESearchDir::FromStart, package_path_begin_pos);
       if (package_path_end_pos > package_path_begin_pos)
         {
@@ -240,7 +233,7 @@ UBlueprint * FSkookumScriptRuntimeGenerator::load_blueprint_asset(const FString 
 
 //---------------------------------------------------------------------------------------
 
-bool FSkookumScriptRuntimeGenerator::is_property_type_supported_and_known(UProperty * var_p) const
+bool FSkookumScriptRuntimeGenerator::can_export_property(UProperty * var_p, int32 include_priority)
   {
   if (!is_property_type_supported(var_p))
     {
@@ -263,7 +256,7 @@ bool FSkookumScriptRuntimeGenerator::is_property_type_supported_and_known(UPrope
 
   // Accept all arrays of known types
   UArrayProperty * array_var_p = Cast<UArrayProperty>(var_p);
-  if (array_var_p && (!array_var_p->Inner || !is_property_type_supported_and_known(array_var_p->Inner)))
+  if (array_var_p && (!array_var_p->Inner || !can_export_property(array_var_p->Inner, include_priority + 1)))
     {
     return false;
     }
@@ -280,7 +273,15 @@ bool FSkookumScriptRuntimeGenerator::is_property_type_supported_and_known(UPrope
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_class_p, bool generate_data, bool check_if_reparented)
+void FSkookumScriptRuntimeGenerator::on_type_referenced(UField * type_p, int32 include_priority)
+  {
+  // In this use case this callback should never be called for anything but structs/classes
+  m_used_classes.Add(CastChecked<UStruct>(type_p));
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_class_p, bool generate_data, bool skip_non_game_classes, bool check_if_reparented)
   {
   check(!m_overlay_path.IsEmpty());
 
@@ -290,9 +291,9 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_cla
     return;
     }
 
-  // Only generate script files for game assets
+  // Only generate script files for game assets if requested
   UPackage * package_p = Cast<UPackage>(ue_class_p->GetOutermost());
-  if (!package_p || (!package_p->FileName.ToString().StartsWith(TEXT("/Game/")) && !package_p->GetName().StartsWith(TEXT("/Game/"))))
+  if (skip_non_game_classes && (!package_p || (!package_p->FileName.ToString().StartsWith(TEXT("/Game/")) && !package_p->GetName().StartsWith(TEXT("/Game/")))))
     {
     return;
     }
@@ -302,7 +303,7 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_cla
 #endif
     {
     FString class_name;
-    const FString class_path = get_skookum_class_path(ue_class_p, &class_name);
+    const FString class_path = get_skookum_class_path(ue_class_p, 0, &class_name);
 
     // Make sure there is no other folder with the same name around
     if (check_if_reparented)
@@ -331,58 +332,13 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_cla
     // Create class meta file
     const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
     ISkookumScriptRuntimeInterface::eChangeType change_type = FPaths::FileExists(meta_file_path) ? ISkookumScriptRuntimeInterface::ChangeType_modified : ISkookumScriptRuntimeInterface::ChangeType_created;
-    FString meta_body = get_comment_block(ue_class_p);
-    UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(ue_class_p);
-    if (blueprint_p)
-      {
-      meta_body += TEXT("// UE4 Asset Name: ") + blueprint_p->GetName() + TEXT("\r\n");
-      UPackage * blueprint_package_p = Cast<UPackage>(blueprint_p->GetOuter());
-      if (blueprint_package_p)
-        {
-        meta_body += m_package_name_key + blueprint_package_p->GetName() + TEXT("\"\r\n");
-        meta_body += m_package_path_key + blueprint_package_p->FileName.ToString() + TEXT("\"\r\n");
-        }
-      }
-
+    FString meta_body = generate_class_meta_file_body(ue_class_p);
     bool anything_changed = save_text_file_if_changed(*meta_file_path, meta_body);
 
     // Create raw data member file
     if (generate_data)
       {
-      FString data_body = TEXT("\r\n");
-
-      // Figure out column width of variable types & names
-      int32 max_type_length = 0;
-      int32 max_name_length = 0;
-      for (TFieldIterator<UProperty> property_it(ue_class_p, EFieldIteratorFlags::ExcludeSuper); property_it; ++property_it)
-        {
-        UProperty * var_p = *property_it;
-        if (is_property_type_supported_and_known(var_p))
-          {
-          FString type_name = get_skookum_property_type_name_existing(var_p);
-          FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), true);
-          max_type_length = FMath::Max(max_type_length, type_name.Len());
-          max_name_length = FMath::Max(max_name_length, var_name.Len());
-          }
-        }
-
-      // Format nicely
-      for (TFieldIterator<UProperty> property_it(ue_class_p, EFieldIteratorFlags::ExcludeSuper); property_it; ++property_it)
-        {
-        UProperty * var_p = *property_it;
-        FString type_name = get_skookum_property_type_name_existing(var_p);
-        FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), true);
-        if (is_property_type_supported_and_known(var_p))
-          {
-          FString comment = var_p->GetToolTipText().ToString().Replace(TEXT("\n"), TEXT(" "));
-          data_body += FString::Printf(TEXT("&raw %s !%s // %s%s[%s]\r\n"), *(type_name.RightPad(max_type_length)), *(var_name.RightPad(max_name_length)), *comment, comment.IsEmpty() ? TEXT("") : TEXT(" "), *var_p->GetName());
-          }
-        else
-          {
-          data_body += FString::Printf(TEXT("// &raw %s !%s // Currently unsupported\r\n"), *(type_name.RightPad(max_type_length)), *(var_name.RightPad(max_name_length)));
-          }
-        }
-
+      FString data_body = generate_class_instance_data_file_body(ue_class_p, 0);
       FString data_file_path = class_path / TEXT("!Data.sk");
       if (save_text_file_if_changed(*data_file_path, data_body))
         {
@@ -410,13 +366,13 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_cla
 
 void FSkookumScriptRuntimeGenerator::generate_used_class_script_files()
   {
-  // Loop through all previously classes and create stubs for them
-  for (auto struct_p : m_used_classes)
+  // Loop through all previously used classes and create stubs for them
+  for (tUsedClasses::TConstIterator iter(m_used_classes); iter; ++iter)
     {
-    UClass * class_p = Cast<UClass>(struct_p);
+    UClass * class_p = Cast<UClass>(*iter);
     if (class_p)
       {
-      generate_class_script_files(class_p, false, false);
+      generate_class_script_files(class_p, false, false, false);
       }
     }
 
@@ -450,7 +406,7 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UClass * ue_class
 #endif
     {
     FString this_class_name;
-    const FString this_class_path = get_skookum_class_path(ue_class_p, &this_class_name);
+    const FString this_class_path = get_skookum_class_path(ue_class_p, 0, &this_class_name);
     // Construct old path form new path
     FString replace_from = new_class_name;
     FString replace_to = skookify_class_name(old_class_name);
@@ -479,7 +435,7 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UClass * ue_class
           FError::Throwf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_class_path, *this_class_path);
           }
         // Regenerate the meta file to correctly reflect the Blueprint it originated from
-        generate_class_script_files(ue_class_p, false, false);
+        generate_class_script_files(ue_class_p, false, false, false);
         // Inform the runtime module of the change
         m_runtime_interface_p->on_class_scripts_changed_by_generator(old_class_name, ISkookumScriptRuntimeInterface::ChangeType_deleted);
         m_runtime_interface_p->on_class_scripts_changed_by_generator(new_class_name, ISkookumScriptRuntimeInterface::ChangeType_created);
@@ -504,7 +460,7 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UClass * ue_class
 void FSkookumScriptRuntimeGenerator::delete_class_script_files(UClass * ue_class_p)
   {
   FString class_name;
-  const FString directory_to_delete = get_skookum_class_path(ue_class_p, &class_name);
+  const FString directory_to_delete = get_skookum_class_path(ue_class_p, 0, &class_name);
   if (FPaths::DirectoryExists(directory_to_delete))
     {
     IFileManager::Get().DeleteDirectory(*directory_to_delete, false, true);
@@ -516,8 +472,6 @@ void FSkookumScriptRuntimeGenerator::delete_class_script_files(UClass * ue_class
 
 void FSkookumScriptRuntimeGenerator::initialize_paths()
   {
-  const TCHAR * overlay_name_p = TEXT("Project-Generated");
-
   // Look for default SkookumScript project file in engine folder.
   FString plugin_root_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir());
   FString default_project_path(plugin_root_path / TEXT("Scripts/Skookum-project-default.ini"));
@@ -525,63 +479,36 @@ void FSkookumScriptRuntimeGenerator::initialize_paths()
   m_default_project_path = FPaths::ConvertRelativePathToFull(default_project_path);
 
   // Look for specific SkookumScript project in game/project folder.
-  FString project_path;
+  FString project_file_path;
   if (!FPaths::GameDir().IsEmpty())
     {
-    // 1) Check permanent location
-    project_path = FPaths::GameDir() / TEXT("Scripts/Skookum-project.ini");
-    if (!FPaths::FileExists(project_path))
+    bool created = false;
+    project_file_path = get_or_create_project_file(FPaths::GameDir(), &created);
+    if (created)
       {
-      // 2) Check/create temp location
-      // Check temporary location (in `Intermediate` folder)
-      FString temp_root_path(FPaths::GameIntermediateDir() / TEXT("SkookumScript"));
-      FString temp_scripts_path(temp_root_path / TEXT("Scripts"));
-      project_path = temp_scripts_path / TEXT("Skookum-project.ini");
-      if (!FPaths::FileExists(project_path))
-        {
-        // If in neither folder, create new project in temporary location
-        // $Revisit MBreyer - read ini file from default_project_path and patch it up to carry over customizations
-        FString proj_ini = FString::Printf(TEXT("[Project]\r\nProjectName=%s\r\nStrictParse=true\r\nUseBuiltinActor=false\r\nCustomActorClass=Actor\r\nStartupMind=Master\r\n%s"), FApp::GetGameName(), m_editable_ini_settings_p);
-        proj_ini += TEXT("[Output]\r\nCompileManifest=false\r\nCompileTo=../Content/SkookumScript/Classes.sk-bin\r\n");
-        proj_ini += TEXT("[Script Overlays]\r\nOverlay1=*Core|Core\r\nOverlay2=-*Core-Sandbox|Core-Sandbox\r\nOverlay3=*VectorMath|VectorMath\r\nOverlay4=*Engine-Generated|Engine-Generated|1\r\nOverlay5=*Engine|Engine\r\nOverlay6=*");
-        proj_ini += overlay_name_p;
-        proj_ini += TEXT("|");
-        proj_ini += overlay_name_p;
-        proj_ini += TEXT("|1\r\n");
-        if (FFileHelper::SaveStringToFile(proj_ini, *project_path, FFileHelper::EEncodingOptions::ForceAnsi))
-          {
-          IFileManager::Get().MakeDirectory(*(temp_root_path / TEXT("Content/SkookumScript")), true);
-          IFileManager::Get().MakeDirectory(*(temp_scripts_path / overlay_name_p / TEXT("Object")), true);
-          generate_all_class_script_files();
-          }
-        else
-          {
-          // Silent failure since we don't want to disturb people's workflow
-          project_path.Empty();
-          }
-        }
-
-      // Since project does not exist in the permanent location, make sure the binaries don't exist in the permanent location either
-      // Otherwise we'd get inconsistencies/malfunction when binaries are loaded
-      FString binary_path_stem(FPaths::GameDir() / TEXT("Content") / TEXT("SkookumScript") / TEXT("Classes"));
-      IFileManager::Get().Delete(*(binary_path_stem + TEXT(".sk-bin")), false, true, true);
-      IFileManager::Get().Delete(*(binary_path_stem + TEXT(".sk-sym")), false, true, true);
+      generate_all_class_script_files();
       }
     }
 
   FString scripts_path = FPaths::GetPath(m_default_project_path);
-  if (!project_path.IsEmpty())
+  if (!project_file_path.IsEmpty())
     {
     // If project path exists, overrides the default script location
-    scripts_path = FPaths::GetPath(project_path);
+    scripts_path = FPaths::GetPath(project_file_path);
 
     // Qualify and store for later reference
-    m_project_path = FPaths::ConvertRelativePathToFull(project_path);
+    m_project_path = FPaths::ConvertRelativePathToFull(project_file_path);
     }
 
-  // Set overlay path and depth
-  m_overlay_path = FPaths::ConvertRelativePathToFull(scripts_path / overlay_name_p);
-  compute_scripts_path_depth(scripts_path / TEXT("Skookum-project.ini"), overlay_name_p);
+  // Set overlay path and depth - first try new name, then old if new one does not exist
+  const TCHAR * overlay_name_bp_p = ms_overlay_name_bp_p;
+  m_overlay_path = FPaths::ConvertRelativePathToFull(scripts_path / overlay_name_bp_p);
+  if (!FPaths::DirectoryExists(m_overlay_path))
+    {
+    overlay_name_bp_p = ms_overlay_name_bp_old_p;
+    m_overlay_path = FPaths::ConvertRelativePathToFull(scripts_path / overlay_name_bp_p);
+    }
+  compute_scripts_path_depth(scripts_path / TEXT("Skookum-project.ini"), overlay_name_bp_p);
   }
 
 #endif // WITH_EDITORONLY_DATA

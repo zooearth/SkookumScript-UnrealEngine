@@ -1,8 +1,8 @@
 //=======================================================================================
-// SkookumScript Plugin for Unreal Engine 4
+// SkookumScript C++ library.
 // Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
-// Bindings for the SkookumScriptBehaviorComponent class
+// SkookumScript rotation/quaternion class
 //
 // Author: Markus Breyer
 //=======================================================================================
@@ -14,10 +14,11 @@
 //=======================================================================================
 
 #include "../SkUEClassBinding.hpp"
+#include <UnrealMath.h> // Vector math functions
 
 //---------------------------------------------------------------------------------------
-
-class SkUESkookumScriptBehaviorComponent : public SkUEClassBindingEntity<SkUESkookumScriptBehaviorComponent, USkookumScriptBehaviorComponent>
+// SkookumScript rotation/quaternion class
+class SKOOKUMSCRIPTRUNTIME_API SkRotation : public SkClassBindingSimpleForceInit<SkRotation, FQuat>
   {
   public:
 

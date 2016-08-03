@@ -14,6 +14,7 @@
 class SkClass;
 class UClass;
 class UBlueprint;
+class SkUEBindingsInterface;
 
 //---------------------------------------------------------------------------------------
 // Interface class for the runtime plugin to call the editor plugin
@@ -40,6 +41,8 @@ class ISkookumScriptRuntime : public IModuleInterface
 
     // Methods
 
+    virtual void  set_game_generated_bindings(SkUEBindingsInterface * game_generated_bindings_p) = 0;
+
     virtual bool  is_skookum_disabled() const = 0;
     virtual bool  is_freshen_binaries_pending() const = 0;
 
@@ -53,7 +56,7 @@ class ISkookumScriptRuntime : public IModuleInterface
 
       virtual bool  has_skookum_default_constructor(UClass * class_p) const = 0;
       virtual bool  has_skookum_destructor(UClass * class_p) const = 0;
-      virtual bool  is_skookum_component_class(UClass * class_p) const = 0;
+      virtual bool  is_skookum_class_data_component_class(UClass * class_p) const = 0;
       virtual bool  is_skookum_blueprint_function(UFunction * function_p) const = 0;
       virtual bool  is_skookum_blueprint_event(UFunction * function_p) const = 0;
 

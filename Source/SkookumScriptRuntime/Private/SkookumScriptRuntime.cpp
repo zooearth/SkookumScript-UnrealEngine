@@ -20,12 +20,12 @@
 #include "Stats.h"
 
 #include "SkookumScriptRuntimeGenerator.h"
-#include "../Classes/SkookumScriptComponent.h"
-#include "../Classes/SkookumScriptBehaviorComponent.h"
-#include "../Classes/SkookumScriptClassDataComponent.h"
-#include "../Classes/SkookumScriptMindComponent.h"
+#include "SkookumScriptComponent.h"
+#include "SkookumScriptBehaviorComponent.h"
+#include "SkookumScriptClassDataComponent.h"
+#include "SkookumScriptMindComponent.h"
 
-#include <SkUEWorld.generated.hpp>
+#include <SkUEGeneratedBindings.generated.hpp>
 
 // For profiling SkookumScript performance
 DECLARE_CYCLE_STAT(TEXT("SkookumScript Time"), STAT_SkookumScriptTime, STATGROUP_Game);
@@ -83,6 +83,7 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
     // Overridden from ISkookumScriptRuntime
 
+    virtual void  set_game_generated_bindings(SkUEBindingsInterface * game_generated_bindings_p) override;
     virtual bool  is_skookum_disabled() const override;    
     virtual bool  is_freshen_binaries_pending() const override;
 
@@ -96,7 +97,7 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
       virtual bool  has_skookum_default_constructor(UClass * class_p) const override;
       virtual bool  has_skookum_destructor(UClass * class_p) const override;
-      virtual bool  is_skookum_component_class(UClass * class_p) const override;
+      virtual bool  is_skookum_class_data_component_class(UClass * class_p) const override;
       virtual bool  is_skookum_blueprint_function(UFunction * function_p) const override;
       virtual bool  is_skookum_blueprint_event(UFunction * function_p) const override;
 
@@ -140,30 +141,30 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
   // Data Members
 
-    bool                m_is_skookum_disabled;
+    bool                    m_is_skookum_disabled;
 
-    FAppInfo            m_app_info;
+    FAppInfo                m_app_info;
 
-    mutable SkUERuntime m_runtime;
+    mutable SkUERuntime     m_runtime;
 
     #if WITH_EDITORONLY_DATA
       FSkookumScriptRuntimeGenerator  m_generator;
     #endif
 
     #ifdef SKOOKUM_REMOTE_UNREAL
-      SkUERemote        m_remote_client;
-      bool              m_freshen_binaries_requested;
+      SkUERemote            m_remote_client;
+      bool                  m_freshen_binaries_requested;
     #endif
 
-    UWorld *            m_game_world_p;
-    UWorld *            m_editor_world_p;
+    UWorld *                m_game_world_p;
+    UWorld *                m_editor_world_p;
 
-    FDelegateHandle     m_on_world_init_pre_handle;
-    FDelegateHandle     m_on_world_init_post_handle;
-    FDelegateHandle     m_on_world_cleanup_handle;
+    FDelegateHandle         m_on_world_init_pre_handle;
+    FDelegateHandle         m_on_world_init_post_handle;
+    FDelegateHandle         m_on_world_cleanup_handle;
 
-    FDelegateHandle     m_game_tick_handle;
-    FDelegateHandle     m_editor_tick_handle;
+    FDelegateHandle         m_game_tick_handle;
+    FDelegateHandle         m_editor_tick_handle;
   };
 
 
@@ -508,6 +509,12 @@ void FSkookumScriptRuntime::on_world_init_pre(UWorld * world_p, const UWorld::In
   {
   //A_DPRINT("on_world_init_pre: %S %p\n", *world_p->GetName(), world_p);
 
+  // Make sure atomics are bound by now
+  if (!m_runtime.is_compiled_scripts_bound())
+    {
+    m_runtime.bind_compiled_scripts();
+    }
+
   // Use this callback as an opportunity to take care of connecting to the IDE
   #ifdef SKOOKUM_REMOTE_UNREAL
     if (!IsRunningCommandlet() && !m_remote_client.is_authenticated())
@@ -638,6 +645,14 @@ void FSkookumScriptRuntime::ShutdownModule()
   FWorldDelegates::OnPreWorldInitialization.Remove(m_on_world_init_pre_handle);
   FWorldDelegates::OnPostWorldInitialization.Remove(m_on_world_init_post_handle);
   FWorldDelegates::OnWorldCleanup.Remove(m_on_world_cleanup_handle);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::set_game_generated_bindings(SkUEBindingsInterface * game_generated_bindings_p)
+  {
+  ensure_runtime_initialized();
+  m_runtime.set_game_generated_bindings(game_generated_bindings_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -810,7 +825,7 @@ void FSkookumScriptRuntime::tick_remote()
       // Load the Skookum class hierarchy scripts in compiled binary form
       bool is_first_time = !is_skookum_initialized();
 
-      bool success_b = m_runtime.load_compiled_scripts();
+      bool success_b = m_runtime.load_and_bind_compiled_scripts();
       SK_ASSERTX(success_b, AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
       m_remote_client.clear_load_compiled_binaries_requested();
 
@@ -943,12 +958,10 @@ bool FSkookumScriptRuntime::has_skookum_destructor(UClass * class_p) const
 
 //---------------------------------------------------------------------------------------
 // 
-bool FSkookumScriptRuntime::is_skookum_component_class(UClass * class_p) const
+bool FSkookumScriptRuntime::is_skookum_class_data_component_class(UClass * class_p) const
   {
   return class_p == USkookumScriptComponent::StaticClass()
-      || class_p == USkookumScriptClassDataComponent::StaticClass()
-      || class_p == USkookumScriptMindComponent::StaticClass()
-      || class_p->IsChildOf(USkookumScriptBehaviorComponent::StaticClass());
+      || class_p == USkookumScriptClassDataComponent::StaticClass();
   }
 
 //---------------------------------------------------------------------------------------
@@ -969,7 +982,7 @@ bool FSkookumScriptRuntime::is_skookum_blueprint_event(UFunction * function_p) c
 // 
 void FSkookumScriptRuntime::generate_class_script_files(UClass * ue_class_p, bool generate_data, bool check_if_reparented)
   {
-  m_generator.generate_class_script_files(ue_class_p, generate_data, check_if_reparented);
+  m_generator.generate_class_script_files(ue_class_p, generate_data, true, check_if_reparented);
   }
 
 //---------------------------------------------------------------------------------------
@@ -1015,7 +1028,7 @@ void FSkookumScriptRuntime::delete_class_script_files(UClass * ue_class_p)
 // 
 bool FSkookumScriptRuntime::is_static_class_known_to_skookum(UClass * class_p) const
   {
-  m_runtime.ensure_static_types_registered();
+  m_runtime.ensure_static_ue_types_registered();
   return SkUEClassBindingHelper::is_static_class_registered(class_p);
   }
 
@@ -1023,7 +1036,7 @@ bool FSkookumScriptRuntime::is_static_class_known_to_skookum(UClass * class_p) c
 // 
 bool FSkookumScriptRuntime::is_static_struct_known_to_skookum(UStruct * struct_p) const
   {
-  m_runtime.ensure_static_types_registered();
+  m_runtime.ensure_static_ue_types_registered();
   return SkUEClassBindingHelper::is_static_struct_registered(struct_p);
   }
 
@@ -1031,7 +1044,7 @@ bool FSkookumScriptRuntime::is_static_struct_known_to_skookum(UStruct * struct_p
 // 
 bool FSkookumScriptRuntime::is_static_enum_known_to_skookum(UEnum * enum_p) const
   {
-  m_runtime.ensure_static_types_registered();
+  m_runtime.ensure_static_ue_types_registered();
   return SkUEClassBindingHelper::is_static_enum_registered(enum_p);
   }
 

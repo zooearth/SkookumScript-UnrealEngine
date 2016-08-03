@@ -14,6 +14,7 @@
 //=======================================================================================
 
 #include <SkookumScript/SkClassBindingBase.hpp>
+#include <SkookumScript/SkString.hpp>
 #include "SkookumScriptBehaviorComponent.h"
 
 //---------------------------------------------------------------------------------------
@@ -22,7 +23,7 @@ class FSkookumScriptRuntimeGenerator;
 
 //---------------------------------------------------------------------------------------
 // Helper class providing useful global variables and static methods
-class SkUEClassBindingHelper
+class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
   {
   public:
 
@@ -260,10 +261,10 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
   protected:
 
     // Make method bindings known to SkookumScript
-    static void register_bindings(ASymbol class_name)
+    static void register_bindings()
       {
       // Bind basic methods
-      tBindingBase::register_bindings(class_name);
+      tBindingBase::register_bindings();
 
       // Bind raw pointer callback function
       tBindingAbstract::ms_class_p->register_raw_pointer_func(&SkUEClassBindingHelper::get_raw_pointer_entity);
@@ -272,8 +273,10 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
       tBindingAbstract::ms_class_p->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_entity);
       }
 
-    static void register_bindings(const char * class_name_p)  { register_bindings(ASymbol::create_existing(class_name_p)); }
-    static void register_bindings(uint32_t class_name_id)     { register_bindings(ASymbol::create_existing(class_name_id)); }
+    // Convenience methods - initialize Sk class and bind methods
+    static void register_bindings(ASymbol class_name)         { tBindingAbstract::initialize_class(class_name); register_bindings(); }
+    static void register_bindings(const char * class_name_p)  { tBindingAbstract::initialize_class(class_name_p); register_bindings(); }
+    static void register_bindings(uint32_t class_name_id)     { tBindingAbstract::initialize_class(class_name_id); register_bindings(); }
 
   };
 
@@ -327,17 +330,19 @@ class SkUEClassBindingStruct : public SkClassBindingBase<_BindingClass, _DataTyp
   protected:
 
     // Make method bindings known to SkookumScript
-    static void register_bindings(ASymbol class_name)
+    static void register_bindings()
       {
       // Bind basic methods
-      tBindingBase::register_bindings(class_name);
+      tBindingBase::register_bindings();
 
       // Bind raw accessor callback function
       tBindingAbstract::ms_class_p->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_struct<_BindingClass>);
       }
 
-    static void register_bindings(const char * class_name_p)  { register_bindings(ASymbol::create_existing(class_name_p)); }
-    static void register_bindings(uint32_t class_name_id)     { register_bindings(ASymbol::create_existing(class_name_id)); }
+    // Convenience methods - initialize Sk class and bind methods
+    static void register_bindings(ASymbol class_name)        { tBindingAbstract::initialize_class(class_name); register_bindings(); }
+    static void register_bindings(const char * class_name_p) { tBindingAbstract::initialize_class(class_name_p); register_bindings(); }
+    static void register_bindings(uint32_t class_name_id)    { tBindingAbstract::initialize_class(class_name_id); register_bindings(); }
 
   };
 

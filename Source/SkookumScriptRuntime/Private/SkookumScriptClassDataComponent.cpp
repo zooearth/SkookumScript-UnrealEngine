@@ -14,7 +14,7 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
-#include "../Classes/SkookumScriptClassDataComponent.h"
+#include "SkookumScriptClassDataComponent.h"
 #include "Bindings/Engine/SkUEActor.hpp"
 
 //=======================================================================================
@@ -130,6 +130,21 @@ void USkookumScriptClassDataComponent::InitializeComponent()
     m_actor_instance_p->call_default_constructor();
     }
   }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptClassDataComponent::BeginPlay()
+  {
+  Super::BeginPlay();
+  SK_ASSERTX(m_actor_instance_p != nullptr, a_str_format("SkookumScriptClassDataComponent '%S' on actor '%S' has no SkookumScript instance upon BeginPlay. This means its InitializeComponent() method was never called during initialization. Please check your initialization sequence and make sure this component gets properly initialized.", *GetName(), *GetOwner()->GetName()));
+  }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptClassDataComponent::EndPlay(const EEndPlayReason::Type end_play_reason)
+	{
+  Super::EndPlay(end_play_reason);
+	}
 
 //---------------------------------------------------------------------------------------
 
