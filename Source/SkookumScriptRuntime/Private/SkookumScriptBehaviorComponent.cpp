@@ -14,10 +14,10 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
-#include "../Classes/SkookumScriptBehaviorComponent.h"
+#include "SkookumScriptBehaviorComponent.h"
 
 #include "VectorField/VectorField.h" // HACK to fix broken dependency on UVectorField 
-#include <SkUEEnums.generated.hpp>
+#include <SkUEGeneratedBindings.generated.hpp>
 
 #include "Bindings/Engine/SkUESkookumScriptBehaviorComponent.hpp"
 
@@ -105,13 +105,34 @@ void USkookumScriptBehaviorComponent::delete_sk_instance()
 
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptBehaviorComponent::set_sk_component_instance(SkInstance * component_instance_p)
+void USkookumScriptBehaviorComponent::set_sk_component_instance(SkInstance * instance_p)
   {
   SK_ASSERTX(!m_component_instance_p, "Tried to create actor instance when instance already present!");
 
-  component_instance_p->reference();
-  m_component_instance_p = component_instance_p;
+  instance_p->reference();
+  m_component_instance_p = instance_p;
   m_is_instance_externally_owned = true;
+  }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptBehaviorComponent::attach(SkInstance * instance_p)
+  {
+  set_sk_component_instance(instance_p);
+  RegisterComponent();
+  // Workaround: This code might be called from within AActor::InitializeComponents(), so make sure InitializeComponent() is called
+  if (!GetOwner()->IsActorInitialized())
+    {
+    InitializeComponent();
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptBehaviorComponent::detach()
+  {
+  UnregisterComponent();
+  MarkPendingKill();
   }
 
 //---------------------------------------------------------------------------------------
@@ -148,6 +169,8 @@ void USkookumScriptBehaviorComponent::InitializeComponent()
 void USkookumScriptBehaviorComponent::BeginPlay()
   {
   Super::BeginPlay();
+
+  SK_ASSERTX(m_component_instance_p != nullptr, a_str_format("SkookumScriptBehaviorComponent '%S' on actor '%S' has no SkookumScript instance upon BeginPlay. This means its InitializeComponent() method was never called during initialization. Please check your initialization sequence and make sure this component gets properly initialized.", *GetName(), *GetOwner()->GetName()));
 
   m_component_instance_p->method_call(ms_symbol_on_begin_play);
   }

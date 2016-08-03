@@ -188,7 +188,7 @@ void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, 
   #if (SKOOKUM & SK_DEBUG)
     if (!this_p->get_class()->is_class(*function_entry.m_sk_class_p))
       {
-      SK_ERRORX(a_str_format("Attempted to invoke method '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScript component.", function_entry.m_sk_class_p->get_name_cstr(), function_entry.m_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_p->get_name_cstr()));
+      SK_ERRORX(a_str_format("Attempted to invoke method '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", function_entry.m_sk_class_p->get_name_cstr(), function_entry.m_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_p->get_name_cstr()));
       }
     else
   #endif
@@ -263,7 +263,7 @@ void SkUEBlueprintInterface::exec_coroutine(FFrame & stack, void * const result_
   #if (SKOOKUM & SK_DEBUG)
     if (!this_p->get_class()->is_class(*function_entry.m_sk_class_p))
       {
-      SK_ERRORX(a_str_format("Attempted to invoke coroutine '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScript component.", function_entry.m_sk_class_p->get_name_cstr(), function_entry.m_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_p->get_name_cstr()));
+      SK_ERRORX(a_str_format("Attempted to invoke coroutine '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", function_entry.m_sk_class_p->get_name_cstr(), function_entry.m_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_p->get_name_cstr()));
       }
     else
   #endif

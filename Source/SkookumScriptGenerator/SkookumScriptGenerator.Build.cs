@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright (c) 2014-2016 Agog Labs, Inc. All Rights Reserved.
 using System.IO;
 using UnrealBuildTool;
 

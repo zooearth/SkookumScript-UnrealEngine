@@ -13,7 +13,7 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
-#include "../Classes/SkookumScriptMindComponent.h"
+#include "SkookumScriptMindComponent.h"
 
 //=======================================================================================
 // Class Data
@@ -91,6 +91,21 @@ void USkookumScriptMindComponent::InitializeComponent()
     m_mind_instance_p->get_class()->resolve_raw_data();
     m_mind_instance_p->call_default_constructor();
     }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptMindComponent::BeginPlay()
+  {
+  Super::BeginPlay();
+  SK_ASSERTX(m_mind_instance_p != nullptr, a_str_format("SkookumScriptMindComponent '%S' on actor '%S' has no SkookumScript instance upon BeginPlay. This means its InitializeComponent() method was never called during initialization. Please check your initialization sequence and make sure this component gets properly initialized.", *GetName(), *GetOwner()->GetName()));
+  }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptMindComponent::EndPlay(const EEndPlayReason::Type end_play_reason)
+  {
+  Super::EndPlay(end_play_reason);
   }
 
 //---------------------------------------------------------------------------------------

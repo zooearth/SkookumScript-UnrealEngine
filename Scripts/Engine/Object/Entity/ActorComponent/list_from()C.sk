@@ -10,10 +10,7 @@
 //  !capsules: CapsuleComponent.get_list_from(owner)
 //  capsules.do[println(item.component_velocity)]
 //
-// See: get_from(), get_from_tag(), get_list_from_tag()
+// See: from(), from_tag(), list_from_tag()
 //---------------------------------------------------------------------------------------
 
 ( Actor owner) List{ThisClass_}
-  [
-  owner.components_by_class(static_class)
-  ]

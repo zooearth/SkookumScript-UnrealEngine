@@ -14,8 +14,13 @@
 // Includes
 //=======================================================================================
 
+// Required when including this file from an external module
+#include <AgogCore/AIdPtr.hpp>
+#include <AgogCore/ASymbol.hpp>
+#include <SkookumScript/SkInstance.hpp>
+
 #include "Components/ActorComponent.h"
-#include "SkookumScriptClassDataComponent.generated.h"
+#include "SkookumScriptBehaviorComponent.generated.h"
 
 //=======================================================================================
 // Global Defines / Macros
@@ -26,9 +31,9 @@
 //=======================================================================================
 
 //---------------------------------------------------------------------------------------
-// Allows you to specify a custom SkookumScript class for this actor, to store SkookumScript data members, and to have a constructor/destructor invoked when an instance of this actor gets created/destroyed
+// Allows you to create a custom SkookumScript component by deriving from the SkookumScriptBehaviorComponent class. Dynamically attach and detach to/from any actor as you like via script.
 UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent))
-class SKOOKUMSCRIPTRUNTIME_API USkookumScriptClassDataComponent : public UActorComponent
+class SKOOKUMSCRIPTRUNTIME_API USkookumScriptBehaviorComponent : public UActorComponent
   {
 
     GENERATED_UCLASS_BODY()
@@ -37,32 +42,52 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptClassDataComponent : public UActorC
 
   // Public Data Members
 
-    // SkookumScript class type of the owner actor - used to create appropriate SkookumScript actor instance.
-    // Uses class of this actor's Blueprint if left blank.
+    // SkookumScript subclass of this SkookumScriptBehaviorComponent - used to create appropriate SkookumScript component instance
+    // Must not be blank if instantiated via Blueprints.
     UPROPERTY(Category = Script, EditAnywhere, BlueprintReadOnly)
-    FString ScriptActorClassName;
+    FString ScriptComponentClassName;
 
   // Methods
 
+    // Static initialization/deinitialization
+    static void initialize();
+    static void deinitialize();
+
+    // Attach/detach to/from Outer actor
+    void attach(SkInstance * instance_p);
+    void detach();
+
     // Gets our SkookumScript instance
-    SkInstance * get_sk_actor_instance() const { return m_actor_instance_p; }
+    SkInstance * get_sk_component_instance() const { return m_component_instance_p; }
 
   protected:
 
-    // Begin UActorComponent interface
+    // UActorComponent interface
     virtual void OnRegister() override;
     virtual void InitializeComponent() override;
+    virtual void BeginPlay() override;
+    virtual void EndPlay(const EEndPlayReason::Type end_play_reason) override;
     virtual void UninitializeComponent() override;
     virtual void OnUnregister() override;
 
     // Creates/deletes our SkookumScript instance
     void        create_sk_instance();
     void        delete_sk_instance();
+    void        set_sk_component_instance(SkInstance * instance_p); // Sets externally created SkookumScript instance
 
-    // Keep the SkookumScript instance belonging to this actor around
-    AIdPtr<SkInstance> m_actor_instance_p;
+    // Keep the SkookumScript instance belonging to this component around
+    AIdPtr<SkInstance> m_component_instance_p;
 
-  };  // USkookumScriptClassDataComponent
+    // If someone else created our instance, not us
+    bool m_is_instance_externally_owned;
+
+    // Names of callback methods we need to call occasionally
+    static ASymbol ms_symbol_on_attach;
+    static ASymbol ms_symbol_on_detach;
+    static ASymbol ms_symbol_on_begin_play;
+    static ASymbol ms_symbol_on_end_play;
+
+  };  // USkookumScriptBehaviorComponent
 
 
 //=======================================================================================

@@ -12,7 +12,7 @@
 //=======================================================================================
 
 #include "../../SkookumScriptRuntimePrivatePCH.h"
-#include "../../../Classes/SkookumScriptBehaviorComponent.h"
+#include "SkookumScriptBehaviorComponent.h"
 #include "SkUESkookumScriptBehaviorComponent.hpp"
 #include "SkUEActor.hpp"
 #include "SkUEName.hpp"
@@ -51,8 +51,7 @@ namespace SkUESkookumScriptBehaviorComponent_Impl
       SK_ASSERTX(sk_class_p->is_class(*SkUESkookumScriptBehaviorComponent::get_class()), a_str_format("Trying to attach a component of class '%s' which is not properly derived from '%s'", this_p->get_class()->get_name_cstr_dbg(), SkUESkookumScriptBehaviorComponent::get_class()->get_name_cstr_dbg()));
       // Create a new UE4 ActorComponent and register it with the actor
       USkookumScriptBehaviorComponent * new_component_p = NewObject<USkookumScriptBehaviorComponent>(actor_p, ue_class_p, name);
-      new_component_p->set_sk_component_instance(this_p);
-      new_component_p->RegisterComponent();
+      new_component_p->attach(this_p);
       }
     }
 
@@ -65,8 +64,7 @@ namespace SkUESkookumScriptBehaviorComponent_Impl
     SK_ASSERTX(component_p && component_p->get_sk_component_instance() == this_p, "Trying to detach SkookumScriptBehaviorComponent but it is not attached to anything.");
     if (component_p)
       {
-      component_p->UnregisterComponent();
-      component_p->MarkPendingKill();
+      component_p->detach();
       }
     }
 
@@ -98,7 +96,7 @@ namespace SkUESkookumScriptBehaviorComponent_Impl
 void SkUESkookumScriptBehaviorComponent::register_bindings()
   {
   // The Entity base class provides all the basic functionality so here we just need to initialize our class pointers
-  tBindingAbstract::initialize("SkookumScriptBehaviorComponent");
+  tBindingAbstract::initialize_class("SkookumScriptBehaviorComponent");
 
   ms_class_p->register_method_func_bulk(SkUESkookumScriptBehaviorComponent_Impl::methods_i, A_COUNT_OF(SkUESkookumScriptBehaviorComponent_Impl::methods_i), SkBindFlag_instance_no_rebind);
 

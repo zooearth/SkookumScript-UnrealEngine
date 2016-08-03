@@ -340,6 +340,12 @@ void FSkookumScriptEditor::on_map_opened(const FString & file_name, bool as_temp
 
 void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
   {
+  // Bail if there's no GeneratedClass i.e. nothing to do for SkookumScript
+  if (!blueprint_p->GeneratedClass)
+    {
+    return;
+    }
+
   // Re-generate script files for this class as things might have changed
   get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, true);
 
@@ -348,8 +354,8 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
   bool has_skookum_destructor = get_runtime()->has_skookum_destructor(blueprint_p->GeneratedClass);
   if (has_skookum_default_constructor || has_skookum_destructor)
     {
-    // Determine if it has a SkookumScript component
-    bool has_component = get_runtime()->is_skookum_component_class(blueprint_p->GeneratedClass); // Component itself?
+    // Determine if it has a SkookumScriptClassData component
+    bool has_component = get_runtime()->is_skookum_class_data_component_class(blueprint_p->GeneratedClass); // Component itself?
     if (!has_component)
       {
       for (TFieldIterator<UProperty> property_it(blueprint_p->GeneratedClass, EFieldIteratorFlags::IncludeSuper); property_it; ++property_it)
@@ -357,7 +363,7 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
         UObjectPropertyBase * obj_property_p = Cast<UObjectPropertyBase>(*property_it);
         if (obj_property_p)
           {
-          if (get_runtime()->is_skookum_component_class(obj_property_p->PropertyClass))
+          if (get_runtime()->is_skookum_class_data_component_class(obj_property_p->PropertyClass))
             {
             has_component = true;
             break;
@@ -405,9 +411,9 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
         FMessageDialog::Open(
           EAppMsgType::Ok,
           FText::Format(FText::FromString(
-          TEXT("The SkookumScript class '{0}' has a default constructor but the blueprint has neither a SkookumScript component nor is the default constructor invoked somewhere in an event graph. ")
-          TEXT("That means the default constructor will never be called. ")
-          TEXT("To fix this issue, either add a SkookumScript component to the Blueprint, or invoke the default constructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
+          TEXT("The SkookumScript class '{0}' has a default constructor but the blueprint has neither a SkookumScriptClassDataComponent nor is the default constructor invoked somewhere in an event graph. ")
+          TEXT("That means, unless it is invoked from C++ code, the default constructor might never be called. ")
+          TEXT("To fix this issue, either add a SkookumScriptClassDataComponent to the Blueprint, or invoke the default constructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
           &title);
         }
       else if (has_skookum_destructor && !has_destructor_node) // `else if` here so we won't show both dialogs, one is enough
@@ -416,9 +422,9 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
         FMessageDialog::Open(
           EAppMsgType::Ok,
           FText::Format(FText::FromString(
-          TEXT("The SkookumScript class '{0}' has a destructor but the blueprint has neither a SkookumScript component nor is the destructor invoked somewhere in an event graph. ")
-          TEXT("That means the destructor will never be called. ")
-          TEXT("To fix this issue, either add a SkookumScript component to the Blueprint, or invoke the destructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
+          TEXT("The SkookumScript class '{0}' has a destructor but the blueprint has neither a SkookumScriptClassDataComponent nor is the destructor invoked somewhere in an event graph. ")
+          TEXT("That means, unless it is invoked from C++ code, the destructor might never be called. ")
+          TEXT("To fix this issue, either add a SkookumScriptClassDataComponent to the Blueprint, or invoke the destructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
           &title);
         }
       }

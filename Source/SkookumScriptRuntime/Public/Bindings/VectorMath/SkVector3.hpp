@@ -18,7 +18,7 @@
 
 //---------------------------------------------------------------------------------------
 // SkookumScript 3D vector class
-class SkVector3 : public SkClassBindingSimpleForceInit<SkVector3, FVector>
+class SKOOKUMSCRIPTRUNTIME_API SkVector3 : public SkClassBindingSimpleForceInit<SkVector3, FVector>
   {
   public:
 

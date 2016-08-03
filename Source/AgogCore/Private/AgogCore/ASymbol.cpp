@@ -290,11 +290,12 @@ ASymbol ASymbol::create(
 // Arg         sym_binary_pp - Pointer to address to read binary symbol serialization
 //             info from and to increment - previously filled using as_binary(sym, binary_pp)
 //             or a similar mechanism.
+// Arg         require_existance - If it is an error in case the id does not exist in the symbol table
 // See:        as_binary(), create()
 // Notes:      Empty strings "" are synonymous with ASymbol::get_null().
 // Modifiers:   static
 // Author(s):   Conan Reis
-ASymbol ASymbol::create_from_binary(const void ** sym_binary_pp)
+ASymbol ASymbol::create_from_binary(const void ** sym_binary_pp, bool require_existance)
   {
   #if defined(A_SYMBOL_REF_LINK)
     #if defined(A_EXTRA_CHECK)
@@ -303,7 +304,7 @@ ASymbol ASymbol::create_from_binary(const void ** sym_binary_pp)
 
       if (sym_ref_p == nullptr)
         {
-        A_ERRORX(a_cstr_format(
+        A_ASSERTX(!require_existance, a_cstr_format(
           "The symbol id 0x%x loaded from binary could not be found!\n"
           "This may be due to a corrupted binary or mismatch between two different binaries - deleting and regenerating the binaries may solve this problem."
           "[Using null symbol.]",
