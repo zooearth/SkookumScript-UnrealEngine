@@ -14,6 +14,11 @@
 // Includes
 //=======================================================================================
 
+// Required when including this file from an external module
+#include <AgogCore/AIdPtr.hpp>
+#include <AgogCore/ASymbol.hpp>
+#include <SkookumScript/SkInstance.hpp>
+
 #include "Components/ActorComponent.h"
 #include "SkookumScriptBehaviorComponent.generated.h"
 
@@ -27,7 +32,7 @@
 
 //---------------------------------------------------------------------------------------
 // Allows you to create a custom SkookumScript component by deriving from the SkookumScriptBehaviorComponent class. Dynamically attach and detach to/from any actor as you like via script.
-UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent), EarlyAccessPreview)
+UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent))
 class SKOOKUMSCRIPTRUNTIME_API USkookumScriptBehaviorComponent : public UActorComponent
   {
 
@@ -48,12 +53,12 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptBehaviorComponent : public UActorCo
     static void initialize();
     static void deinitialize();
 
+    // Attach/detach to/from Outer actor
+    void attach(SkInstance * instance_p);
+    void detach();
+
     // Gets our SkookumScript instance
     SkInstance * get_sk_component_instance() const { return m_component_instance_p; }
-
-    // Sets externally created SkookumScript instance
-    void set_sk_component_instance(SkInstance * component_instance_p);
-
 
   protected:
 
@@ -68,6 +73,7 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptBehaviorComponent : public UActorCo
     // Creates/deletes our SkookumScript instance
     void        create_sk_instance();
     void        delete_sk_instance();
+    void        set_sk_component_instance(SkInstance * instance_p); // Sets externally created SkookumScript instance
 
     // Keep the SkookumScript instance belonging to this component around
     AIdPtr<SkInstance> m_component_instance_p;

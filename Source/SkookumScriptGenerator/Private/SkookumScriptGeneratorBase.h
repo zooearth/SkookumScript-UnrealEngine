@@ -54,9 +54,17 @@ class FSkookumScriptGeneratorBase
       };
 
     //---------------------------------------------------------------------------------------
+    // Interface
+
+    virtual bool          can_export_property(UProperty * property_p, int32 include_priority) = 0;
+    virtual void          on_type_referenced(UField * type_p, int32 include_priority) = 0;
+
+    //---------------------------------------------------------------------------------------
     // Methods
 
+    static FString        get_or_create_project_file(const FString & ue_project_directory_path, bool * created_p = nullptr);
     bool                  compute_scripts_path_depth(FString project_ini_file_path, const FString & overlay_name);
+    void                  save_text_file(const FString & file_path, const FString & contents);
     bool                  save_text_file_if_changed(const FString & file_path, const FString & new_file_contents); // Helper to change a file only if needed
     void                  flush_saved_text_files(tSourceControlCheckoutFunc checkout_f = nullptr); // Puts generated files into place after all code generation is done
 
@@ -69,30 +77,38 @@ class FSkookumScriptGeneratorBase
     static FString        skookify_class_name(const FString & name);
     static FString        skookify_var_name(const FString & name, bool append_question_mark, bool is_member = false);
     static FString        skookify_method_name(const FString & name, UProperty * return_property_p = nullptr);
-    static FString        get_skookum_class_name(UStruct * class_or_struct_p);
-    FString               get_skookum_class_path(UStruct * class_or_struct_p, FString * out_class_name_p = nullptr);
-    FString               get_skookum_method_path(UStruct * class_or_struct_p, const FString & script_function_name, bool is_static);
+    static FString        get_skookum_class_name(UField * type_p);
+    FString               get_skookum_class_path(UField * type_p, int32 include_priority, FString * out_class_name_p = nullptr);
+    FString               get_skookum_method_file_name(const FString & script_function_name, bool is_static);
     static eSkTypeID      get_skookum_struct_type(UStruct * struct_p);
-    static eSkTypeID      get_skookum_property_type(UProperty * property_p);
-    static FString        get_skookum_property_type_name_existing(UProperty * property_p);
+    static eSkTypeID      get_skookum_property_type(UProperty * property_p, bool allow_all);
+    static FString        get_skookum_property_type_name(UProperty * property_p);
     static uint32         get_skookum_symbol_id(const FString & string);
     static FString        get_comment_block(UField * field_p);
 
-    void                  generate_class_meta_file(UStruct * class_or_struct_p, const FString & class_path, const FString & skookum_class_name);
+    FString               generate_class_meta_file_body(UField * type_p);
+    FString               generate_class_instance_data_file_body(UStruct * class_or_struct_p, int32 include_priority);
+
+    void                  generate_class_meta_file(UField * type_p, const FString & class_path, const FString & skookum_class_name);
 
     //---------------------------------------------------------------------------------------
     // Data
 
     static const FFileHelper::EEncodingOptions::Type  ms_script_file_encoding;
 
-    static const FString  ms_sk_type_id_names[SkTypeID__Count]; // Names belonging to the ids above
-    static const FString  ms_reserved_keywords[]; // = Forbidden variable names
-    static const FName    ms_meta_data_key_function_category;
-    static const FName    ms_meta_data_key_blueprint_type;
+    static const FString        ms_sk_type_id_names[SkTypeID__Count]; // Names belonging to the ids above
+    static const FString        ms_reserved_keywords[]; // = Forbidden variable names
+    static const FName          ms_meta_data_key_function_category;
+    static const FName          ms_meta_data_key_blueprint_type;
+    static const FString        ms_package_name_key; // Label used to extract package name from Sk class meta file
+    static const FString        ms_package_path_key; // Label used to extract package path from Sk class meta file
+    static TCHAR const * const  ms_editable_ini_settings_p; // ini file settings to describe that a project is not editable
+    static TCHAR const * const  ms_overlay_name_bp_p; // Name of overlay used for Sk classes generated from Blueprints
+    static TCHAR const * const  ms_overlay_name_bp_old_p; // Legacy 2016-07-18 - remove after some time
+    static TCHAR const * const  ms_overlay_name_cpp_p; // Name of overlay used for Sk classes generated from C++ reflection macros
 
     FString               m_overlay_path;       // Folder where to place generated script files
     int32                 m_overlay_path_depth; // Amount of super classes until we start flattening the script file hierarchy due to the evil reign of Windows MAX_PATH. 1 = everything is right under 'Object', 0 is not allowed
 
-    TArray<UStruct *>     m_used_classes;       // All classes used as types (by parameters, properties etc.)
     TArray<FString>       m_temp_file_paths;    // Keep track of temp files generated by save_files_if_changed()
   };

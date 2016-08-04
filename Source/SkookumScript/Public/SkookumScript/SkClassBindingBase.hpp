@@ -80,9 +80,12 @@ class SkClassBindingBase : public SkClassBindingAbstract<_BindingClass>, public 
     SkClassBindingBase() : SkInstance(_BindingClass::get_class()) {}
 
     // Make method bindings known to SkookumScript
-    static void register_bindings(ASymbol class_name);
-    static void register_bindings(const char * class_name_p)  { register_bindings(ASymbol::create_existing(class_name_p)); }
-    static void register_bindings(uint32_t class_name_id)     { register_bindings(ASymbol::create_existing(class_name_id)); }
+    static void register_bindings();
+
+    // Convenience methods - initialize Sk class and bind methods
+    static void register_bindings(ASymbol class_name)         { tBindingAbstract::initialize_class(class_name); register_bindings(); }
+    static void register_bindings(const char * class_name_p)  { tBindingAbstract::initialize_class(class_name_p); register_bindings(); }
+    static void register_bindings(uint32_t class_name_id)     { tBindingAbstract::initialize_class(class_name_id); register_bindings(); }
 
   };
 
@@ -208,11 +211,8 @@ void SkClassBindingBase<_BindingClass, _DataType>::mthd_op_assign(SkInvokedMetho
 //---------------------------------------------------------------------------------------
 // Make method bindings known to SkookumScript
 template<class _BindingClass, typename _DataType>
-void SkClassBindingBase<_BindingClass, _DataType>::register_bindings(ASymbol class_name)
+void SkClassBindingBase<_BindingClass, _DataType>::register_bindings()
   {
-  // Initialize class information
-  tBindingAbstract::initialize(class_name);
-
   // Bind raw pointer callback function
   _BindingClass::get_class()->register_raw_pointer_func(sizeof(_DataType) <= sizeof(SkInstance::tUserData) ? &SkInstance::get_raw_pointer_val : &SkInstance::get_raw_pointer_ref);
 

@@ -2,7 +2,7 @@
 // SkookumScript Plugin for Unreal Engine 4
 // Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
-// SkookumScript Name (= FName) class
+// Bindings for the SkookumScriptBehaviorComponent class
 //
 // Author: Markus Breyer
 //=======================================================================================
@@ -13,16 +13,13 @@
 // Includes
 //=======================================================================================
 
-#include <SkookumScript/SkClassBinding.hpp>
-#include <NameTypes.h>
+#include "../SkUEClassBinding.hpp"
 
 //---------------------------------------------------------------------------------------
-// SkookumScript Name (= FName) class
-class SkUEName : public SkClassBindingSimple<SkUEName, FName>
+
+class SKOOKUMSCRIPTRUNTIME_API SkUESkookumScriptBehaviorComponent : public SkUEClassBindingEntity<SkUESkookumScriptBehaviorComponent, USkookumScriptBehaviorComponent>
   {
   public:
-
-    enum { Binding_has_ctor = false }; // Do not auto-generate constructor since we have a special one taking a String argument
 
     static void       register_bindings();
     static SkClass *  get_class();

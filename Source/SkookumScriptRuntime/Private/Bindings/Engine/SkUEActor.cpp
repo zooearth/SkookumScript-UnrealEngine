@@ -66,6 +66,27 @@ namespace SkUEActor_Impl
     }
 
   //---------------------------------------------------------------------------------------
+  // Make sure a given actor has overlap events enabled on at least one component
+#if (SKOOKUM & SK_DEBUG)
+  static void assert_actor_has_overlap_events_enabled(AActor * actor_p)
+    {
+    // Check that events will properly fire
+    TArray<UActorComponent *> components = actor_p->GetComponentsByClass(UPrimitiveComponent::StaticClass());
+    SK_ASSERTX(components.Num() > 0, a_cstr_format("Trying to receive overlap events on actor '%S' but it has no primitive (collision) component.", *actor_p->GetName()));
+    bool found_enabled_overlap_event = false;
+    for (UActorComponent * component_p : components)
+      {
+      if (Cast<UPrimitiveComponent>(component_p)->bGenerateOverlapEvents)
+        {
+        found_enabled_overlap_event = true;
+        break;
+        }
+      }
+    SK_ASSERTX(found_enabled_overlap_event, a_cstr_format("Trying to receive overlap events on actor '%S' but it has no primitive component that has overlap events turned on. To fix this, check the box 'Generate Overlap Events' for the primitive component (e.g. SkeletalMeshComponent, CapsuleComponent etc.) that you would like to trigger the overlap events. You might also simply have picked the wrong actor.", *actor_p->GetName()));
+    }
+#endif
+
+  //---------------------------------------------------------------------------------------
   // Actor@find_named(Name name) <ThisClass_|None>
   static void mthdc_find_named(SkInvokedMethod * scope_p, SkInstance ** result_pp)
     {
@@ -171,11 +192,9 @@ namespace SkUEActor_Impl
       static void install(UObject * obj_p, USkookumScriptListener * listener_p)
         {
         Cast<AActor>(obj_p)->OnActorBeginOverlap.AddDynamic(listener_p, &USkookumScriptListener::OnActorOverlap);
+        // Check that events will properly fire
         #if (SKOOKUM & SK_DEBUG)
-          // Check that events will properly fire
-          UPrimitiveComponent * component_p = Cast<UPrimitiveComponent>(Cast<AActor>(obj_p)->GetComponentByClass(UPrimitiveComponent::StaticClass()));
-          SK_ASSERTX(component_p, a_cstr_format("Trying to receive overlap events on actor '%S' but it has no primitive (collision) component.", *obj_p->GetName()));
-          SK_ASSERTX(component_p->bGenerateOverlapEvents, a_cstr_format("Trying to receive overlap events on actor '%S' but it has overlap events turned off. To fix this, check the box 'Generate Overlap Events' for the %S of '%S'. You might also simply have picked the wrong actor.", *obj_p->GetName(), *component_p->GetClass()->GetName(), *obj_p->GetName()));
+          assert_actor_has_overlap_events_enabled(Cast<AActor>(obj_p));
         #endif
         }
       // Remove callback from object
@@ -194,11 +213,9 @@ namespace SkUEActor_Impl
       static void install(UObject * obj_p, USkookumScriptListener * listener_p)
         {
         Cast<AActor>(obj_p)->OnActorEndOverlap.AddDynamic(listener_p, &USkookumScriptListener::OnActorOverlap);
+        // Check that events will properly fire
         #if (SKOOKUM & SK_DEBUG)
-          // Check that events will properly fire
-          UPrimitiveComponent * component_p = Cast<UPrimitiveComponent>(Cast<AActor>(obj_p)->GetComponentByClass(UPrimitiveComponent::StaticClass()));
-          SK_ASSERTX(component_p, a_cstr_format("Trying to receive overlap events on actor '%S' but it has no primitive (collision) component.", *obj_p->GetName()));
-          SK_ASSERTX(component_p->bGenerateOverlapEvents, a_cstr_format("Trying to receive overlap events on actor '%S' but it has overlap events turned off. To fix this, check the box 'Generate Overlap Events' for the %S of '%S'. You might also simply have picked the wrong actor.", *obj_p->GetName(), *component_p->GetClass()->GetName(), *obj_p->GetName()));
+          assert_actor_has_overlap_events_enabled(Cast<AActor>(obj_p));
         #endif
         }
       // Remove callback from object

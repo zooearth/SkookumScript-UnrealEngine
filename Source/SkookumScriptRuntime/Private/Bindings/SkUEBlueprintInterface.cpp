@@ -188,7 +188,7 @@ void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, 
   #if (SKOOKUM & SK_DEBUG)
     if (!this_p->get_class()->is_class(*function_entry.m_sk_class_p))
       {
-      SK_ERRORX(a_str_format("Attempted to invoke method '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScript component.", function_entry.m_sk_class_p->get_name_cstr(), function_entry.m_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_p->get_name_cstr()));
+      SK_ERRORX(a_str_format("Attempted to invoke method '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", function_entry.m_sk_class_p->get_name_cstr(), function_entry.m_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_p->get_name_cstr()));
       }
     else
   #endif
@@ -216,7 +216,7 @@ void SkUEBlueprintInterface::exec_class_method(FFrame & stack, void * const resu
 
 void SkUEBlueprintInterface::exec_instance_method(FFrame & stack, void * const result_p)
   {
-  SkInstance * this_p = SkUEEntity::new_instance(stack.Object);
+  SkInstance * this_p = SkUEEntity::new_instance((UObject *)this);
   exec_method(stack, result_p, this_p);
   this_p->dereference();
   }
@@ -233,7 +233,7 @@ void SkUEBlueprintInterface::exec_coroutine(FFrame & stack, void * const result_
   SkInvokedCoroutine * icoroutine_p = SkInvokedCoroutine::pool_new(static_cast<SkCoroutine *>(function_entry.m_sk_invokable_p));
 
   // Get instance of this object
-  SkInstance * this_p = SkUEEntity::new_instance(stack.Object);
+  SkInstance * this_p = SkUEEntity::new_instance((UObject *)this);
 
   // Set parameters
   icoroutine_p->reset(SkCall_interval_always, nullptr, this_p, nullptr, nullptr);
@@ -263,7 +263,7 @@ void SkUEBlueprintInterface::exec_coroutine(FFrame & stack, void * const result_
   #if (SKOOKUM & SK_DEBUG)
     if (!this_p->get_class()->is_class(*function_entry.m_sk_class_p))
       {
-      SK_ERRORX(a_str_format("Attempted to invoke coroutine '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScript component.", function_entry.m_sk_class_p->get_name_cstr(), function_entry.m_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_p->get_name_cstr()));
+      SK_ERRORX(a_str_format("Attempted to invoke coroutine '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", function_entry.m_sk_class_p->get_name_cstr(), function_entry.m_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_p->get_name_cstr()));
       }
     else
   #endif
@@ -565,7 +565,7 @@ void SkUEBlueprintInterface::delete_binding_entry(uint32_t binding_index)
           }
         }
       // Destroy the function along with its attached properties
-      ue_function_p->ConditionalBeginDestroy();
+      ue_function_p->MarkPendingKill();
       }
     FMemory::Free(binding_entry_p);
     m_binding_entry_array.set_at(binding_index, nullptr);
@@ -634,7 +634,7 @@ UFunction * SkUEBlueprintInterface::build_ue_function(UClass * ue_class_p, SkInv
     if (!result_param_p)
       {
       // If any parameters can not be mapped, skip building this entire function
-      ue_function_p->ConditionalBeginDestroy();
+      ue_function_p->MarkPendingKill();
       return nullptr;
       }
 
@@ -653,7 +653,7 @@ UFunction * SkUEBlueprintInterface::build_ue_function(UClass * ue_class_p, SkInv
     if (!build_ue_param(ue_function_p, input_param->get_expected_type(), input_param->get_name_cstr(), out_param_info_array_p ? out_param_info_array_p + i : nullptr))
       {
       // If any parameters can not be mapped, skip building this entire function
-      ue_function_p->ConditionalBeginDestroy();
+      ue_function_p->MarkPendingKill();
       return nullptr;
       }
     }

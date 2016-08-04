@@ -2,7 +2,7 @@
 // SkookumScript C++ library.
 // Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
-// SkookumScript rotation/quaternion class
+// SkookumScript 4D vector class
 //
 // Author: Markus Breyer
 //=======================================================================================
@@ -17,8 +17,8 @@
 #include <UnrealMath.h> // Vector math functions
 
 //---------------------------------------------------------------------------------------
-// SkookumScript rotation/quaternion class
-class SkRotation : public SkClassBindingSimpleForceInit<SkRotation, FQuat>
+// SkookumScript 4D vector class
+class SKOOKUMSCRIPTRUNTIME_API SkVector4 : public SkClassBindingSimpleForceInit<SkVector4, FVector4>
   {
   public:
 

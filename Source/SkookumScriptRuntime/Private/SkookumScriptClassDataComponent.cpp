@@ -14,7 +14,7 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
-#include "../Classes/SkookumScriptClassDataComponent.h"
+#include "SkookumScriptClassDataComponent.h"
 #include "Bindings/Engine/SkUEActor.hpp"
 
 //=======================================================================================
@@ -133,12 +133,27 @@ void USkookumScriptClassDataComponent::InitializeComponent()
 
 //---------------------------------------------------------------------------------------
 
+void USkookumScriptClassDataComponent::BeginPlay()
+  {
+  Super::BeginPlay();
+  SK_ASSERTX(m_actor_instance_p != nullptr, a_str_format("SkookumScriptClassDataComponent '%S' on actor '%S' has no SkookumScript instance upon BeginPlay. This means its InitializeComponent() method was never called during initialization. Please check your initialization sequence and make sure this component gets properly initialized.", *GetName(), *GetOwner()->GetName()));
+  }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptClassDataComponent::EndPlay(const EEndPlayReason::Type end_play_reason)
+	{
+  Super::EndPlay(end_play_reason);
+	}
+
+//---------------------------------------------------------------------------------------
+
 void USkookumScriptClassDataComponent::UninitializeComponent()
   {
-  // Delete SkookumScript instance, but only if we are located inside the game world
-  if (GetOwner()->GetWorld() == SkUEClassBindingHelper::get_world())
+  // Delete SkookumScript instance if present
+  if (m_actor_instance_p)
     {
-    SK_ASSERTX(m_actor_instance_p && SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "Must have instance, and SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
     delete_sk_instance();
     }
 

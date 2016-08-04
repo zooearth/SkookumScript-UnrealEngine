@@ -55,16 +55,24 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
     FString       make_project_editable();
     UBlueprint *  load_blueprint_asset(const FString & class_path, bool * sk_class_deleted_p);
 
-    bool          is_property_type_supported_and_known(UProperty * property_p) const;
-    void          generate_class_script_files(UClass * ue_class_p, bool generate_data);
+    void generate_class_script_files(UClass * ue_class_p, bool generate_data, bool even_if_not_game_class, bool check_if_reparented);
     void          rename_class_script_files(UClass * ue_class_p, const FString & old_class_name);
     void          rename_class_script_files(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name);
     void          delete_class_script_files(UClass * ue_class_p);
     void          generate_used_class_script_files();
 
+    // FSkookumScriptGeneratorBase interface implementation
+
+    virtual bool  can_export_property(UProperty * property_p, int32 include_priority) override final;
+    virtual void  on_type_referenced(UField * type_p, int32 include_priority) override final;
+
   protected:
 
     void          initialize_paths();
+
+    // Types
+
+    typedef TSet<UStruct *> tUsedClasses;
 
     // Data members
 
@@ -76,7 +84,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
     FString       m_package_name_key;
     FString       m_package_path_key;
 
-    const TCHAR * m_editable_ini_settings_p; // ini file settings to describe that a project is not editable
+    tUsedClasses  m_used_classes;       // All classes used as types (by parameters, properties etc.)
 
   };
 

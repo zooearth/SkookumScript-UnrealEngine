@@ -76,10 +76,70 @@ const FString FSkookumScriptGeneratorBase::ms_reserved_keywords[] =
   TEXT("xor"),
   };
 
-const FName FSkookumScriptGeneratorBase::ms_meta_data_key_function_category(TEXT("Category"));
-const FName FSkookumScriptGeneratorBase::ms_meta_data_key_blueprint_type(TEXT("BlueprintType"));
+const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_function_category(TEXT("Category"));
+const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_blueprint_type(TEXT("BlueprintType"));
+const FString       FSkookumScriptGeneratorBase::ms_package_name_key(TEXT("// UE4 Package Name: \""));
+const FString       FSkookumScriptGeneratorBase::ms_package_path_key(TEXT("// UE4 Package Path: \""));
+TCHAR const * const FSkookumScriptGeneratorBase::ms_editable_ini_settings_p(TEXT("Editable=false\r\nCanMakeEditable=true\r\n"));
+TCHAR const * const FSkookumScriptGeneratorBase::ms_overlay_name_bp_p(TEXT("Project-Generated-BP"));
+TCHAR const * const FSkookumScriptGeneratorBase::ms_overlay_name_bp_old_p(TEXT("Project-Generated"));
+TCHAR const * const FSkookumScriptGeneratorBase::ms_overlay_name_cpp_p(TEXT("Project-Generated-C++"));
 
 const FFileHelper::EEncodingOptions::Type FSkookumScriptGeneratorBase::ms_script_file_encoding = FFileHelper::EEncodingOptions::ForceAnsi;
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGeneratorBase::get_or_create_project_file(const FString & ue_project_directory_path, bool * created_p)
+  {
+  // 1) Check permanent location
+  bool created = false;
+  FString project_file_path = ue_project_directory_path / TEXT("Scripts/Skookum-project.ini");
+  if (!FPaths::FileExists(project_file_path))
+    {
+    // 2) Check/create temp location
+    // Check temporary location (in `Intermediate` folder)
+    FString temp_root_path(ue_project_directory_path / TEXT("Intermediate/SkookumScript"));
+    FString temp_scripts_path(temp_root_path / TEXT("Scripts"));
+    project_file_path = temp_scripts_path / TEXT("Skookum-project.ini");
+    if (!FPaths::FileExists(project_file_path))
+      {
+      // If in neither folder, create new project in temporary location
+      // $Revisit MBreyer - read ini file from default_project_path and patch it up to carry over customizations
+      FString proj_ini = FString::Printf(TEXT("[Project]\r\nProjectName=%s\r\nStrictParse=true\r\nUseBuiltinActor=false\r\nCustomActorClass=Actor\r\nStartupMind=Master\r\n%s"), FApp::GetGameName(), ms_editable_ini_settings_p);
+      proj_ini += TEXT("[Output]\r\nCompileManifest=false\r\nCompileTo=../Content/SkookumScript/Classes.sk-bin\r\n");
+      proj_ini += TEXT("[Script Overlays]\r\nOverlay1=*Core|Core\r\nOverlay2=-*Core-Sandbox|Core-Sandbox\r\nOverlay3=*VectorMath|VectorMath\r\nOverlay4=*Engine-Generated|Engine-Generated|1\r\nOverlay5=*Engine|Engine\r\nOverlay6=*");
+      proj_ini += ms_overlay_name_bp_p;
+      proj_ini += TEXT("|");
+      proj_ini += ms_overlay_name_bp_p;
+      proj_ini += TEXT("|1\r\nOverlay7=*");
+      proj_ini += ms_overlay_name_cpp_p;
+      proj_ini += TEXT("|");
+      proj_ini += ms_overlay_name_cpp_p;
+      proj_ini += TEXT("|1\r\n");
+      if (FFileHelper::SaveStringToFile(proj_ini, *project_file_path, FFileHelper::EEncodingOptions::ForceAnsi))
+        {
+        IFileManager::Get().MakeDirectory(*(temp_root_path / TEXT("Content/SkookumScript")), true);
+        IFileManager::Get().MakeDirectory(*(temp_scripts_path / ms_overlay_name_bp_p / TEXT("Object")), true);
+        IFileManager::Get().MakeDirectory(*(temp_scripts_path / ms_overlay_name_cpp_p / TEXT("Object")), true);
+        created = true;
+        }
+      else
+        {
+        // Silent failure since we don't want to disturb people's workflow
+        project_file_path.Empty();
+        }
+      }
+
+    // Since project does not exist in the permanent location, make sure the binaries don't exist in the permanent location either
+    // Otherwise we'd get inconsistencies/malfunction when binaries are loaded
+    FString binary_path_stem(ue_project_directory_path / TEXT("Content/SkookumScript/Classes"));
+    IFileManager::Get().Delete(*(binary_path_stem + TEXT(".sk-bin")), false, true, true);
+    IFileManager::Get().Delete(*(binary_path_stem + TEXT(".sk-sym")), false, true, true);
+    }
+
+  if (created_p) *created_p = created;
+  return project_file_path;
+  }
 
 //---------------------------------------------------------------------------------------
 
@@ -90,7 +150,7 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
   FString ini_file_text;
   if (FFileHelper::LoadFileToString(ini_file_text, *project_ini_file_path))
     {
-    FRegexPattern regex(TEXT("Overlay[0-9]+=-?\\*?") + overlay_name + TEXT("\\|.*?\\|([0-9]+)"));
+    FRegexPattern regex(TEXT("Overlay[0-9]+=-?\\*?") + overlay_name.Replace(TEXT("+"), TEXT("\\+")) + TEXT("\\|.*?\\|([0-9]+)"));
     FRegexMatcher matcher(regex, ini_file_text);
     if (matcher.FindNext())
       {
@@ -108,6 +168,16 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
     }
 
   return false;
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptGeneratorBase::save_text_file(const FString & file_path, const FString & contents)
+  {
+  if (!FFileHelper::SaveStringToFile(contents, *file_path, ms_script_file_encoding))
+    {
+    FError::Throwf(TEXT("Could not save file: %s"), *file_path);
+    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -146,7 +216,8 @@ void FSkookumScriptGeneratorBase::flush_saved_text_files(tSourceControlCheckoutF
   for (auto & temp_file_path : m_temp_file_paths)
     {
     FString file_path = temp_file_path.Replace(TEXT(".tmp"), TEXT(""));
-    if (!IFileManager::Get().Move(*file_path, *temp_file_path, true, true))
+    IFileManager::Get().Delete(*file_path, false, true, true); // Delete potentially existing version of the file
+    if (!IFileManager::Get().Move(*file_path, *temp_file_path, true, true)) // Move new file into its place
       {
       FError::Throwf(TEXT("Couldn't write file '%s'"), *file_path);
       }
@@ -165,14 +236,14 @@ void FSkookumScriptGeneratorBase::flush_saved_text_files(tSourceControlCheckoutF
 bool FSkookumScriptGeneratorBase::is_property_type_supported(UProperty * property_p)
   {
   if (property_p->HasAnyPropertyFlags(CPF_EditorOnly)
-    || property_p->IsA(ULazyObjectProperty::StaticClass())
-    || property_p->IsA(UAssetObjectProperty::StaticClass())
-    || property_p->IsA(UAssetClassProperty::StaticClass()))
+   || property_p->IsA(ULazyObjectProperty::StaticClass())
+   || property_p->IsA(UAssetObjectProperty::StaticClass())
+   || property_p->IsA(UAssetClassProperty::StaticClass()))
     {
     return false;
     }
 
-  return (get_skookum_property_type(property_p) != SkTypeID_None);
+  return (get_skookum_property_type(property_p, false) != SkTypeID_None);
   }
 
 //---------------------------------------------------------------------------------------
@@ -425,11 +496,11 @@ FString FSkookumScriptGeneratorBase::skookify_method_name(const FString & name, 
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::get_skookum_class_name(UStruct * class_or_struct_p)
+FString FSkookumScriptGeneratorBase::get_skookum_class_name(UField * type_p)
   {
-  UObject * obj_p = class_or_struct_p;
+  UObject * obj_p = type_p;
   #if WITH_EDITOR
-    UClass * class_p = Cast<UClass>(class_or_struct_p);
+    UClass * class_p = Cast<UClass>(type_p);
     if (class_p)
       {
       UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(class_p);
@@ -441,38 +512,48 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_name(UStruct * class_or_s
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_struct_p, FString * out_class_name_p)
+FString FSkookumScriptGeneratorBase::get_skookum_class_path(UField * type_p, int32 include_priority, FString * out_class_name_p)
   {
-  UClass * class_p = Cast<UClass>(class_or_struct_p);
-  bool is_class = (class_p != nullptr);
-
   // Remember class name
-  FString class_name = get_skookum_class_name(class_or_struct_p);
+  FString class_name = get_skookum_class_name(type_p);
   if (out_class_name_p)
     {
     *out_class_name_p = class_name;
     }
 
+  UStruct * struct_or_class_p = Cast<UStruct>(type_p);
+  UClass * class_p = Cast<UClass>(struct_or_class_p);
+  bool is_class = (class_p != nullptr);
+
   // Make array of the super classes
-  bool parent_to_sk_ustruct = !is_class;
   TArray<FSuperClassEntry> super_class_stack;
   super_class_stack.Reserve(32);
-  UStruct * super_p = class_or_struct_p;
-  while ((super_p = super_p->GetSuperStruct()) != nullptr)
+  if (struct_or_class_p)
     {
-    super_class_stack.Push(FSuperClassEntry(get_skookum_class_name(super_p), super_p));
-    m_used_classes.AddUnique(super_p); // All super classes are also considered used
-    // Turn `Vector` into built-in `Vector3`:
-    if (super_p->GetName() == TEXT("Vector"))
+    bool parent_to_sk_ustruct = (get_skookum_struct_type(struct_or_class_p) == SkTypeID_UStruct);
+    UStruct * super_p = struct_or_class_p;
+    while ((super_p = super_p->GetSuperStruct()) != nullptr)
       {
-      parent_to_sk_ustruct = false;
-      break;
+      super_class_stack.Push(FSuperClassEntry(get_skookum_class_name(super_p), super_p));
+      on_type_referenced(super_p, ++include_priority); // Mark all parents as needed
+      // Turn `Vector` into built-in `Vector3`:
+      if (get_skookum_struct_type(super_p) != SkTypeID_UStruct)
+        {
+        parent_to_sk_ustruct = false;
+        break;
+        }
+      }
+    // If it's a UStruct, group under virtual parent class "UStruct"
+    if (parent_to_sk_ustruct)
+      {
+      super_class_stack.Push(FSuperClassEntry(TEXT("UStruct"), nullptr));
       }
     }
-  // If it's a UStruct, group under virtual parent class "UStruct"
-  if (parent_to_sk_ustruct)
+  else
     {
-    super_class_stack.Push(FSuperClassEntry(TEXT("UStruct"), nullptr));
+    // If not struct must be enum at this point or something is fishy
+    UEnum * enum_p = CastChecked<UEnum>(type_p);
+    super_class_stack.Push(FSuperClassEntry(TEXT("Enum"), nullptr));
     }
 
   // Build path
@@ -485,25 +566,15 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UStruct * class_or_s
   if (super_class_stack.Num())
     {
     class_name = super_class_stack[0].m_name + TEXT(".") + class_name;
-    // Make sure all parent paths exist
-    for (int32 i = 0; i < super_class_stack.Num(); ++i)
-      {
-      const FSuperClassEntry & parent = super_class_stack[i];
-      FString parent_class_path(class_path / (i == super_class_stack.Num() - 1 ? parent.m_name : super_class_stack[i + 1].m_name + TEXT(".") + parent.m_name));
-      if (!FPaths::DirectoryExists(parent_class_path))
-        {
-        generate_class_meta_file(parent.m_class_or_struct_p, parent_class_path, parent.m_name);
-        }
-      }
     }
   return class_path / class_name;
   }
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::get_skookum_method_path(UStruct * class_or_struct_p, const FString & script_function_name, bool is_static)
+FString FSkookumScriptGeneratorBase::get_skookum_method_file_name(const FString & script_function_name, bool is_static)
   {
-  return get_skookum_class_path(class_or_struct_p) / (script_function_name.Replace(TEXT("?"), TEXT("-Q")) + (is_static ? TEXT("()C.sk") : TEXT("().sk")));
+  return script_function_name.Replace(TEXT("?"), TEXT("-Q")) + (is_static ? TEXT("()C.sk") : TEXT("().sk"));
   }
 
 //---------------------------------------------------------------------------------------
@@ -534,12 +605,12 @@ FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_
   if (struct_name == name_Color)                    return SkTypeID_Color;
   if (struct_name == name_LinearColor)              return SkTypeID_Color;
 
-  return (is_struct_type_supported(struct_p)) ? SkTypeID_UStruct : SkTypeID_None;
+  return Cast<UClass>(struct_p) ? SkTypeID_UClass : SkTypeID_UStruct;
   }
 
 //---------------------------------------------------------------------------------------
 
-FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_property_type(UProperty * property_p)
+FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_property_type(UProperty * property_p, bool allow_all)
   {
   // Check for simple types first
   if (property_p->IsA(UNumericProperty::StaticClass()))
@@ -559,7 +630,8 @@ FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_
   if (property_p->IsA(UStructProperty::StaticClass()))
     {
     UStructProperty * struct_prop_p = CastChecked<UStructProperty>(property_p);
-    return get_skookum_struct_type(struct_prop_p->Struct);
+    eSkTypeID type_id = get_skookum_struct_type(struct_prop_p->Struct);
+    return (allow_all || type_id != SkTypeID_UStruct || is_struct_type_supported(struct_prop_p->Struct)) ? type_id : SkTypeID_None;
     }
 
   if (get_enum(property_p))                                 return SkTypeID_Enum;
@@ -568,7 +640,7 @@ FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_
   if (property_p->IsA(UObjectPropertyBase::StaticClass()))
     {
     UClass * class_p = Cast<UObjectPropertyBase>(property_p)->PropertyClass;
-    if (does_class_have_static_class(class_p) || class_p->HasAnyClassFlags(CLASS_HasInstancedReference) || class_p->GetName() == TEXT("Object"))
+    if (allow_all || does_class_have_static_class(class_p) || class_p->HasAnyClassFlags(CLASS_HasInstancedReference) || class_p->GetName() == TEXT("Object"))
       {
       return property_p->IsA(UWeakObjectProperty::StaticClass()) ? SkTypeID_UObjectWeakPtr : SkTypeID_UObject;
       }
@@ -579,7 +651,7 @@ FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_
   if (UArrayProperty * array_property_p = Cast<UArrayProperty>(property_p))
     {
     // Reject arrays of unknown types and arrays of arrays
-    return (is_property_type_supported(array_property_p->Inner) && (get_skookum_property_type(array_property_p->Inner) != SkTypeID_List)) ? SkTypeID_List : SkTypeID_None;
+    return (allow_all || (is_property_type_supported(array_property_p->Inner) && (get_skookum_property_type(array_property_p->Inner, true) != SkTypeID_List))) ? SkTypeID_List : SkTypeID_None;
     }
 
   // Didn't find a known type
@@ -588,25 +660,28 @@ FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::get_skookum_property_type_name_existing(UProperty * property_p)
+FString FSkookumScriptGeneratorBase::get_skookum_property_type_name(UProperty * property_p)
   {
-  eSkTypeID type_id = get_skookum_property_type(property_p);
+  eSkTypeID type_id = get_skookum_property_type(property_p, true);
 
   if (type_id == SkTypeID_UObject || type_id == SkTypeID_UObjectWeakPtr)
     {
-    return get_skookum_class_name(Cast<UObjectPropertyBase>(property_p)->PropertyClass);
+    UObjectPropertyBase * object_property_p = Cast<UObjectPropertyBase>(property_p);
+    return get_skookum_class_name(object_property_p->PropertyClass);
     }
   else if (type_id == SkTypeID_UStruct)
     {
-    return get_skookum_class_name(Cast<UStructProperty>(property_p)->Struct);
+    UStruct * struct_p = Cast<UStructProperty>(property_p)->Struct;
+    return get_skookum_class_name(struct_p);
     }
   else if (type_id == SkTypeID_Enum)
     {
-    return get_enum(property_p)->GetName();
+    UEnum * enum_p = get_enum(property_p);
+    return get_skookum_class_name(enum_p);
     }
   else if (type_id == SkTypeID_List)
     {
-    return FString::Printf(TEXT("List{%s}"), *get_skookum_property_type_name_existing(Cast<UArrayProperty>(property_p)->Inner));
+    return FString::Printf(TEXT("List{%s}"), *get_skookum_property_type_name(Cast<UArrayProperty>(property_p)->Inner));
     }
 
   return ms_sk_type_id_names[type_id];
@@ -682,10 +757,83 @@ FString FSkookumScriptGeneratorBase::get_comment_block(UField * field_p)
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptGeneratorBase::generate_class_meta_file(UStruct * class_or_struct_p, const FString & class_path, const FString & skookum_class_name)
+FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type_p)
+  {
+  // Begin with comment bock explaining the class
+  FString meta_body = get_comment_block(type_p);
+
+  // Add name and file name of package where it came from if applicable
+  #if WITH_EDITOR
+    UClass * class_p = Cast<UClass>(type_p);
+    if (class_p)
+      {
+      UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(class_p);
+      if (blueprint_p)
+        {
+        meta_body += TEXT("// UE4 Asset Name: ") + blueprint_p->GetName() + TEXT("\r\n");
+        UPackage * blueprint_package_p = Cast<UPackage>(blueprint_p->GetOuter());
+        if (blueprint_package_p)
+          {
+          meta_body += ms_package_name_key + blueprint_package_p->GetName() + TEXT("\"\r\n");
+          meta_body += ms_package_path_key + blueprint_package_p->FileName.ToString() + TEXT("\"\r\n");
+          }
+        }
+      }
+  #endif
+
+  return meta_body;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGeneratorBase::generate_class_instance_data_file_body(UStruct * struct_or_class_p, int32 include_priority)
+  {
+  FString data_body = TEXT("\r\n");
+
+  // Figure out column width of variable types & names
+  int32 max_type_length = 0;
+  int32 max_name_length = 0;
+  for (TFieldIterator<UProperty> property_it(struct_or_class_p, EFieldIteratorFlags::ExcludeSuper); property_it; ++property_it)
+    {
+    UProperty * var_p = *property_it;
+    if (can_export_property(var_p, include_priority))
+      {
+      FString type_name = get_skookum_property_type_name(var_p);
+      FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), true);
+      max_type_length = FMath::Max(max_type_length, type_name.Len());
+      max_name_length = FMath::Max(max_name_length, var_name.Len());
+      }
+    }
+
+  // Format nicely
+  for (TFieldIterator<UProperty> property_it(struct_or_class_p, EFieldIteratorFlags::ExcludeSuper); property_it; ++property_it)
+    {
+    UProperty * var_p = *property_it;
+    FString type_name = get_skookum_property_type_name(var_p);
+    FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), true);
+    if (can_export_property(var_p, include_priority))
+      {
+      FString comment;
+      #if WITH_EDITOR || HACK_HEADER_GENERATOR
+        comment = var_p->GetToolTipText().ToString().Replace(TEXT("\n"), TEXT(" "));
+      #endif
+      data_body += FString::Printf(TEXT("&raw %s !%s // %s%s[%s]\r\n"), *(type_name.RightPad(max_type_length)), *(var_name.RightPad(max_name_length)), *comment, comment.IsEmpty() ? TEXT("") : TEXT(" "), *var_p->GetName());
+      }
+    else
+      {
+      data_body += FString::Printf(TEXT("// &raw %s !%s // Currently unsupported\r\n"), *(type_name.RightPad(max_type_length)), *(var_name.RightPad(max_name_length)));
+      }
+    }
+
+  return data_body;
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptGeneratorBase::generate_class_meta_file(UField * type_p, const FString & class_path, const FString & skookum_class_name)
   {
   const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
-  FString body = class_or_struct_p ? get_comment_block(class_or_struct_p) : (TEXT("// ") + skookum_class_name + TEXT("\n"));
+  FString body = type_p ? generate_class_meta_file_body(type_p) : TEXT("// ") + skookum_class_name + TEXT("\r\n");
   if (!FFileHelper::SaveStringToFile(body, *meta_file_path, ms_script_file_encoding))
     {
     FError::Throwf(TEXT("Could not save file: %s"), *meta_file_path);

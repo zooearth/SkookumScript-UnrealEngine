@@ -1,6 +1,7 @@
-// Copyright (c) 2015 Agog Labs, Inc. All Rights Reserved.
+// Copyright (c) 2014-2016 Agog Labs, Inc. All Rights Reserved.
 
 using System.IO;
+using System.Collections.Generic;
 using UnrealBuildTool;
 
 namespace UnrealBuildTool.Rules
@@ -15,6 +16,7 @@ namespace UnrealBuildTool.Rules
       bFasterWithoutUnity = false;
 
       // Add public include paths required here ...
+      PublicIncludePaths.Add("SkookumScriptRuntime/Public/Bindings");
       //PublicIncludePaths.AddRange(
       //  new string[] {          
       //    //"Programs/UnrealHeaderTool/Public",
@@ -42,54 +44,43 @@ namespace UnrealBuildTool.Rules
       PrivateDependencyModuleNames.AddRange(
         new string[]
           {
-            //"CoreUObject",
-            "InputCore",
-            "SlateCore",
-            "Slate",
-            "MessagingRpc",
-            "PortalRpc",
-            "PortalServices",
-            "EngineMessages",
-            "EngineSettings",
-            //"Engine",
-            "MediaAssets",
-            "MoviePlayer",
-            "Serialization",
-            "HeadMountedDisplay",
-            "AutomationMessages",
-            "MovieScene",
-            "LevelSequence",
-            "GameplayTags",
-            "GameplayTasks",
-            "AIModule",
-            "JsonUtilities",
-            "MovieSceneTracks",
-            "MovieSceneCapture",
-            "SessionMessages",
-            "UMG",
-            "MaterialShaderQualitySettings",
-            "Foliage",
-            "Landscape",
-            "VectorVM",
-            "Niagara",
-            "AnimGraphRuntime",
-            "OnlineSubsystem",
-            "OnlineSubsystemUtils",
-            "WebBrowser",
-            "GameplayAbilities",
-
             "Sockets",
             "HTTP",
             "Networking",
             "NetworkReplayStreaming",
             "Projects",
-            "AgogCore",
-            "SkookumScript",
           }
         );
 
+      // Load SkookumScript.ini and add any ScriptSupportedModules specified to the list of PrivateDependencyModuleNames
+      PrivateDependencyModuleNames.AddRange(GetSkookumScriptModuleNames(Path.Combine(ModuleDirectory, "../.."), false));
+
       // Add any modules that your module loads dynamically here ...
       //DynamicallyLoadedModuleNames.AddRange(new string[] {});
+    }
+
+    // Load SkookumScript.ini and return any ScriptSupportedModules specified
+    public static List<string> GetSkookumScriptModuleNames(string PluginOrProjectRootDirectory, bool AddSkookumScriptRuntime = true)
+    {
+      List<string> moduleList = new List<string>();
+
+      // Load SkookumScript.ini and get ScriptSupportedModules
+      string iniFilePath = Path.Combine(PluginOrProjectRootDirectory, "Config/SkookumScript.ini");
+      if (File.Exists(iniFilePath))
+      {
+        ConfigCacheIni ini = new ConfigCacheIni(new FileReference(iniFilePath));
+        ini.GetArray("CommonSettings", "ScriptSupportedModules", out moduleList);
+      }
+
+      // Add additional modules needed for SkookumScript to function
+      moduleList.Add("AgogCore");
+      moduleList.Add("SkookumScript");
+      if (AddSkookumScriptRuntime)
+      {
+        moduleList.Add("SkookumScriptRuntime");
+      }
+
+      return moduleList;
     }
   }
 }
