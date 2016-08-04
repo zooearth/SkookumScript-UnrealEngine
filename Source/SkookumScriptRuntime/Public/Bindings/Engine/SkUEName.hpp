@@ -1,8 +1,8 @@
 //=======================================================================================
-// SkookumScript C++ library.
+// SkookumScript Plugin for Unreal Engine 4
 // Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
-// SkookumScript 4D vector class
+// SkookumScript Name (= FName) class
 //
 // Author: Markus Breyer
 //=======================================================================================
@@ -13,14 +13,16 @@
 // Includes
 //=======================================================================================
 
-#include "../SkUEClassBinding.hpp"
-#include <UnrealMath.h> // Vector math functions
+#include <SkookumScript/SkClassBinding.hpp>
+#include <NameTypes.h>
 
 //---------------------------------------------------------------------------------------
-// SkookumScript 4D vector class
-class SkVector4 : public SkClassBindingSimpleForceInit<SkVector4, FVector4>
+// SkookumScript Name (= FName) class
+class SKOOKUMSCRIPTRUNTIME_API SkUEName : public SkClassBindingSimple<SkUEName, FName>
   {
   public:
+
+    enum { Binding_has_ctor = false }; // Do not auto-generate constructor since we have a special one taking a String argument
 
     static void       register_bindings();
     static SkClass *  get_class();

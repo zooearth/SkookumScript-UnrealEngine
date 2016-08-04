@@ -14,6 +14,7 @@
 //=======================================================================================
 
 #include <SkookumScript/SkClassBindingBase.hpp>
+#include <SkookumScript/SkString.hpp>
 #include "SkookumScriptBehaviorComponent.h"
 
 //---------------------------------------------------------------------------------------
@@ -22,7 +23,7 @@ class FSkookumScriptRuntimeGenerator;
 
 //---------------------------------------------------------------------------------------
 // Helper class providing useful global variables and static methods
-class SkUEClassBindingHelper
+class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
   {
   public:
 
@@ -211,21 +212,24 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
     // Allocate and initialize a new instance of this SkookumScript type with given sub class
     static SkInstance * new_instance(_UObjectType * obj_p, SkClass * sk_class_p)
       {
-      if (sk_class_p->is_actor_class())
+      if (obj_p)
         {
-        SkInstance * instance_p = SkUEClassBindingHelper::get_actor_component_instance(static_cast<AActor *>(static_cast<UObject *>(obj_p)));
-        if (instance_p)
+        if (sk_class_p->is_actor_class())
           {
+          SkInstance * instance_p = SkUEClassBindingHelper::get_actor_component_instance(static_cast<AActor *>(static_cast<UObject *>(obj_p)));
+          if (instance_p)
+            {
+            instance_p->reference();
+            return instance_p;
+            }
+          }
+        else if (sk_class_p->is_component_class())
+          {
+          USkookumScriptBehaviorComponent * component_p = static_cast<USkookumScriptBehaviorComponent *>(static_cast<UObject *>(obj_p));
+          SkInstance * instance_p = component_p->get_sk_component_instance();
           instance_p->reference();
           return instance_p;
           }
-        }
-      else if (sk_class_p->is_component_class())
-        {
-        USkookumScriptBehaviorComponent * component_p = static_cast<USkookumScriptBehaviorComponent *>(static_cast<UObject *>(obj_p));
-        SkInstance * instance_p = component_p->get_sk_component_instance();
-        instance_p->reference();
-        return instance_p;
         }
 
       // If we get here, there is no SkookumScriptClassDataComponent or SkookumScriptBehaviorComponent, i.e. we must not have data members
@@ -257,10 +261,10 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
   protected:
 
     // Make method bindings known to SkookumScript
-    static void register_bindings(ASymbol class_name)
+    static void register_bindings()
       {
       // Bind basic methods
-      tBindingBase::register_bindings(class_name);
+      tBindingBase::register_bindings();
 
       // Bind raw pointer callback function
       tBindingAbstract::ms_class_p->register_raw_pointer_func(&SkUEClassBindingHelper::get_raw_pointer_entity);
@@ -269,8 +273,10 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
       tBindingAbstract::ms_class_p->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_entity);
       }
 
-    static void register_bindings(const char * class_name_p)  { register_bindings(ASymbol::create_existing(class_name_p)); }
-    static void register_bindings(uint32_t class_name_id)     { register_bindings(ASymbol::create_existing(class_name_id)); }
+    // Convenience methods - initialize Sk class and bind methods
+    static void register_bindings(ASymbol class_name)         { tBindingAbstract::initialize_class(class_name); register_bindings(); }
+    static void register_bindings(const char * class_name_p)  { tBindingAbstract::initialize_class(class_name_p); register_bindings(); }
+    static void register_bindings(uint32_t class_name_id)     { tBindingAbstract::initialize_class(class_name_id); register_bindings(); }
 
   };
 
@@ -324,17 +330,19 @@ class SkUEClassBindingStruct : public SkClassBindingBase<_BindingClass, _DataTyp
   protected:
 
     // Make method bindings known to SkookumScript
-    static void register_bindings(ASymbol class_name)
+    static void register_bindings()
       {
       // Bind basic methods
-      tBindingBase::register_bindings(class_name);
+      tBindingBase::register_bindings();
 
       // Bind raw accessor callback function
       tBindingAbstract::ms_class_p->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_struct<_BindingClass>);
       }
 
-    static void register_bindings(const char * class_name_p)  { register_bindings(ASymbol::create_existing(class_name_p)); }
-    static void register_bindings(uint32_t class_name_id)     { register_bindings(ASymbol::create_existing(class_name_id)); }
+    // Convenience methods - initialize Sk class and bind methods
+    static void register_bindings(ASymbol class_name)        { tBindingAbstract::initialize_class(class_name); register_bindings(); }
+    static void register_bindings(const char * class_name_p) { tBindingAbstract::initialize_class(class_name_p); register_bindings(); }
+    static void register_bindings(uint32_t class_name_id)    { tBindingAbstract::initialize_class(class_name_id); register_bindings(); }
 
   };
 

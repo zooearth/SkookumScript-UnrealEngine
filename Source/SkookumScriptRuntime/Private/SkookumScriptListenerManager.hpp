@@ -13,7 +13,7 @@
 // Includes
 //=======================================================================================
 
-#include "../Classes/SkookumScriptListener.h"
+#include "SkookumScriptListener.h"
 
 //=======================================================================================
 // Global Defines / Macros

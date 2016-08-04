@@ -2,7 +2,7 @@
 // SkookumScript C++ library.
 // Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
-// SkookumScript Euler angles class
+// SkookumScript color class
 //
 // Author: Markus Breyer
 //=======================================================================================
@@ -17,8 +17,8 @@
 #include <UnrealMath.h> // Vector math functions
 
 //---------------------------------------------------------------------------------------
-// SkookumScript Euler angles class
-class SkRotationAngles : public SkClassBindingSimpleForceInit<SkRotationAngles, FRotator>
+// SkookumScript color class
+class SKOOKUMSCRIPTRUNTIME_API SkColor : public SkClassBindingSimpleForceInit<SkColor, FLinearColor>
   {
   public:
 

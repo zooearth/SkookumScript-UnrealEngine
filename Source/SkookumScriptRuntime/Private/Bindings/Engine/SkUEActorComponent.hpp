@@ -1,8 +1,8 @@
 //=======================================================================================
-// SkookumScript C++ library.
+// SkookumScript Plugin for Unreal Engine 4
 // Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
-// SkookumScript 2D vector class
+// Additional bindings for the ActorComponent (= UActorComponent) class 
 //
 // Author: Markus Breyer
 //=======================================================================================
@@ -13,16 +13,17 @@
 // Includes
 //=======================================================================================
 
-#include "../SkUEClassBinding.hpp"
-#include <UnrealMath.h> // Vector math functions
+#include <SkUEGeneratedBindings.generated.hpp>
+
+//=======================================================================================
+// Global Functions
+//=======================================================================================
 
 //---------------------------------------------------------------------------------------
-// SkookumScript 2D vector class
-class SkVector2 : public SkClassBindingSimpleForceInit<SkVector2, FVector2D>
+// Bindings for the Actor (= AActor) class 
+class SkUEActorComponent_Ext : public SkUEActorComponent
   {
   public:
-
-    static void       register_bindings();
-    static SkClass *  get_class();
-
+    static void register_bindings();
   };
+

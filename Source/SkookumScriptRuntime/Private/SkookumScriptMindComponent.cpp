@@ -13,7 +13,7 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
-#include "../Classes/SkookumScriptMindComponent.h"
+#include "SkookumScriptMindComponent.h"
 
 //=======================================================================================
 // Class Data
@@ -95,12 +95,27 @@ void USkookumScriptMindComponent::InitializeComponent()
 
 //---------------------------------------------------------------------------------------
 
+void USkookumScriptMindComponent::BeginPlay()
+  {
+  Super::BeginPlay();
+  SK_ASSERTX(m_mind_instance_p != nullptr, a_str_format("SkookumScriptMindComponent '%S' on actor '%S' has no SkookumScript instance upon BeginPlay. This means its InitializeComponent() method was never called during initialization. Please check your initialization sequence and make sure this component gets properly initialized.", *GetName(), *GetOwner()->GetName()));
+  }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptMindComponent::EndPlay(const EEndPlayReason::Type end_play_reason)
+  {
+  Super::EndPlay(end_play_reason);
+  }
+
+//---------------------------------------------------------------------------------------
+
 void USkookumScriptMindComponent::UninitializeComponent()
   {
-  // Delete SkookumScript instance, but only if we are located inside the game world
-  if (GetOwner()->GetWorld() == SkUEClassBindingHelper::get_world())
+  // Delete SkookumScript instance if present
+  if (m_mind_instance_p)
     {
-    SK_ASSERTX(m_mind_instance_p && SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "Must have instance, and SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
     delete_sk_instance();
     }
 

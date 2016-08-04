@@ -1,10 +1,10 @@
 //=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
+// Copyright (c) 2016 Agog Labs Inc. All rights reserved.
 //
-// SkookumScript Actor Component
+// Component to associate a SkookumScript Mind with a UE4 actor
 // 
-// Author: Conan Reis, Markus Breyer
+// Author: Markus Breyer
 //=======================================================================================
 
 #pragma once
@@ -14,22 +14,20 @@
 //=======================================================================================
 
 #include "Components/ActorComponent.h"
-#include "SkookumScriptComponent.generated.h"
-
+#include "SkookumScriptMindComponent.generated.h"
 
 //=======================================================================================
 // Global Defines / Macros
 //=======================================================================================
-
 
 //=======================================================================================
 // Global Structures
 //=======================================================================================
 
 //---------------------------------------------------------------------------------------
-// DEPRECATED - do not use - use SkookumScriptClassDataComponent instead
-UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent), EarlyAccessPreview)
-class SKOOKUMSCRIPTRUNTIME_API USkookumScriptComponent : public UActorComponent, public AListNode<USkookumScriptComponent>
+// Allows you to instantiate and delete a custom SkookumScript Mind instance along with the actor this component belongs to
+UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent))
+class SKOOKUMSCRIPTRUNTIME_API USkookumScriptMindComponent : public UActorComponent
   {
 
     GENERATED_UCLASS_BODY()
@@ -38,36 +36,34 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptComponent : public UActorComponent,
 
   // Public Data Members
 
-    // SkookumScript class type - used to create appropriate Skookum object instance
-    // Uses class of this actor's Blueprint if left blank.
+    // SkookumScript class type of the Mind instance that this component should spawn.
+    // Cannot be blank.
     UPROPERTY(Category = Script, EditAnywhere, BlueprintReadOnly)
-    FString ScriptClassName;
-
+    FString ScriptMindClassName;
 
   // Methods
 
     // Gets our SkookumScript instance
-    SkInstance * get_sk_instance() const { return m_instance_p; }
-
-    // Begin UActorComponent interface
-
-      virtual void OnRegister() override;
-      virtual void InitializeComponent() override;
-      virtual void BeginPlay() override;
-      virtual void EndPlay(const EEndPlayReason::Type end_play_reason) override;
-      virtual void UninitializeComponent() override;
-      virtual void OnUnregister() override;
+    SkInstance * get_sk_mind_instance() const { return m_mind_instance_p; }
 
   protected:
 
+    // UActorComponent interface
+    virtual void OnRegister() override;
+    virtual void InitializeComponent() override;
+    virtual void BeginPlay() override;
+    virtual void EndPlay(const EEndPlayReason::Type end_play_reason) override;
+    virtual void UninitializeComponent() override;
+    virtual void OnUnregister() override;
+
     // Creates/deletes our SkookumScript instance
-    void create_sk_instance();
-    void delete_sk_instance();
+    void        create_sk_instance();
+    void        delete_sk_instance();
 
-    // Keep the SkookumScript instance belonging to this actor around
-    AIdPtr<SkInstance> m_instance_p;
+    // Keep the SkookumScript instance belonging to this mind around
+    AIdPtr<SkInstance> m_mind_instance_p;
 
-  };  // USkookumScriptComponent
+  };  // USkookumScriptMindComponent
 
 
 //=======================================================================================

@@ -13,16 +13,12 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
-#include "../Classes/SkookumScriptListener.h"
+#include "SkookumScriptListener.h"
 #include "SkookumScriptListenerManager.hpp"
 
 #include "Bindings/VectorMath/SkVector3.hpp"
 #include "Bindings/Engine/SkUEName.hpp"
-#include "SkUEActor.generated.hpp"
-#include "SkUEDamageType.generated.hpp"
-#include "SkUEController.generated.hpp"
-#include "SkUEKey.generated.hpp"
-#include "SkUEPrimitiveComponent.generated.hpp"
+#include <SkUEGeneratedBindings.generated.hpp>
 
 //=======================================================================================
 // FSkookumScriptListenerAutoPtr

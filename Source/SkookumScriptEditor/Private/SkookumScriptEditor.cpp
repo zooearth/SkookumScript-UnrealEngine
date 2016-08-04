@@ -113,8 +113,15 @@ void FSkookumScriptEditor::StartupModule()
     m_on_asset_renamed_handle = asset_registry.Get().OnAssetRenamed().AddRaw(this, &FSkookumScriptEditor::on_asset_renamed);
     m_on_in_memory_asset_created_handle = asset_registry.Get().OnInMemoryAssetCreated().AddRaw(this, &FSkookumScriptEditor::on_in_memory_asset_created);
     m_on_in_memory_asset_deleted_handle = asset_registry.Get().OnInMemoryAssetDeleted().AddRaw(this, &FSkookumScriptEditor::on_in_memory_asset_deleted);
-    }
 
+    // Instrument all already existing blueprints
+    TArray<UObject*> blueprint_array;
+    GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array, false, RF_ClassDefaultObject);
+    for (UObject * obj_p : blueprint_array)
+      {
+      on_new_asset(obj_p);
+      }
+    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -250,7 +257,7 @@ void FSkookumScriptEditor::on_object_modified(UObject * obj_p)
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p)
     {
-    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
+    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
     }
   }
 
@@ -273,7 +280,7 @@ void FSkookumScriptEditor::on_asset_post_import(UFactory * factory_p, UObject * 
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p)
     {
-    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
+    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
     get_runtime()->generate_used_class_script_files();
     }
   }
@@ -333,25 +340,34 @@ void FSkookumScriptEditor::on_map_opened(const FString & file_name, bool as_temp
 
 void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
   {
+  // Bail if there's no GeneratedClass i.e. nothing to do for SkookumScript
+  if (!blueprint_p->GeneratedClass)
+    {
+    return;
+    }
+
   // Re-generate script files for this class as things might have changed
-  get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
+  get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, true);
 
   // Check that there's no dangling default constructor
   bool has_skookum_default_constructor = get_runtime()->has_skookum_default_constructor(blueprint_p->GeneratedClass);
   bool has_skookum_destructor = get_runtime()->has_skookum_destructor(blueprint_p->GeneratedClass);
   if (has_skookum_default_constructor || has_skookum_destructor)
     {
-    // Determine if it has a SkookumScript component
-    bool has_component = false;
-    for (TFieldIterator<UProperty> property_it(blueprint_p->GeneratedClass, EFieldIteratorFlags::IncludeSuper); property_it; ++property_it)
+    // Determine if it has a SkookumScriptClassData component
+    bool has_component = get_runtime()->is_skookum_class_data_component_class(blueprint_p->GeneratedClass); // Component itself?
+    if (!has_component)
       {
-      UObjectPropertyBase * obj_property_p = Cast<UObjectPropertyBase>(*property_it);
-      if (obj_property_p)
+      for (TFieldIterator<UProperty> property_it(blueprint_p->GeneratedClass, EFieldIteratorFlags::IncludeSuper); property_it; ++property_it)
         {
-        if (get_runtime()->is_skookum_component_class(obj_property_p->PropertyClass))
+        UObjectPropertyBase * obj_property_p = Cast<UObjectPropertyBase>(*property_it);
+        if (obj_property_p)
           {
-          has_component = true;
-          break;
+          if (get_runtime()->is_skookum_class_data_component_class(obj_property_p->PropertyClass))
+            {
+            has_component = true;
+            break;
+            }
           }
         }
       }
@@ -395,9 +411,9 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
         FMessageDialog::Open(
           EAppMsgType::Ok,
           FText::Format(FText::FromString(
-          TEXT("The SkookumScript class '{0}' has a default constructor but the blueprint has neither a SkookumScript component nor is the default constructor invoked somewhere in an event graph. ")
-          TEXT("That means the default constructor will never be called. ")
-          TEXT("To fix this issue, either add a SkookumScript component to the Blueprint, or invoke the default constructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
+          TEXT("The SkookumScript class '{0}' has a default constructor but the blueprint has neither a SkookumScriptClassDataComponent nor is the default constructor invoked somewhere in an event graph. ")
+          TEXT("That means, unless it is invoked from C++ code, the default constructor might never be called. ")
+          TEXT("To fix this issue, either add a SkookumScriptClassDataComponent to the Blueprint, or invoke the default constructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
           &title);
         }
       else if (has_skookum_destructor && !has_destructor_node) // `else if` here so we won't show both dialogs, one is enough
@@ -406,9 +422,9 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
         FMessageDialog::Open(
           EAppMsgType::Ok,
           FText::Format(FText::FromString(
-          TEXT("The SkookumScript class '{0}' has a destructor but the blueprint has neither a SkookumScript component nor is the destructor invoked somewhere in an event graph. ")
-          TEXT("That means the destructor will never be called. ")
-          TEXT("To fix this issue, either add a SkookumScript component to the Blueprint, or invoke the destructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
+          TEXT("The SkookumScript class '{0}' has a destructor but the blueprint has neither a SkookumScriptClassDataComponent nor is the destructor invoked somewhere in an event graph. ")
+          TEXT("That means, unless it is invoked from C++ code, the destructor might never be called. ")
+          TEXT("To fix this issue, either add a SkookumScriptClassDataComponent to the Blueprint, or invoke the destructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
           &title);
         }
       }
@@ -425,8 +441,11 @@ void FSkookumScriptEditor::on_new_asset(UObject * obj_p)
     // Register callback so we know when this Blueprint has been compiled
     blueprint_p->OnCompiled().AddRaw(this, &FSkookumScriptEditor::on_blueprint_compiled);
 
-    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true);
-    get_runtime()->generate_used_class_script_files();
+    if (blueprint_p->GeneratedClass)
+      {
+      get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
+      get_runtime()->generate_used_class_script_files();
+      }
     }
   }
 

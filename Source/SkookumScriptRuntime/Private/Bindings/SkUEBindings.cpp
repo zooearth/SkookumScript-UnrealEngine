@@ -13,6 +13,7 @@
 //=======================================================================================
 
 #include "../SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkUEBindings.hpp"
 
 #include "VectorMath/SkVector2.hpp"
@@ -25,6 +26,7 @@
 
 #include "Engine/SkUEName.hpp"
 #include "Engine/SkUEActor.hpp"
+#include "Engine/SkUEActorComponent.hpp"
 #include "Engine/SkUEEntity.hpp"
 #include "Engine/SkUEEntityClass.hpp"
 #include "Engine/SkUESkookumScriptBehaviorComponent.hpp"
@@ -33,34 +35,10 @@
 // Engine-Generated
 //=======================================================================================
 
-// HACK to support UMG module
-#include "MovieScene.h"
-#include "UserWidget.h"
-#include "Widgets/Layout/SScaleBox.h"
+// Massive code file containing thousands of generated bindings
+#include <SkUEGeneratedBindings.generated.inl> 
 
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations" // Generated code will use some deprecated functions - that's ok don't tell me about it
-#endif
-
-#include <SkUE.generated.inl> // Massive code file containing thousands of generated bindings
-
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-
-//=======================================================================================
-// Data
-//=======================================================================================
-
-// HACK - to fix linker error - remove this if it causes trouble
-#if !IS_MONOLITHIC
-  namespace FNavigationSystem
-    {
-    const float FallbackAgentRadius = 35.f;
-    const float FallbackAgentHeight = 144.f;
-    }
-#endif
+static SkUEGeneratedBindings s_generated_bindings;
 
 //=======================================================================================
 // SkUEBindings Methods
@@ -68,18 +46,26 @@
 
 //---------------------------------------------------------------------------------------
 // Registers UE classes, structs and enums
-void SkUEBindings::register_static_types()
+void SkUEBindings::register_static_ue_types(SkUEBindingsInterface * game_generated_bindings_p)
   {
   // Register generated classes
-  SkUE::register_static_types();
+  s_generated_bindings.register_static_ue_types();
+  if (game_generated_bindings_p)
+    {
+    game_generated_bindings_p->register_static_ue_types();
+    }
 
   // Manually register additional classes
-  SkUEClassBindingHelper::register_static_class(SkUESkookumScriptBehaviorComponent::ms_uclass_p = USkookumScriptBehaviorComponent::StaticClass());
+  SkUESkookumScriptBehaviorComponent::ms_uclass_p = USkookumScriptBehaviorComponent::StaticClass();
+  SkUEClassBindingHelper::register_static_class(SkUESkookumScriptBehaviorComponent::ms_uclass_p);
+  #if WITH_EDITOR || HACK_HEADER_GENERATOR
+    SkUESkookumScriptBehaviorComponent::ms_uclass_p->SetMetaData(TEXT("IsBlueprintBase"), TEXT("true")); // So it will get recognized as a component allowing Blueprints to be derived from
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
 // Registers bindings for SkookumScript
-void SkUEBindings::register_all_bindings()
+void SkUEBindings::register_all_bindings(SkUEBindingsInterface * game_generated_bindings_p)
   {
   // Core Overlay
   SkBoolean::get_class()->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_boolean);
@@ -98,13 +84,24 @@ void SkUEBindings::register_all_bindings()
   SkTransform::register_bindings();
   SkColor::register_bindings();
 
-  // Engine-Generated Overlay
-  SkUE::register_bindings();
+  // Engine-Generated/Project-Generated-C++ Overlay
+  // Register static Sk types on both overlays, but register bindings only on one of them
+  s_generated_bindings.register_static_sk_types();
+  if (game_generated_bindings_p)
+    {
+    game_generated_bindings_p->register_static_sk_types();
+    game_generated_bindings_p->register_bindings();
+    }
+  else
+    {
+    s_generated_bindings.register_bindings();
+    }
 
   // Engine Overlay
   SkUEEntity_Ext::register_bindings();
   SkUEEntityClass_Ext::register_bindings();
   SkUEActor_Ext::register_bindings();
+  SkUEActorComponent_Ext::register_bindings();
   SkUESkookumScriptBehaviorComponent::register_bindings();
   SkUEName::register_bindings();
   SkUEName::get_class()->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_struct<SkUEName>);

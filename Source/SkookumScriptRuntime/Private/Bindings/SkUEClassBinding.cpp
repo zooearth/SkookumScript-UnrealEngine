@@ -9,9 +9,8 @@
 
 #include "../SkookumScriptRuntimePrivatePCH.h"
 #include "SkUERuntime.hpp"
-#include "../Classes/SkookumScriptComponent.h"
-#include "../Classes/SkookumScriptClassDataComponent.h"
-#include <SkUEWorld.generated.hpp>
+#include "SkookumScriptComponent.h"
+#include "SkookumScriptClassDataComponent.h"
 #include "Engine/SkUEEntity.hpp"
 #include "VectorMath/SkColor.hpp"
 
@@ -240,7 +239,7 @@ tSkRawDataInfo SkUEClassBindingHelper::compute_raw_data_info(UProperty * ue_var_
   {
   tSkRawDataInfo raw_data_info = (tSkRawDataInfo(ue_var_p->GetOffset_ForInternal()) << Raw_data_info_offset_shift) | (tSkRawDataInfo(ue_var_p->GetSize()) << (Raw_data_info_type_shift + Raw_data_type_size_shift)); // Set raw_data_info to generic value
 
-  FSkookumScriptGeneratorBase::eSkTypeID type_id = FSkookumScriptGeneratorBase::get_skookum_property_type(ue_var_p);
+  FSkookumScriptGeneratorBase::eSkTypeID type_id = FSkookumScriptGeneratorBase::get_skookum_property_type(ue_var_p, true);
   if (type_id == FSkookumScriptGeneratorBase::SkTypeID_Integer)
     {
     // If integer, specify sign bit
