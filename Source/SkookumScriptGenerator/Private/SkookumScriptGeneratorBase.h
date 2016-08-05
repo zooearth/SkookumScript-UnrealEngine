@@ -58,6 +58,7 @@ class FSkookumScriptGeneratorBase
 
     virtual bool          can_export_property(UProperty * property_p, int32 include_priority) = 0;
     virtual void          on_type_referenced(UField * type_p, int32 include_priority) = 0;
+    virtual void          report_error(const FString & message) = 0;
 
     //---------------------------------------------------------------------------------------
     // Methods
@@ -77,6 +78,7 @@ class FSkookumScriptGeneratorBase
     static FString        skookify_class_name(const FString & name);
     static FString        skookify_var_name(const FString & name, bool append_question_mark, bool is_member = false);
     static FString        skookify_method_name(const FString & name, UProperty * return_property_p = nullptr);
+    static bool           is_skookum_reserved_word(const FString & name);
     static FString        get_skookum_class_name(UField * type_p);
     FString               get_skookum_class_path(UField * type_p, int32 include_priority, FString * out_class_name_p = nullptr);
     FString               get_skookum_method_file_name(const FString & script_function_name, bool is_static);

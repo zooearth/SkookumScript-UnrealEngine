@@ -229,6 +229,7 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
 
   virtual bool          can_export_property(UProperty * property_p, int32 include_priority) override final;
   virtual void          on_type_referenced(UField * type_p, int32 include_priority) override final;
+  virtual void          report_error(const FString & message) override final;
 
   };
 
@@ -1616,6 +1617,13 @@ bool FSkookumScriptGenerator::can_export_property(UProperty * property_p, int32 
 void FSkookumScriptGenerator::on_type_referenced(UField * type_p, int32 include_priority)
   {
   request_generate_type(type_p, include_priority);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptGenerator::report_error(const FString & message)
+  {
+  FError::Throwf(TEXT("%s"), *message);
   }
 
 //---------------------------------------------------------------------------------------

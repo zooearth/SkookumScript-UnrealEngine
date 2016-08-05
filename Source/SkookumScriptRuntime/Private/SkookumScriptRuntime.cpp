@@ -159,6 +159,8 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
     UWorld *                m_game_world_p;
     UWorld *                m_editor_world_p;
 
+    uint32                  m_num_game_worlds;
+
     FDelegateHandle         m_on_world_init_pre_handle;
     FDelegateHandle         m_on_world_init_post_handle;
     FDelegateHandle         m_on_world_cleanup_handle;
@@ -424,6 +426,7 @@ FSkookumScriptRuntime::FSkookumScriptRuntime()
 #endif
   , m_game_world_p(nullptr)
   , m_editor_world_p(nullptr)
+  , m_num_game_worlds(0)
   {
   //m_runtime.set_compiled_path("Scripts" SK_BITS_ID "\\");
 
@@ -525,6 +528,9 @@ void FSkookumScriptRuntime::on_world_init_pre(UWorld * world_p, const UWorld::In
 
   if (world_p->IsGameWorld())
     {
+    // Keep track of how many game worlds we got
+    ++m_num_game_worlds;
+
     if (!m_game_world_p)
       {
       m_game_world_p = world_p;
@@ -570,40 +576,40 @@ void FSkookumScriptRuntime::on_world_cleanup(UWorld * world_p, bool session_ende
   {
   //A_DPRINT("on_world_cleanup: %S %p\n", *world_p->GetName(), world_p);
 
-  if (cleanup_resources_b)
+  if (world_p->IsGameWorld())
     {
-    if (world_p->IsGameWorld())
-      {
-      // Set world pointer to null if it was pointing to us
-      if (m_game_world_p == world_p)
-        {
-        m_game_world_p->OnTickDispatch().Remove(m_game_tick_handle);
-        m_game_world_p = nullptr;
-        SkUEClassBindingHelper::set_world(nullptr);
-        }
+    // Keep track of how many game worlds we got
+    --m_num_game_worlds;
 
-      // Restart SkookumScript if initialized
-      if (is_skookum_initialized())
-        {
-        // Simple shutdown
-        //SkookumScript::get_world()->clear_coroutines();
-        A_DPRINT(
-          "SkookumScript resetting session...\n"
-          "  cleaning up...\n");
-        SkookumScript::deinitialize_instances();
-        SkookumScript::deinitialize_session();
-        SkookumScript::initialize_session();
-        A_DPRINT("  ...done!\n\n");
-        }
-      }
-    else if (world_p->WorldType == EWorldType::Editor)
+    // Set world pointer to null if it was pointing to us
+    if (m_game_world_p == world_p)
       {
-      // Set world pointer to null if it was pointing to us
-      if (m_editor_world_p == world_p)
-        {
-        m_editor_world_p->OnTickDispatch().Remove(m_editor_tick_handle);
-        m_editor_world_p = nullptr;
-        }
+      m_game_world_p->OnTickDispatch().Remove(m_game_tick_handle);
+      m_game_world_p = nullptr;
+      SkUEClassBindingHelper::set_world(nullptr);
+      }
+
+    // Restart SkookumScript if initialized
+    if (m_num_game_worlds == 0 && is_skookum_initialized())
+      {
+      // Simple shutdown
+      //SkookumScript::get_world()->clear_coroutines();
+      A_DPRINT(
+        "SkookumScript resetting session...\n"
+        "  cleaning up...\n");
+      SkookumScript::deinitialize_instances();
+      SkookumScript::deinitialize_session();
+      SkookumScript::initialize_session();
+      A_DPRINT("  ...done!\n\n");
+      }
+    }
+  else if (world_p->WorldType == EWorldType::Editor)
+    {
+    // Set world pointer to null if it was pointing to us
+    if (m_editor_world_p == world_p)
+      {
+      m_editor_world_p->OnTickDispatch().Remove(m_editor_tick_handle);
+      m_editor_world_p = nullptr;
       }
     }
   }

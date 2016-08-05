@@ -34,6 +34,7 @@ USkookumScriptClassDataComponent::USkookumScriptClassDataComponent(const FObject
   bTickInEditor = false;
   bAutoActivate = true;
   bWantsInitializeComponent = true;
+  bWantsBeginPlay = true;
   }
 
 //---------------------------------------------------------------------------------------
@@ -122,7 +123,7 @@ void USkookumScriptClassDataComponent::InitializeComponent()
   Super::InitializeComponent();
 
   // Create SkookumScript instance, but only if we are located inside the game world
-  if (GetOwner()->GetWorld() == SkUEClassBindingHelper::get_world())
+  if (GetOwner()->GetWorld()->IsGameWorld())
     {
     SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when InitializeComponent() is invoked.");
     create_sk_instance();

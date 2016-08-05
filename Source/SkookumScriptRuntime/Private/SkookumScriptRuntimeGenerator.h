@@ -65,6 +65,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
 
     virtual bool  can_export_property(UProperty * property_p, int32 include_priority) override final;
     virtual void  on_type_referenced(UField * type_p, int32 include_priority) override final;
+    virtual void  report_error(const FString & message) override final;
 
   protected:
 
