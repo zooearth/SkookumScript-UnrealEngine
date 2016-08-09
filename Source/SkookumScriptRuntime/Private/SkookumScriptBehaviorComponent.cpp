@@ -149,7 +149,7 @@ void USkookumScriptBehaviorComponent::InitializeComponent()
   Super::InitializeComponent();
 
   // Create SkookumScript instance, but only if we are located inside the game world
-  if (GetOwner()->GetWorld() == SkUEClassBindingHelper::get_world())
+  if (GetOwner()->GetWorld()->IsGameWorld())
     {
     if (!m_is_instance_externally_owned)
       {

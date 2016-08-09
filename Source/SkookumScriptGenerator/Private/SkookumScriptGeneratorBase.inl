@@ -176,7 +176,7 @@ void FSkookumScriptGeneratorBase::save_text_file(const FString & file_path, cons
   {
   if (!FFileHelper::SaveStringToFile(contents, *file_path, ms_script_file_encoding))
     {
-    FError::Throwf(TEXT("Could not save file: %s"), *file_path);
+    report_error(FString::Printf(TEXT("Could not save file: %s"), *file_path));
     }
   }
 
@@ -197,7 +197,7 @@ bool FSkookumScriptGeneratorBase::save_text_file_if_changed(const FString & file
     IFileManager::Get().Delete(*temp_file_path, false, true);
     if (!FFileHelper::SaveStringToFile(new_file_contents, *temp_file_path, ms_script_file_encoding))
       {
-      FError::Throwf(TEXT("Failed to save file: '%s'"), *temp_file_path);
+      report_error(FString::Printf(TEXT("Failed to save file: '%s'"), *temp_file_path));
       }
     else
       {
@@ -219,7 +219,7 @@ void FSkookumScriptGeneratorBase::flush_saved_text_files(tSourceControlCheckoutF
     IFileManager::Get().Delete(*file_path, false, true, true); // Delete potentially existing version of the file
     if (!IFileManager::Get().Move(*file_path, *temp_file_path, true, true)) // Move new file into its place
       {
-      FError::Throwf(TEXT("Couldn't write file '%s'"), *file_path);
+      report_error(FString::Printf(TEXT("Couldn't write file '%s'"), *file_path));
       }
     // If source control function provided, make sure file is checked out from source control
     if (checkout_f)
@@ -411,16 +411,9 @@ FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, boo
     }
 
   // Check for reserved keywords and append underscore if found
-  if (!is_member)
+  if (!is_member && is_skookum_reserved_word(skookum_name))
     {
-    for (uint32 i = 0; i < sizeof(ms_reserved_keywords) / sizeof(ms_reserved_keywords[0]); ++i)
-      {
-      if (skookum_name == ms_reserved_keywords[i])
-        {
-        skookum_name.AppendChar('_');
-        break;
-        }
-      }
+    skookum_name.AppendChar('_');
     }
 
   // Check if there's an MD5 checksum appended to the name - if so, chop it off
@@ -458,7 +451,14 @@ FString FSkookumScriptGeneratorBase::skookify_method_name(const FString & name, 
   // Remove K2 (Kismet 2) prefix if present
   if (method_name.Len() > 3 && !method_name.Mid(3, 1).IsNumeric())
     {
-    method_name.RemoveFromStart(TEXT("k2_"), ESearchCase::CaseSensitive);
+    if (method_name.RemoveFromStart(TEXT("k2_"), ESearchCase::CaseSensitive))
+      {
+      // Check if removing the k2_ turned it into a Sk reserved word
+      if (is_skookum_reserved_word(method_name))
+        {
+        method_name.AppendChar('_');
+        }
+      }
     }
 
   if (method_name.Len() > 4 && !method_name.Mid(4, 1).IsNumeric())
@@ -466,7 +466,13 @@ FString FSkookumScriptGeneratorBase::skookify_method_name(const FString & name, 
     // If name starts with "get_", remove it
     if (method_name.RemoveFromStart(TEXT("get_"), ESearchCase::CaseSensitive))
       {
-      // Append question mark
+      // Check if removing the get_ turned it into a Sk reserved word
+      if (is_skookum_reserved_word(method_name))
+        {
+        method_name.AppendChar('_');
+        }
+
+      // Allow question mark
       is_boolean = true;
       }
     // If name starts with "set_", remove it and append "_set" instead
@@ -492,6 +498,18 @@ FString FSkookumScriptGeneratorBase::skookify_method_name(const FString & name, 
     }
 
   return method_name;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptGeneratorBase::is_skookum_reserved_word(const FString & name)
+  {
+  for (uint32 i = 0; i < sizeof(ms_reserved_keywords) / sizeof(ms_reserved_keywords[0]); ++i)
+    {
+    if (name == ms_reserved_keywords[i]) return true;
+    }
+
+  return false;
   }
 
 //---------------------------------------------------------------------------------------
@@ -836,6 +854,6 @@ void FSkookumScriptGeneratorBase::generate_class_meta_file(UField * type_p, cons
   FString body = type_p ? generate_class_meta_file_body(type_p) : TEXT("// ") + skookum_class_name + TEXT("\r\n");
   if (!FFileHelper::SaveStringToFile(body, *meta_file_path, ms_script_file_encoding))
     {
-    FError::Throwf(TEXT("Could not save file: %s"), *meta_file_path);
+    report_error(FString::Printf(TEXT("Could not save file: %s"), *meta_file_path));
     }
   }
