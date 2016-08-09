@@ -281,6 +281,14 @@ void FSkookumScriptRuntimeGenerator::on_type_referenced(UField * type_p, int32 i
 
 //---------------------------------------------------------------------------------------
 
+void FSkookumScriptRuntimeGenerator::report_error(const FString & message)
+  {
+  FText title = FText::FromString(TEXT("Error during SkookumScript script file generation!"));
+  FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(message), &title);
+  }
+
+//---------------------------------------------------------------------------------------
+
 void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_class_p, bool generate_data, bool skip_non_game_classes, bool check_if_reparented)
   {
   check(!m_overlay_path.IsEmpty());
@@ -432,7 +440,7 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UClass * ue_class
         // Now rename old to new
         if (!IFileManager::Get().Move(*this_class_path, *old_class_path, true, true))
           {
-          FError::Throwf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_class_path, *this_class_path);
+          report_error(FString::Printf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_class_path, *this_class_path));
           }
         // Regenerate the meta file to correctly reflect the Blueprint it originated from
         generate_class_script_files(ue_class_p, false, false, false);
