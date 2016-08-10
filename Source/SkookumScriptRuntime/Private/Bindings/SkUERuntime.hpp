@@ -78,6 +78,7 @@ class SkUERuntime : public SkookumRuntimeBase
 
         bool                                   is_initialized() const            { return m_is_initialized; }
         bool                                   is_compiled_scripts_bound() const { return m_is_compiled_scripts_bound; }
+        bool                                   have_game_module() const          { return m_have_game_module; }
 
         SkookumScriptListenerManager *         get_listener_manager()          { return &m_listener_manager; }
         SkUEBlueprintInterface *               get_blueprint_interface()       { return &m_blueprint_interface; }
@@ -91,9 +92,10 @@ class SkUERuntime : public SkookumRuntimeBase
 
     // Data Members
 
-      bool                m_static_ue_types_registered;
+      bool                m_is_static_ue_types_registered;
       bool                m_is_initialized;
       bool                m_is_compiled_scripts_bound; // If on_bind_routines() has been called at least once
+      bool                m_have_game_module; // If set_game_generated_bindings() was called at least once
 
       mutable bool        m_compiled_file_b;
       mutable FString     m_compiled_path;
