@@ -148,7 +148,7 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
           FString proj_ini;
           verify(FFileHelper::LoadFileToString(proj_ini, *editable_project_path));
           proj_ini = proj_ini.Replace(ms_editable_ini_settings_p, TEXT("")); // Remove editable settings
-          proj_ini += TEXT("Overlay7=Project|Project\r\n"); // Create Project overlay definition
+          proj_ini += TEXT("Overlay8=Project|Project\r\n"); // Create Project overlay definition
           verify(FFileHelper::SaveStringToFile(proj_ini, *editable_project_path, FFileHelper::EEncodingOptions::ForceAnsi));
 
           // Remember new project path

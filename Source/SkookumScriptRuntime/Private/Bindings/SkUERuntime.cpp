@@ -97,9 +97,10 @@ namespace
 //---------------------------------------------------------------------------------------
 
 SkUERuntime::SkUERuntime() 
-  : m_static_ue_types_registered(false)
+  : m_is_static_ue_types_registered(false)
   , m_is_initialized(false)
   , m_is_compiled_scripts_bound(false)
+  , m_have_game_module(false)
   , m_compiled_file_b(false)
   , m_listener_manager(256, 256)
   , m_game_generated_bindings_p(nullptr)
@@ -175,10 +176,10 @@ void SkUERuntime::shutdown()
 
 void SkUERuntime::ensure_static_ue_types_registered()
   {
-  if (!m_static_ue_types_registered)
+  if (!m_is_static_ue_types_registered)
     {
     SkUEBindings::register_static_ue_types(m_game_generated_bindings_p);
-    m_static_ue_types_registered = true;
+    m_is_static_ue_types_registered = true;
     }
   }
 
@@ -227,6 +228,8 @@ void SkUERuntime::set_game_generated_bindings(SkUEBindingsInterface * game_gener
 
   if (game_generated_bindings_p)
     {
+    m_have_game_module = true;
+
     // Now that bindings are known, bind the atomics
     bind_compiled_scripts();
     }
@@ -309,6 +312,10 @@ bool SkUERuntime::load_compiled_scripts()
     }
 
   A_DPRINT("  ...done!\n\n");
+
+  // After fresh loading of binaries, there are no bindings
+  m_is_static_ue_types_registered = false;
+  m_is_compiled_scripts_bound = false;
 
   return true;
   }
