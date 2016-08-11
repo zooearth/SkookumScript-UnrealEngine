@@ -98,6 +98,7 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual bool  has_skookum_default_constructor(UClass * class_p) const override;
       virtual bool  has_skookum_destructor(UClass * class_p) const override;
       virtual bool  is_skookum_class_data_component_class(UClass * class_p) const override;
+      virtual bool  is_skookum_behavior_component_class(UClass * class_p) const override;
       virtual bool  is_skookum_blueprint_function(UFunction * function_p) const override;
       virtual bool  is_skookum_blueprint_event(UFunction * function_p) const override;
 
@@ -976,8 +977,15 @@ bool FSkookumScriptRuntime::has_skookum_destructor(UClass * class_p) const
 // 
 bool FSkookumScriptRuntime::is_skookum_class_data_component_class(UClass * class_p) const
   {
-  return class_p == USkookumScriptComponent::StaticClass()
-      || class_p == USkookumScriptClassDataComponent::StaticClass();
+  return class_p->IsChildOf(USkookumScriptComponent::StaticClass())
+      || class_p->IsChildOf(USkookumScriptClassDataComponent::StaticClass());
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+bool FSkookumScriptRuntime::is_skookum_behavior_component_class(UClass * class_p) const
+  {
+  return class_p->IsChildOf(USkookumScriptBehaviorComponent::StaticClass());
   }
 
 //---------------------------------------------------------------------------------------
