@@ -57,6 +57,7 @@ class ISkookumScriptRuntime : public IModuleInterface
       virtual bool  has_skookum_default_constructor(UClass * class_p) const = 0;
       virtual bool  has_skookum_destructor(UClass * class_p) const = 0;
       virtual bool  is_skookum_class_data_component_class(UClass * class_p) const = 0;
+      virtual bool  is_skookum_behavior_component_class(UClass * class_p) const = 0;
       virtual bool  is_skookum_blueprint_function(UFunction * function_p) const = 0;
       virtual bool  is_skookum_blueprint_event(UFunction * function_p) const = 0;
 
