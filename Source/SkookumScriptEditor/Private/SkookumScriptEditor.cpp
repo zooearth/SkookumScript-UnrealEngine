@@ -355,7 +355,7 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
   if (has_skookum_default_constructor || has_skookum_destructor)
     {
     // Determine if it has a SkookumScriptClassData component
-    bool has_component = get_runtime()->is_skookum_class_data_component_class(blueprint_p->GeneratedClass); // Component itself?
+    bool has_component = get_runtime()->is_skookum_behavior_component_class(blueprint_p->GeneratedClass); // Component itself?
     if (!has_component)
       {
       for (TFieldIterator<UProperty> property_it(blueprint_p->GeneratedClass, EFieldIteratorFlags::IncludeSuper); property_it; ++property_it)
