@@ -292,6 +292,7 @@ FString FSkookumScriptGeneratorBase::skookify_class_name(const FString & name)
   {
   if (name == TEXT("Object")) return TEXT("Entity");
   if (name == TEXT("Class"))  return TEXT("EntityClass");
+  if (name == TEXT("Entity")) return TEXT("GameEntity"); // In case someone defined a class named Entity, make sure it does not collide with SkookumScript's native Entity
   if (name == TEXT("Vector")) return TEXT("Vector3"); // These are the same class
   if (name == TEXT("Enum"))   return TEXT("Enum2"); // HACK to avoid collision with Skookum built-in Enum class
 
