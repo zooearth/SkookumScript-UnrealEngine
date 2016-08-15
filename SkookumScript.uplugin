@@ -27,7 +27,7 @@
       "Name": "SkookumScriptRuntime",
       "Type": "Runtime",
       "LoadingPhase": "PreDefault",
-      "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "IOS", "TVOS", "Android" ]
+      "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "IOS", "TVOS" ]
     },
     {
       "Name": "SkookumScriptEditor",
