@@ -139,7 +139,7 @@ class SkUEBlueprintInterface
       tSkValueGetter    m_sk_value_getter_p;
       };
 
-    void                exec_method(FFrame & stack, void * const result_p, SkInstance * this_p);
+    void                exec_method(FFrame & stack, void * const result_p, SkClass * class_scope_p, SkInstance * this_p);
     void                exec_class_method(FFrame & stack, void * const result_p);
     void                exec_instance_method(FFrame & stack, void * const result_p);
     void                exec_coroutine(FFrame & stack, void * const result_p);
