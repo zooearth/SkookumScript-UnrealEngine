@@ -15,7 +15,7 @@
 #include "SkUEEntity.hpp"
 #include "SkUEEntityClass.hpp"
 #include "SkUEName.hpp"
-#include <SkUEGeneratedBindings.generated.hpp>
+#include <SkUEEntityClass.generated.hpp>
 
 //---------------------------------------------------------------------------------------
 

@@ -43,11 +43,12 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptListener : public UObject
 
     struct EventInfo : AListNode<EventInfo>
       {
-      SkInstance *  m_argument_p[8];
+      SkInstance *  m_argument_p[9];
 
       EventInfo **  get_pool_unused_next() { return (EventInfo **)&m_argument_p[0]; } // Area in this class where to store the pointer to the next unused object when not in use
       };
 
+    typedef void (*tRegisterCallback)(UObject *, USkookumScriptListener *);
     typedef void (*tUnregisterCallback)(UObject *, USkookumScriptListener *);
 
   // Public Data Members
@@ -63,25 +64,8 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptListener : public UObject
     EventInfo *         pop_event();
     void                free_event(EventInfo * event_p, bool free_arguments);
 
-    // Various event callback functions
-
-    UFUNCTION()
-    void OnActorOverlap(AActor * overlapped_actor_p, AActor * other_actor_p);
-
-    UFUNCTION()
-    void OnTakeAnyDamage(AActor * damaged_actor_p, float damage, const UDamageType * damage_type_p, AController * instigated_by_p, AActor * damage_causer_p);
-
-    UFUNCTION()
-    void OnTakePointDamage(AActor * damaged_actor_p, float damage, AController * instigated_by_p, FVector hit_location, UPrimitiveComponent * hit_component_p, FName bone_name, FVector shot_from_direction, const UDamageType * damage_type_p, AActor * damage_causer_p);
-
-    UFUNCTION()
-    void OnDestroyed(AActor * destroyed_actor_p);
-
-    UFUNCTION()
-    void OnClicked(AActor * touched_actor, FKey button_pressed);
-
-    UFUNCTION()
-    void OnReleased(AActor * touched_actor, FKey button_released);
+    static bool         coro_on_event_do(SkInvokedCoroutine * scope_p, tUnregisterCallback register_f, tUnregisterCallback unregister_f, bool do_until);
+    static bool         coro_wait_event(SkInvokedCoroutine * scope_p, tUnregisterCallback register_f, tUnregisterCallback unregister_f);
 
   protected:
 
@@ -91,6 +75,8 @@ class SKOOKUMSCRIPTRUNTIME_API USkookumScriptListener : public UObject
 
     static EventInfo *  alloc_event();
     void                push_event_and_resume(EventInfo * event_p, uint32_t num_arguments);
+    static void         add_dynamic_function(FName callback_name, UClass * callback_owner_class_p, Native exec_p);
+    static void         remove_dynamic_function(FName callback_name);
 
   // Internal Data Members
 

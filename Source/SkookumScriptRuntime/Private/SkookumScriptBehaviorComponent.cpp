@@ -17,7 +17,8 @@
 #include "SkookumScriptBehaviorComponent.h"
 
 #include "VectorField/VectorField.h" // HACK to fix broken dependency on UVectorField 
-#include <SkUEGeneratedBindings.generated.hpp>
+
+#include <SkUEEEndPlayReason.generated.hpp>
 
 #include "Bindings/Engine/SkUESkookumScriptBehaviorComponent.hpp"
 

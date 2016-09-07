@@ -13,7 +13,7 @@
 // Includes
 //=======================================================================================
 
-#include <SkUEGeneratedBindings.generated.hpp>
+#include <SkUEEntityClass.generated.hpp>
 
 //=======================================================================================
 // Global Functions
