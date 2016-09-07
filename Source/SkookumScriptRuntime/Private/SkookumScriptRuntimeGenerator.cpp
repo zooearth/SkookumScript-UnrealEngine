@@ -233,7 +233,7 @@ UBlueprint * FSkookumScriptRuntimeGenerator::load_blueprint_asset(const FString 
 
 //---------------------------------------------------------------------------------------
 
-bool FSkookumScriptRuntimeGenerator::can_export_property(UProperty * var_p, int32 include_priority)
+bool FSkookumScriptRuntimeGenerator::can_export_property(UProperty * var_p, int32 include_priority, uint32 referenced_flags)
   {
   if (!is_property_type_supported(var_p))
     {
@@ -256,7 +256,7 @@ bool FSkookumScriptRuntimeGenerator::can_export_property(UProperty * var_p, int3
 
   // Accept all arrays of known types
   UArrayProperty * array_var_p = Cast<UArrayProperty>(var_p);
-  if (array_var_p && (!array_var_p->Inner || !can_export_property(array_var_p->Inner, include_priority + 1)))
+  if (array_var_p && (!array_var_p->Inner || !can_export_property(array_var_p->Inner, include_priority + 1, referenced_flags)))
     {
     return false;
     }
@@ -273,7 +273,7 @@ bool FSkookumScriptRuntimeGenerator::can_export_property(UProperty * var_p, int3
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::on_type_referenced(UField * type_p, int32 include_priority)
+void FSkookumScriptRuntimeGenerator::on_type_referenced(UField * type_p, int32 include_priority, uint32 referenced_flags)
   {
   // In this use case this callback should never be called for anything but structs/classes
   m_used_classes.Add(CastChecked<UStruct>(type_p));
@@ -311,7 +311,7 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_cla
 #endif
     {
     FString class_name;
-    const FString class_path = get_skookum_class_path(ue_class_p, 0, &class_name);
+    const FString class_path = get_skookum_class_path(ue_class_p, 0, 0, &class_name);
 
     // Make sure there is no other folder with the same name around
     if (check_if_reparented)
@@ -346,7 +346,7 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UClass * ue_cla
     // Create raw data member file
     if (generate_data)
       {
-      FString data_body = generate_class_instance_data_file_body(ue_class_p, 0);
+      FString data_body = generate_class_instance_data_file_body(ue_class_p, 0, Referenced_by_game_module);
       FString data_file_path = class_path / TEXT("!Data.sk");
       if (save_text_file_if_changed(*data_file_path, data_body))
         {
@@ -414,7 +414,7 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UClass * ue_class
 #endif
     {
     FString this_class_name;
-    const FString this_class_path = get_skookum_class_path(ue_class_p, 0, &this_class_name);
+    const FString this_class_path = get_skookum_class_path(ue_class_p, 0, 0, &this_class_name);
     // Construct old path form new path
     FString replace_from = new_class_name;
     FString replace_to = skookify_class_name(old_class_name);
@@ -468,7 +468,7 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UClass * ue_class
 void FSkookumScriptRuntimeGenerator::delete_class_script_files(UClass * ue_class_p)
   {
   FString class_name;
-  const FString directory_to_delete = get_skookum_class_path(ue_class_p, 0, &class_name);
+  const FString directory_to_delete = get_skookum_class_path(ue_class_p, 0, 0, &class_name);
   if (FPaths::DirectoryExists(directory_to_delete))
     {
     IFileManager::Get().DeleteDirectory(*directory_to_delete, false, true);

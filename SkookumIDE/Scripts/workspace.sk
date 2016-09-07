@@ -334,6 +334,27 @@ GameLib.actor_array_average_location(Enemy.instances)
 GameLib.all_actors_of_class(@@world TargetPoint.static_class actors)
 actors 
 
+SkookumBPComponent!.attach(Hero.instances_first)
+!c: Hero.instances_first.components_by_class(SkookumBPComponent.static_class){0}<>SkookumBPComponent
+c.@frank := 42
+
+Hero.instances_first.component_by_class(CapsuleComponent.static_class)<>CapsuleComponent._on_component_begin_overlap_do[println("Touch!")]
+Hero.instances_first.@skookum_script_behavior.null?
+Hero.instances_first.@behavior_2.null?
+
+MindDude.spawn_at_player
+
+PlayerBurnComponent.from_tag(FireGodCharacter.instances_first "hgh".Name)
+ThirdPersonCharacter.instances_first._corotest
+BurnComponentBase!.attach(FireGodCharacter.instances_first)
+!c:FireGodCharacter.instances_first.components_by_class(BurnComponentBase.static_class){0}<>BurnComponentBase
+c._burn(3)
+ThirdPersonCharacter.instances_first.test_func
+
+
+Actor.named("TriggerBerzerk")._on_actor_begin_overlap_do[println("Berzerk" other_actor.name.String "!")]
+Actor.named("TriggerBerzerk")._wait_actor_begin_overlap(;!other_actor) println("Found " other_actor.name.String "!")]
+
 
 // This just scratches the surface of what SkookumScript can do!
 // If you have questions, please ask away in our forum at

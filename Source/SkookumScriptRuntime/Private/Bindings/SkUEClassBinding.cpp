@@ -16,6 +16,8 @@
 
 #include "../SkookumScriptRuntimeGenerator.h"
 
+#include <SkUEWorld.generated.hpp>
+
 //---------------------------------------------------------------------------------------
 
 TMap<UClass*, SkClass*>                             SkUEClassBindingHelper::ms_static_class_map_u2s;
@@ -627,6 +629,27 @@ void SkUEClassBindingHelper::reset_static_enum_mappings(uint32_t reserve)
   {
   ms_static_enum_map_u2s.Reset();
   ms_static_enum_map_u2s.Reserve(reserve);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUEClassBindingHelper::add_slack_to_static_class_mappings(uint32_t slack)
+  {
+  ms_static_class_map_u2s.Reserve(ms_static_class_map_u2s.Num() + slack);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUEClassBindingHelper::add_slack_to_static_struct_mappings(uint32_t slack)
+  {
+  ms_static_struct_map_u2s.Reserve(ms_static_struct_map_u2s.Num() + slack);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUEClassBindingHelper::add_slack_to_static_enum_mappings(uint32_t slack)
+  {
+  ms_static_enum_map_u2s.Reserve(ms_static_enum_map_u2s.Num() + slack);
   }
 
 //---------------------------------------------------------------------------------------

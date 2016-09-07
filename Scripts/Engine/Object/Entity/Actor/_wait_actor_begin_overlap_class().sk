@@ -10,7 +10,7 @@
 // See: _on_begin_overlap_do, _on_begin_overlap_do_until
 //---------------------------------------------------------------------------------------
 
-(<Actor> desired_class : Actor; Actor actor)
+(<Actor> desired_class : Actor; Actor other_actor)
   [
-  _on_begin_overlap_do_until(^[actor.class_of?(desired_class)]; actor)
+  _on_actor_begin_overlap_do_until(^[other_actor.class_of?(desired_class)]; other_actor)
   ]

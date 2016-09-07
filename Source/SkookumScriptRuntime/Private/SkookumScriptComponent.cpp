@@ -15,8 +15,8 @@
 #include "SkookumScriptRuntimePrivatePCH.h"
 #include "SkookumScriptComponent.h"
 #include "Bindings/SkUEBindings.hpp"
-#include <SkUEGeneratedBindings.generated.hpp>
 
+#include <SkUEActor.generated.hpp>
 
 //=======================================================================================
 // Class Data

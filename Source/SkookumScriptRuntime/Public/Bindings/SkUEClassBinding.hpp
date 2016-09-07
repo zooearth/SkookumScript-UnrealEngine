@@ -56,6 +56,9 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
     static void           reset_static_class_mappings(uint32_t reserve);
     static void           reset_static_struct_mappings(uint32_t reserve);
     static void           reset_static_enum_mappings(uint32_t reserve);
+    static void           add_slack_to_static_class_mappings(uint32_t slack);
+    static void           add_slack_to_static_struct_mappings(uint32_t slack);
+    static void           add_slack_to_static_enum_mappings(uint32_t slack);
     static void           forget_sk_classes_in_all_mappings();
     static void           register_static_class(UClass * ue_class_p);
     static void           register_static_struct(UStruct * ue_struct_p);
