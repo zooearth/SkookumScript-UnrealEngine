@@ -20,7 +20,7 @@ class FSkookumScriptGeneratorBase
 
     enum eSkTypeID
       {
-      SkTypeID_None = 0,
+      SkTypeID_none = 0,
       SkTypeID_Integer,
       SkTypeID_Real,
       SkTypeID_Boolean,
@@ -40,7 +40,7 @@ class FSkookumScriptGeneratorBase
       SkTypeID_UObjectWeakPtr,
       SkTypeID_List,
 
-      SkTypeID__Count
+      SkTypeID__count
       };
 
     typedef bool (*tSourceControlCheckoutFunc)(const FString & file_path);
@@ -56,8 +56,14 @@ class FSkookumScriptGeneratorBase
     //---------------------------------------------------------------------------------------
     // Interface
 
-    virtual bool          can_export_property(UProperty * property_p, int32 include_priority) = 0;
-    virtual void          on_type_referenced(UField * type_p, int32 include_priority) = 0;
+    enum eReferenced
+      {
+      Referenced_by_game_module   = 1 << 0,
+      Referenced_as_binding_class = 1 << 1,
+      };
+
+    virtual bool          can_export_property(UProperty * property_p, int32 include_priority, uint32 referenced_flags) = 0;
+    virtual void          on_type_referenced(UField * type_p, int32 include_priority, uint32 referenced_flags) = 0;
     virtual void          report_error(const FString & message) = 0;
 
     //---------------------------------------------------------------------------------------
@@ -80,7 +86,8 @@ class FSkookumScriptGeneratorBase
     static FString        skookify_method_name(const FString & name, UProperty * return_property_p = nullptr);
     static bool           is_skookum_reserved_word(const FString & name);
     static FString        get_skookum_class_name(UField * type_p);
-    FString               get_skookum_class_path(UField * type_p, int32 include_priority, FString * out_class_name_p = nullptr);
+    FString               get_skookum_parent_name(UField * type_p, int32 include_priority, uint32 referenced_flags, UStruct ** out_parent_pp = nullptr);
+    FString               get_skookum_class_path(UField * type_p, int32 include_priority, uint32 referenced_flags, FString * out_class_name_p = nullptr);
     FString               get_skookum_method_file_name(const FString & script_function_name, bool is_static);
     static eSkTypeID      get_skookum_struct_type(UStruct * struct_p);
     static eSkTypeID      get_skookum_property_type(UProperty * property_p, bool allow_all);
@@ -89,7 +96,7 @@ class FSkookumScriptGeneratorBase
     static FString        get_comment_block(UField * field_p);
 
     FString               generate_class_meta_file_body(UField * type_p);
-    FString               generate_class_instance_data_file_body(UStruct * class_or_struct_p, int32 include_priority);
+    FString               generate_class_instance_data_file_body(UStruct * class_or_struct_p, int32 include_priority, uint32 referenced_flags);
 
     void                  generate_class_meta_file(UField * type_p, const FString & class_path, const FString & skookum_class_name);
 
@@ -98,7 +105,7 @@ class FSkookumScriptGeneratorBase
 
     static const FFileHelper::EEncodingOptions::Type  ms_script_file_encoding;
 
-    static const FString        ms_sk_type_id_names[SkTypeID__Count]; // Names belonging to the ids above
+    static const FString        ms_sk_type_id_names[SkTypeID__count]; // Names belonging to the ids above
     static const FString        ms_reserved_keywords[]; // = Forbidden variable names
     static const FName          ms_meta_data_key_function_category;
     static const FName          ms_meta_data_key_blueprint_type;

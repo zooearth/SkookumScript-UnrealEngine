@@ -52,8 +52,6 @@
 #include "Bindings/SkUEUtils.hpp"
 #include "Bindings/SkUEClassBinding.hpp"
 
-#include <SkUEGeneratedBindings.generated.hpp>
-
 #if WITH_EDITOR
   #include "UnrealEd.h"
 #endif

@@ -77,7 +77,7 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
 
     mutable ModuleInfo *  m_current_module_p;  // Module that is currently processed by UHT
 
-    void                initialize(const FString & root_directory_path, const FString & default_root_directory_path);
+    void                initialize(const FString & root_directory_path, const GenerationTarget * inherit_from_p = nullptr);
     bool                begin_process_module(const FString & module_name, EBuildModuleType::Type module_type, const FString & module_generated_include_folder) const;
     bool                can_export_class(UClass * class_p) const;
     bool                can_export_struct(UStruct * struct_p) const;
@@ -90,12 +90,31 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
     {
     UField *  m_type_p;
     int32     m_include_priority;
+    uint16    m_referenced_flags; // See enum eReferenced
+    int16     m_generated_type_index; // Once generated, this is the array index of the corresponding generated type
 
     // Note: The "<" operator is deliberately used in reverse so that these structs will be sorted by include_priority in descending order
     bool operator < (const TypeToGenerate & other) const { return m_include_priority > other.m_include_priority; }
     };
 
-  typedef TMap<FString, FString> tSkMethods;
+  // All the data generated for a routine
+  struct GeneratedRoutine
+    {
+    FString   m_name;
+    bool      m_is_class_member;
+    FString   m_body;
+    };
+
+  typedef TArray<GeneratedRoutine> tSkRoutines;
+
+  enum eEventCoro
+    {
+    EventCoro_do,       // _on_x_do()
+    EventCoro_do_until, // _on_x_do_until(;)
+    EventCoro_wait,     // _wait_x(;)
+
+    EventCoro__count
+    };
 
   // All generated files relating to a class, struct or enum
   struct GeneratedType
@@ -124,7 +143,7 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
     FString m_sk_class_data_file_body;    // Sk class data member declarations  
 
     // Sk scripts for this class's methods
-    tSkMethods m_sk_methods;  // Sk method file name -> method body
+    tSkRoutines m_sk_routines;
 
     // For using the TArray::FindByKey function
     bool operator == (UField * type_p) const { return m_type_p == type_p; }
@@ -137,7 +156,7 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
     const ModuleInfo *  m_module_p;
     };
 
-  // To keep track of bindings generated for a particular class
+  // To keep track of method bindings generated for a particular class
   struct MethodBinding
     {
     void make_method(UFunction * function_p); // create names for a method
@@ -145,16 +164,26 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
     bool operator == (const MethodBinding & other) const { return m_script_name == other.m_script_name; }
 
     UFunction * m_function_p;
-    FString     m_script_name;
-    FString     m_code_name;
+    FString     m_script_name;  // Sk name of this method
+    FString     m_code_name;    // C++ digestible version of the above (e.g. `?` replaced with `_Q`)
+    };
+
+  // To keep track of delegate bindings generated for a particular class
+  struct EventBinding
+    {
+    void make_event(UMulticastDelegateProperty * property_p); // create names for an event
+
+    UMulticastDelegateProperty *  m_property_p;
+    FString                       m_script_name_base;  // Sk name base (without the `on_`)
     };
 
   enum eScope { Scope_instance, Scope_class }; // 0 = instance, 1 = static bindings
 
   // Array with instance and class methods for a given class
-  struct MethodBindings
+  struct RoutineBindings
     {
-    TArray<MethodBinding> m_bindings[2]; // Indexed via eScope
+    TArray<MethodBinding>   m_method_bindings[2]; // Indexed via eScope
+    TArray<EventBinding>    m_event_bindings;
     };
 
   //---------------------------------------------------------------------------------------
@@ -172,6 +201,9 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
   TMap<UField *, int32>   m_types_to_generate_lookup; // To quickly determine if we already requested a type to be looked up
   TArray<GeneratedType>   m_types_generated;          // Generated data for the types
 
+  static const TCHAR *  ms_event_coro_fmts_pp[EventCoro__count]; // Format string for transforming the base name to its coroutine name
+  static const TCHAR *  ms_event_coro_impl_fmts_pp[EventCoro__count]; // Format string for transforming the base name to its coroutine name
+
   static const FName    ms_meta_data_key_custom_structure_param;
   static const FName    ms_meta_data_key_array_parm;
   static const FName    ms_meta_data_key_module_relative_path;
@@ -187,11 +219,11 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
 
   void                  generate_all_bindings(eClassScope class_scope);
 
-  void                  generate_class(UStruct * struct_or_class_p, int32 include_priority, eClassScope class_scope); // Generate script and binding files for a class and its methods and properties
-  FString               generate_class_header_file_body(UStruct * struct_or_class_p, const MethodBindings & bindings); // Generate header file body for a class
-  FString               generate_class_binding_file_body(UStruct * struct_or_class_p, const MethodBindings & bindings); // Generate binding code source file for a class or struct
+  int32                 generate_class(UStruct * struct_or_class_p, int32 include_priority, uint32 referenced_flags, eClassScope class_scope); // Generate script and binding files for a class and its methods and properties
+  FString               generate_class_header_file_body(UStruct * struct_or_class_p, const RoutineBindings & bindings); // Generate header file body for a class
+  FString               generate_class_binding_file_body(UStruct * struct_or_class_p, const RoutineBindings & bindings); // Generate binding code source file for a class or struct
 
-  void                  generate_enum(UEnum * enum_p, int32 include_priority, eClassScope class_scope); // Generate files for an enum
+  int32                 generate_enum(UEnum * enum_p, int32 include_priority, uint32 referenced_flags, eClassScope class_scope); // Generate files for an enum
   FString               generate_enum_header_file_body(UEnum * enum_p); // Generate header file body for an enum
   FString               generate_enum_binding_file_body(UEnum * enum_p); // Generate binding code source file for an enum
 
@@ -200,6 +232,11 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
   FString               generate_method_binding_code_body_via_call(const FString & class_name_cpp, UClass * class_p, const MethodBinding & binding); // Generate binding code for a method
   FString               generate_method_binding_code_body_via_event(const FString & class_name_cpp, UClass * class_p, const MethodBinding & binding); // Generate binding code for a method
 
+  FString               generate_event_script_file_body(eEventCoro which, UMulticastDelegateProperty * delegate_property_p, const FString & script_base_name, FString * out_coro_name_p); // Generate script file for an event coroutine
+  FString               generate_event_binding_code(const FString & class_name_cpp, UClass * class_p, const EventBinding & binding); // Generate binding code for a method  
+
+  FString               generate_routine_script_parameters(UFunction * function_p, int32 indent_spaces, FString * out_return_type_name_p, int32 * out_num_inputs_p); // Generate script code for a routine's parameter list (without parentheses)
+
   FString               generate_method_binding_declaration(const FString & function_name, bool is_static); // Generate declaration of method binding function
   FString               generate_this_pointer_initialization(const FString & class_name_cpp, UStruct * struct_or_class_p, bool is_static); // Generate code that obtains the 'this' pointer from scope_p
   FString               generate_method_parameter_assignment(UProperty * param_p, int32 param_index, FString assignee_name);
@@ -207,28 +244,27 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
   FString               generate_property_default_ctor_argument(UProperty * param_p);
 
   FString               generate_return_value_passing(UProperty * return_value_p, const FString & return_value_name); // Generate code that passes back the return value
+  FString               generate_var_to_instance_expression(UProperty * var_p, const FString & var_name); // Generate code that creates an SkInstance from a property
 
   void                  save_generated_cpp_files(eClassScope class_scope);
   bool                  save_generated_script_files(eClassScope class_scope);
 
   bool                  can_export_enum(UEnum * enum_p);
-  bool                  can_export_method(UFunction * function_p, int32 include_priority);
+  bool                  can_export_method(UFunction * function_p, int32 include_priority, uint32 referenced_flags, bool allow_delegate = false);
 
   FString               get_skookum_property_binding_class_name(UProperty * property_p);
   static FString        get_cpp_class_name(UStruct * struct_or_class_p);
-  static FString        get_cpp_property_type_name(UProperty * property_p);
+  static FString        get_cpp_property_type_name(UProperty * property_p, bool is_array_element = false, bool with_const = false, bool with_ref = false);
   static FString        get_cpp_property_cast_name(UProperty * property_p); // Returns the type to be used to cast an assignment before assigning
   FString               get_skookum_default_initializer(UFunction * function_p, UProperty * param_p);
 
-  void                  on_class_property_referenced(UProperty * prop_p, int32 include_priority); // Generate script and binding files for a class from property
-  void                  on_struct_property_referenced(UProperty * prop_p, int32 include_priority); // Generate script and binding files for a struct from property
-  void                  on_enum_property_referenced(UProperty * prop_p, int32 include_priority); // Generate files for an enum
-  void                  request_generate_type(UField * type_p, int32 include_priority);
+  void                  on_property_referenced(UProperty * prop_p, int32 include_priority, uint32 referenced_flags); // Generate script and binding files for a class from property
+  void                  request_generate_type(UField * type_p, int32 include_priority, uint32 referenced_flags);
 
   // FSkookumScriptGeneratorBase interface implementation
 
-  virtual bool          can_export_property(UProperty * property_p, int32 include_priority) override final;
-  virtual void          on_type_referenced(UField * type_p, int32 include_priority) override final;
+  virtual bool          can_export_property(UProperty * property_p, int32 include_priority, uint32 referenced_flags) override final;
+  virtual void          on_type_referenced(UField * type_p, int32 include_priority, uint32 referenced_flags) override final;
   virtual void          report_error(const FString & message) override final;
 
   };
@@ -257,6 +293,9 @@ void FSkookumScriptGenerator::ShutdownModule()
 // IScriptGeneratorPluginInterface implementation
 //=======================================================================================
 
+const TCHAR * FSkookumScriptGenerator::ms_event_coro_fmts_pp[EventCoro__count] = { TEXT("_on_%s_do"), TEXT("_on_%s_do_until"), TEXT("_wait_%s") };
+const TCHAR * FSkookumScriptGenerator::ms_event_coro_impl_fmts_pp[EventCoro__count] = { TEXT("coro_on_event_do(scope_p, %s, false)"), TEXT("coro_on_event_do(scope_p, %s, true)"), TEXT("coro_wait_event(scope_p, %s)") };
+
 const FName FSkookumScriptGenerator::ms_meta_data_key_custom_structure_param(TEXT("CustomStructureParam"));
 const FName FSkookumScriptGenerator::ms_meta_data_key_array_parm(TEXT("ArrayParm"));
 const FName FSkookumScriptGenerator::ms_meta_data_key_module_relative_path(TEXT("ModuleRelativePath"));
@@ -275,8 +314,8 @@ void FSkookumScriptGenerator::Initialize(const FString & root_local_path, const 
   // Set up information about engine and project code generation
   FString root_directory_path_engine = include_base / TEXT("../..");
   FString root_directory_path_project = FPaths::GetPath(FPaths::GetProjectFilePath());
-  m_targets[ClassScope_engine].initialize(root_directory_path_engine, FString());
-  m_targets[ClassScope_project].initialize(root_directory_path_project, root_directory_path_engine);
+  m_targets[ClassScope_engine].initialize(root_directory_path_engine);
+  m_targets[ClassScope_project].initialize(root_directory_path_project, &m_targets[ClassScope_engine]);
 
   // Use some conservative estimates to avoid unnecessary reallocations
   m_types_to_generate.Reserve(3000);
@@ -297,6 +336,13 @@ bool FSkookumScriptGenerator::ShouldExportClassesForModule(const FString & modul
   {
   bool should_export_engine  = m_targets[ClassScope_engine].begin_process_module(module_name, module_type, module_generated_include_folder);
   bool should_export_project = m_targets[ClassScope_project].begin_process_module(module_name, module_type, module_generated_include_folder);
+  if (should_export_project && !should_export_engine && module_type != EBuildModuleType::GameRuntime)
+    {
+    // TODO fix this - should be easy, just didn't get to it
+    // When C++ files are generated, check not only class scope but also in which SkookumScript.ini file it's declared
+    GWarn->Log(ELogVerbosity::Warning, FString::Printf(TEXT("Module '%s' specified in game project SkookumScript.ini file is not a game module. Currently, only game modules are supported. No bindings will be generated for it."), *module_name));
+    should_export_project = false;
+    }
   return should_export_engine || should_export_project;
   }
 
@@ -369,7 +415,7 @@ void FSkookumScriptGenerator::generate_all_bindings(eClassScope class_scope)
     {
     for (UClass * class_p : module_p->m_classes_to_export)
       {
-      request_generate_type(class_p, module_order_bias);
+      request_generate_type(class_p, module_order_bias, module_p->m_scope == ClassScope_project ? Referenced_by_game_module : 0);
       used_packages.Add(class_p->GetOuterUPackage());
       }
     module_order_bias -= module_order_bias_step;
@@ -386,7 +432,7 @@ void FSkookumScriptGenerator::generate_all_bindings(eClassScope class_scope)
       UScriptStruct * struct_p = static_cast<UScriptStruct *>(obj_p);
       if (m_targets[class_scope].can_export_struct(struct_p))
         {
-        request_generate_type(struct_p, 0);
+        request_generate_type(struct_p, 0, 0);
         }
       }
     }
@@ -416,19 +462,23 @@ void FSkookumScriptGenerator::generate_all_bindings(eClassScope class_scope)
   m_types_generated.Empty();
   for (int32 i = 0; i < m_types_to_generate.Num(); ++i)
     {
-    // Pop element from the list
+    // Get next element in list
     const TypeToGenerate & type_to_generate = m_types_to_generate[i];
 
     // Generate structure for it (if not there already)
     UStruct * struct_or_class_p;
+    int32 generated_index;
     if ((struct_or_class_p = Cast<UStruct>(type_to_generate.m_type_p)) != nullptr)
       {
-      generate_class(struct_or_class_p, type_to_generate.m_include_priority, class_scope);
+      generated_index = generate_class(struct_or_class_p, type_to_generate.m_include_priority, type_to_generate.m_referenced_flags, class_scope);
       }
     else
       {
-      generate_enum(CastChecked<UEnum>(type_to_generate.m_type_p), type_to_generate.m_include_priority, class_scope);
+      generated_index = generate_enum(CastChecked<UEnum>(type_to_generate.m_type_p), type_to_generate.m_include_priority, type_to_generate.m_referenced_flags, class_scope);
       }
+
+    // Remember index for later
+    m_types_to_generate[i].m_generated_type_index = (int16)generated_index;
     }
 
   // Now we are saving things out
@@ -443,12 +493,13 @@ void FSkookumScriptGenerator::generate_all_bindings(eClassScope class_scope)
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptGenerator::generate_class(UStruct * struct_or_class_p, int32 include_priority, eClassScope class_scope)
+int32 FSkookumScriptGenerator::generate_class(UStruct * struct_or_class_p, int32 include_priority, uint32 referenced_flags, eClassScope class_scope)
   {
   UE_LOG(LogSkookumScriptGenerator, Log, TEXT("Generating struct/class %s"), *get_skookum_class_name(struct_or_class_p));
 
   // Allocate structure
-  GeneratedType & generated_class = m_types_generated[m_types_generated.Emplace()];
+  int32 generated_index = m_types_generated.Emplace();
+  GeneratedType & generated_class = m_types_generated[generated_index];
 
   FString skookum_class_name = get_skookum_class_name(struct_or_class_p);
   const ModuleInfo * module_p = m_targets[class_scope].get_module(struct_or_class_p);
@@ -470,38 +521,61 @@ void FSkookumScriptGenerator::generate_class(UStruct * struct_or_class_p, int32 
   if (!generated_class.m_is_hierarchy_stub)
     {
     // Generate instance data members
-    generated_class.m_sk_instance_data_file_body = generate_class_instance_data_file_body(struct_or_class_p, include_priority);
+    generated_class.m_sk_instance_data_file_body = generate_class_instance_data_file_body(struct_or_class_p, include_priority, referenced_flags);
 
     // For structs, generate ctor/ctor_copy/op_assign/dtor
     if (!Cast<UClass>(struct_or_class_p))
       {
-      generated_class.m_sk_methods.Add(TEXT("!().sk"),      FString::Printf(TEXT("() %s\r\n"), *skookum_class_name));
-      generated_class.m_sk_methods.Add(TEXT("!copy().sk"),  FString::Printf(TEXT("(%s other) %s\r\n"), *skookum_class_name, *skookum_class_name));
-      generated_class.m_sk_methods.Add(TEXT("assign().sk"), FString::Printf(TEXT("(%s other) %s\r\n"), *skookum_class_name, *skookum_class_name));
-      generated_class.m_sk_methods.Add(TEXT("!!().sk"),     TEXT("()\r\n"));
+      generated_class.m_sk_routines.Add({ TEXT("!"), false, FString::Printf(TEXT("() %s\r\n"), *skookum_class_name) });
+      generated_class.m_sk_routines.Add({ TEXT("!copy"), false, FString::Printf(TEXT("(%s other) %s\r\n"), *skookum_class_name, *skookum_class_name) });
+      generated_class.m_sk_routines.Add({ TEXT("assign"), false, FString::Printf(TEXT("(%s other) %s\r\n"), *skookum_class_name, *skookum_class_name) });
+      generated_class.m_sk_routines.Add({ TEXT("!!"), false, TEXT("()\r\n") });
       }
 
     // Build array of all methods (only for classes)
     // And generate script code
-    MethodBindings bindings;
+    RoutineBindings bindings;
     UClass * class_p = Cast<UClass>(struct_or_class_p);
     if (class_p)
       {
-      MethodBinding binding;
+      MethodBinding method;
       for (TFieldIterator<UFunction> func_it(struct_or_class_p, EFieldIteratorFlags::ExcludeSuper); func_it; ++func_it)
         {
         UFunction * function_p = *func_it;
-        if (can_export_method(function_p, include_priority))
+        if (can_export_method(function_p, include_priority, referenced_flags | (class_scope == generated_class.m_class_scope ? Referenced_as_binding_class : 0)))
           {
-          binding.make_method(function_p);
-          if (bindings.m_bindings[Scope_instance].Find(binding) < 0 && bindings.m_bindings[Scope_class].Find(binding) < 0) // If method with this name already bound, assume it does the same thing and skip
+          method.make_method(function_p);
+          if (bindings.m_method_bindings[Scope_instance].Find(method) < 0 && bindings.m_method_bindings[Scope_class].Find(method) < 0) // If method with this name already bound, assume it does the same thing and skip
             {
-            // Remember bindings for later
+            // Remember binding for later
             bool is_static = function_p->HasAnyFunctionFlags(FUNC_Static);
-            bindings.m_bindings[is_static ? Scope_class : Scope_instance].Push(binding);
+            bindings.m_method_bindings[is_static ? Scope_class : Scope_instance].Push(method);
 
             // Generate script code
-            generated_class.m_sk_methods.Add(get_skookum_method_file_name(binding.m_script_name, is_static), generate_method_script_file_body(function_p, binding.m_script_name));
+            generated_class.m_sk_routines.Add({ method.m_script_name, is_static, generate_method_script_file_body(function_p, method.m_script_name) });
+            }
+          }
+        }
+
+      EventBinding event;
+      for (TFieldIterator<UProperty> property_it(struct_or_class_p, EFieldIteratorFlags::ExcludeSuper); property_it; ++property_it)
+        {
+        UMulticastDelegateProperty * delegate_property_p = Cast<UMulticastDelegateProperty>(*property_it);
+        if (delegate_property_p 
+         && delegate_property_p->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPublic)
+         && !delegate_property_p->HasAnyPropertyFlags(CPF_EditorOnly)
+         && can_export_method(delegate_property_p->SignatureFunction, include_priority, referenced_flags | (class_scope == generated_class.m_class_scope ? Referenced_as_binding_class : 0), true))
+          {
+          // Remember binding for later
+          event.make_event(delegate_property_p);
+          bindings.m_event_bindings.Push(event);
+
+          // Generate script code
+          for (int i = 0; i < EventCoro__count; ++i)
+            {
+            FString coro_name;
+            FString coro_body = generate_event_script_file_body(eEventCoro(i), delegate_property_p, event.m_script_name_base, &coro_name);
+            generated_class.m_sk_routines.Add({ coro_name, false, coro_body });
             }
           }
         }
@@ -514,11 +588,13 @@ void FSkookumScriptGenerator::generate_class(UStruct * struct_or_class_p, int32 
     generated_class.m_cpp_register_static_ue_type = FString::Printf(TEXT("SkUEClassBindingHelper::register_static_%s(SkUE%s::ms_u%s_p = FindObjectChecked<%s>(ANY_PACKAGE, TEXT(\"%s\")));"), class_or_struct_text_p, *skookum_class_name, class_or_struct_text_p, class_p ? TEXT("UClass") : TEXT("UStruct"), *struct_or_class_p->GetName());
     generated_class.m_cpp_register_static_sk_type = FString::Printf(TEXT("SkUEClassBindingHelper::add_static_%s_mapping(SkUE%s::initialize_class(0x%08x), SkUE%s::ms_u%s_p);"), class_or_struct_text_p, *skookum_class_name, get_skookum_symbol_id(*skookum_class_name), *skookum_class_name, class_or_struct_text_p);
     }
+
+  return generated_index;
   }
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGenerator::generate_class_header_file_body(UStruct * struct_or_class_p, const MethodBindings & bindings)
+FString FSkookumScriptGenerator::generate_class_header_file_body(UStruct * struct_or_class_p, const RoutineBindings & bindings)
   {
   FString skookum_class_name = get_skookum_class_name(struct_or_class_p);
   FString cpp_class_name = get_cpp_class_name(struct_or_class_p);
@@ -534,7 +610,7 @@ FString FSkookumScriptGenerator::generate_class_header_file_body(UStruct * struc
 
   header_code += TEXT("  public:\r\n");
   header_code += TEXT("    static SkClass * get_class() { return ms_class_p; }\r\n");
-  if (class_p && bindings.m_bindings[Scope_instance].Num() + bindings.m_bindings[Scope_class].Num() > 0)
+  if (class_p && bindings.m_method_bindings[Scope_instance].Num() + bindings.m_method_bindings[Scope_class].Num() + bindings.m_event_bindings.Num() > 0)
     {
     header_code += TEXT("    static void      register_bindings();\r\n");
     }
@@ -549,7 +625,7 @@ FString FSkookumScriptGenerator::generate_class_header_file_body(UStruct * struc
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGenerator::generate_class_binding_file_body(UStruct * struct_or_class_p, const MethodBindings & bindings)
+FString FSkookumScriptGenerator::generate_class_binding_file_body(UStruct * struct_or_class_p, const RoutineBindings & bindings)
   {
   const FString skookum_class_name = get_skookum_class_name(struct_or_class_p);
   const FString cpp_class_name = get_cpp_class_name(struct_or_class_p);
@@ -557,30 +633,48 @@ FString FSkookumScriptGenerator::generate_class_binding_file_body(UStruct * stru
   FString generated_code;
 
   UClass * class_p = Cast<UClass>(struct_or_class_p);
-  if (class_p && bindings.m_bindings[Scope_instance].Num() + bindings.m_bindings[Scope_class].Num() > 0)
+  if (class_p && bindings.m_method_bindings[Scope_instance].Num() + bindings.m_method_bindings[Scope_class].Num() + bindings.m_event_bindings.Num() > 0)
     {
     generated_code += FString::Printf(TEXT("\r\nnamespace SkUE%s_Impl\r\n  {\r\n\r\n"), *skookum_class_name);
 
     for (uint32 scope = 0; scope < 2; ++scope)
       {
-      for (auto & binding : bindings.m_bindings[scope])
+      for (auto & method : bindings.m_method_bindings[scope])
         {
-        generated_code += generate_method_binding_code(cpp_class_name, class_p, binding);
+        generated_code += generate_method_binding_code(cpp_class_name, class_p, method);
         }
+      }
+
+    for (auto & event : bindings.m_event_bindings)
+      {
+      generated_code += generate_event_binding_code(cpp_class_name, class_p, event);
       }
 
     // Binding array
     for (uint32 scope = 0; scope < 2; ++scope)
       {
-      if (bindings.m_bindings[scope].Num() > 0)
+      if (bindings.m_method_bindings[scope].Num() > 0)
         {
         generated_code += FString::Printf(TEXT("  static const SkClass::MethodInitializerFuncId methods_%c[] =\r\n    {\r\n"), scope ? TCHAR('c') : TCHAR('i'));
-        for (auto & binding : bindings.m_bindings[scope])
+        for (auto & method : bindings.m_method_bindings[scope])
           {
-          generated_code += FString::Printf(TEXT("      { 0x%08x, mthd%s_%s },\r\n"), get_skookum_symbol_id(*binding.m_script_name), scope ? TEXT("c") : TEXT(""), *binding.m_code_name);
+          generated_code += FString::Printf(TEXT("      { 0x%08x, mthd%s_%s },\r\n"), get_skookum_symbol_id(*method.m_script_name), scope ? TEXT("c") : TEXT(""), *method.m_code_name);
           }
         generated_code += TEXT("    };\r\n\r\n");
         }
+      }
+    if (bindings.m_event_bindings.Num() > 0)
+      {
+      generated_code += FString::Printf(TEXT("  static const SkClass::CoroutineInitializerFuncId coroutines_i[] =\r\n    {\r\n"));
+      for (auto & event : bindings.m_event_bindings)
+        {
+        for (int32 i = 0; i < EventCoro__count; ++i)
+          {
+          FString coro_name = FString::Printf(ms_event_coro_fmts_pp[i], *event.m_script_name_base);
+          generated_code += FString::Printf(TEXT("      { 0x%08x, coro%s },\r\n"), get_skookum_symbol_id(*coro_name), *coro_name);
+          }
+        }
+      generated_code += TEXT("    };\r\n\r\n");
       }
 
     // Close namespace
@@ -595,10 +689,14 @@ FString FSkookumScriptGenerator::generate_class_binding_file_body(UStruct * stru
       {
       for (uint32 scope = 0; scope < 2; ++scope)
         {
-        if (bindings.m_bindings[scope].Num() > 0)
+        if (bindings.m_method_bindings[scope].Num() > 0)
           {
-          generated_code += FString::Printf(TEXT("  ms_class_p->register_method_func_bulk(SkUE%s_Impl::methods_%c, %d, %s);\r\n"), *skookum_class_name, scope ? TCHAR('c') : TCHAR('i'), bindings.m_bindings[scope].Num(), scope ? TEXT("SkBindFlag_class_no_rebind") : TEXT("SkBindFlag_instance_no_rebind"));
+          generated_code += FString::Printf(TEXT("  ms_class_p->register_method_func_bulk(SkUE%s_Impl::methods_%c, %d, %s);\r\n"), *skookum_class_name, scope ? TCHAR('c') : TCHAR('i'), bindings.m_method_bindings[scope].Num(), scope ? TEXT("SkBindFlag_class_no_rebind") : TEXT("SkBindFlag_instance_no_rebind"));
           }
+        }
+      if (bindings.m_event_bindings.Num() > 0)
+        {
+        generated_code += FString::Printf(TEXT("  ms_class_p->register_coroutine_func_bulk(SkUE%s_Impl::coroutines_i, %d, %s);\r\n"), *skookum_class_name, 3 * bindings.m_event_bindings.Num(), TEXT("eSkBindFlag(SkBindFlag_instance_no_rebind | SkBindFlag__arg_user_data)"));
         }
       }
 
@@ -610,10 +708,11 @@ FString FSkookumScriptGenerator::generate_class_binding_file_body(UStruct * stru
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptGenerator::generate_enum(UEnum * enum_p, int32 include_priority, eClassScope class_scope)
+int32 FSkookumScriptGenerator::generate_enum(UEnum * enum_p, int32 include_priority, uint32 referenced_flags, eClassScope class_scope)
   {
   // Allocate structure
-  GeneratedType & generated_enum = m_types_generated[m_types_generated.Emplace()];
+  int32 generated_index = m_types_generated.Emplace();
+  GeneratedType & generated_enum = m_types_generated[generated_index];
 
   FString enum_type_name = get_skookum_class_name(enum_p);
   const ModuleInfo * module_p = m_targets[class_scope].get_module(enum_p);
@@ -658,7 +757,7 @@ void FSkookumScriptGenerator::generate_enum(UEnum * enum_p, int32 include_priori
       }
     constructor_body += TEXT("  ]\r\n");
     generated_enum.m_sk_class_data_file_body = data_body;
-    generated_enum.m_sk_methods.Add(TEXT("!()C.sk"), constructor_body);
+    generated_enum.m_sk_routines.Add({ TEXT("!"), true, constructor_body });
 
     // Generate binding code files
     generated_enum.m_cpp_header_file_body         = generate_enum_header_file_body(enum_p);
@@ -666,6 +765,8 @@ void FSkookumScriptGenerator::generate_enum(UEnum * enum_p, int32 include_priori
     generated_enum.m_cpp_register_static_ue_type  = FString::Printf(TEXT("SkUEClassBindingHelper::register_static_enum(SkUE%s::ms_uenum_p = FindObjectChecked<UEnum>(ANY_PACKAGE, TEXT(\"%s\")));"), *enum_type_name, *enum_p->GetName());
     generated_enum.m_cpp_register_static_sk_type  = FString::Printf(TEXT("SkUEClassBindingHelper::add_static_enum_mapping(SkUE%s::ms_class_p = SkBrain::get_class(ASymbol::create_existing(0x%08x)), SkUE%s::ms_uenum_p);"), *enum_type_name, get_skookum_symbol_id(*enum_type_name), *enum_type_name);
     }
+
+  return generated_index;
   }
 
 //---------------------------------------------------------------------------------------
@@ -697,72 +798,22 @@ FString FSkookumScriptGenerator::generate_enum_binding_file_body(UEnum * enum_p)
 
 FString FSkookumScriptGenerator::generate_method_script_file_body(UFunction * function_p, const FString & script_function_name)
   {
-  // Generate function content
-  FString function_body = get_comment_block(function_p);
+  // Generate method content
+  FString method_body = get_comment_block(function_p);
 
-  bool has_params_or_return_value = (function_p->Children != NULL);
-  if (has_params_or_return_value)
+  // Generate parameter list
+  FString return_type_name;
+  int32 num_inputs;
+  method_body += TEXT("(") + generate_routine_script_parameters(function_p, 1, &return_type_name, &num_inputs);
+
+  // Place return type on new line if present and more than one parameter
+  if (num_inputs > 1 && !return_type_name.IsEmpty())
     {
-    function_body += TEXT("(");
-
-    // Figure out column width of variable types & names
-    int32 max_type_length = 0;
-    int32 max_name_length = 0;
-    int32 param_count = 0;
-    for (TFieldIterator<UProperty> param_it(function_p); param_it; ++param_it)
-      {
-      UProperty * param_p = *param_it;
-      if (!(param_p->GetPropertyFlags() & CPF_ReturnParm))
-        {
-        FString type_name = get_skookum_property_type_name(param_p);
-        FString var_name = skookify_var_name(param_p->GetName(), param_p->IsA(UBoolProperty::StaticClass()));
-        max_type_length = FMath::Max(max_type_length, type_name.Len());
-        max_name_length = FMath::Max(max_name_length, var_name.Len());
-        ++param_count;
-        }
-      }
-
-    // Format nicely
-    FString separator;
-    FString return_type_name;
-    for (TFieldIterator<UProperty> param_it(function_p); param_it; ++param_it)
-      {
-      UProperty * param_p = *param_it;
-      if (param_p->GetPropertyFlags() & CPF_ReturnParm)
-        {
-        return_type_name = get_skookum_property_type_name(param_p);
-        }
-      else
-        {
-        FString type_name = get_skookum_property_type_name(param_p);
-        FString var_name = skookify_var_name(param_p->GetName(), param_p->IsA(UBoolProperty::StaticClass()));
-        FString default_initializer = get_skookum_default_initializer(function_p, param_p);
-        function_body += separator + type_name.RightPad(max_type_length) + TEXT(" ");
-        if (default_initializer.IsEmpty())
-          {
-          function_body += var_name;
-          }
-        else
-          {
-          function_body += var_name.RightPad(max_name_length) + get_skookum_default_initializer(function_p, param_p);
-          }
-        }
-      separator = TEXT("\n ");
-      }
-
-    // Place return type on new line if present and more than one parameter
-    if (param_count > 1 && !return_type_name.IsEmpty())
-      {
-      function_body += TEXT("\n");
-      }
-    function_body += TEXT(") ") + return_type_name + TEXT("\n");
+    method_body += TEXT("\n");
     }
-  else
-    {
-    function_body = TEXT("()\n");
-    }
+  method_body += TEXT(") ") + return_type_name + TEXT("\n");
 
-  return function_body;
+  return method_body;
   }
 
 //---------------------------------------------------------------------------------------
@@ -995,6 +1046,261 @@ FString FSkookumScriptGenerator::generate_method_binding_code_body_via_event(con
 
 //---------------------------------------------------------------------------------------
 
+FString FSkookumScriptGenerator::generate_event_script_file_body(eEventCoro which, UMulticastDelegateProperty * delegate_property_p, const FString & script_base_name, FString * out_coro_name_p)
+  {
+  // Determine name
+  *out_coro_name_p = FString::Printf(ms_event_coro_fmts_pp[which], *script_base_name);
+
+  // Determine comment
+  static TCHAR const * const s_comment_formats_pp[EventCoro__count] =
+    {
+    TEXT(
+      "//---------------------------------------------------------------------------------------\n"
+      "// Whenever a `%s` event occurs on this `%s`, run `code` on it.\n"
+      "// This coroutine never finishes by itself and can only be terminated externally.\n"
+      "//---------------------------------------------------------------------------------------\n"
+      "//\n"),
+    TEXT(
+      "//---------------------------------------------------------------------------------------\n"
+      "// Whenever a `%s` event occurs on this `%s`, run `code` on it.\n"
+      "// If `code` returns `false`, continue waiting for next event,\n"
+      "// otherwise, exit and return the event parameters\n"
+      "//---------------------------------------------------------------------------------------\n"
+      "//\n"),
+    TEXT(
+      "//---------------------------------------------------------------------------------------\n"
+      "// Wait for a `%s` event to occur on this `%s`.\n"
+      "//\n"
+      "// IMPORTANT: Do not use this coroutine if several of the events can potentially\n"
+      "// occur within the same frame, as only the first one will be seen!\n"
+      "// In that case use `_on_%s_do` or `_on_%s_do_until` instead.\n"
+      "//---------------------------------------------------------------------------------------\n"
+      "//\n")
+    };
+
+  // Generate coroutine content
+  FString coro_body = FString::Printf(s_comment_formats_pp[which], *delegate_property_p->GetName(), *delegate_property_p->GetOwnerClass()->GetName(), *script_base_name, *script_base_name);
+  coro_body += get_comment_block(delegate_property_p);
+
+  // Generate parameter list
+  int32 num_inputs;
+  // 1) The closure
+  coro_body += TEXT("(");
+  if (which != EventCoro_wait)
+    {
+    coro_body += TEXT("(") + generate_routine_script_parameters(delegate_property_p->SignatureFunction, 2, nullptr, &num_inputs);
+    if (num_inputs > 1) coro_body += TEXT("\n ");
+    coro_body += TEXT(") ");
+    if (which == EventCoro_do_until) coro_body += TEXT("Boolean ");
+    coro_body += TEXT("code");
+    }
+  if (delegate_property_p->SignatureFunction->NumParms) coro_body += TEXT(";");
+  coro_body += TEXT("\n");
+  // 2) The outputs
+  coro_body += TEXT(" ") + generate_routine_script_parameters(delegate_property_p->SignatureFunction, 1, nullptr, &num_inputs);
+  coro_body += TEXT(")\n");
+
+  return coro_body;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGenerator::generate_event_binding_code(const FString & class_name_cpp, UClass * class_p, const EventBinding & binding)
+  {
+  FString generated_code;
+
+  // 1) Create subclass of USkookumScriptListener that implements the event callback and event install/uninstall functions
+  
+  generated_code += FString::Printf(TEXT(
+    "  class USkookumScriptListener_%s : public USkookumScriptListener\r\n"
+    "    {\r\n"
+    "    public:\r\n"), *binding.m_property_p->GetName());
+  
+  // The callback function
+  generated_code += FString::Printf(TEXT("      void %s("), *binding.m_property_p->GetName());
+  const TCHAR * separator_p = TEXT("");
+  for (TFieldIterator<UProperty> param_it(binding.m_property_p->SignatureFunction); param_it; ++param_it)
+    {
+    UProperty * param_p = *param_it;
+    generated_code += FString::Printf(TEXT("%s%s %s"), separator_p, *get_cpp_property_type_name(param_p, false, true, true), *param_p->GetName());
+    separator_p = TEXT(", ");
+    }
+  generated_code += TEXT(
+    ")\r\n"
+    "        {\r\n"
+    "        EventInfo * event_p = alloc_event();\r\n");
+  int32 param_index = 0;
+  if (binding.m_property_p->SignatureFunction->Children)
+    {
+    for (TFieldIterator<UProperty> param_it(binding.m_property_p->SignatureFunction); param_it; ++param_it)
+      {
+      UProperty * param_p = *param_it;
+      FString argument = param_p->HasAnyPropertyFlags(CPF_ConstParm) ? FString::Printf(TEXT("const_cast<%s>(%s)"), *get_cpp_property_type_name(param_p, false, false, true), *param_p->GetName()) : param_p->GetName();
+      generated_code += FString::Printf(TEXT("        event_p->m_argument_p[SkArg_%d] = %s;\r\n"), ++param_index, *generate_var_to_instance_expression(param_p, argument));
+      }
+    generated_code += FString::Printf(TEXT("        static_assert(sizeof(event_p->m_argument_p) >= %d * sizeof(event_p->m_argument_p[0]), \"Event arguments must fit in the array!\");\r\n"), param_index);
+    }
+  generated_code += FString::Printf(TEXT("        push_event_and_resume(event_p, %d);\r\n"), param_index);
+  generated_code += TEXT(
+    "        }\r\n");
+
+  // The "Thunk" (glue code between Blueprint scripting engine and the callback function)
+  generated_code += FString::Printf(TEXT("      DECLARE_FUNCTION(exec%s)\r\n"), *binding.m_property_p->GetName());
+  generated_code += TEXT("        {\r\n");
+  FString param_list; // For invoking the actual callback function
+  separator_p = TEXT("");
+  for (TFieldIterator<UProperty> param_it(binding.m_property_p->SignatureFunction); param_it; ++param_it)
+    {
+    UProperty * param_p = *param_it;
+    FString eval_base_text = TEXT("P_GET_");
+    FString type_text;
+    if (param_p->ArrayDim > 1)
+      {
+      eval_base_text += TEXT("ARRAY");
+      type_text = param_p->GetCPPType();
+      }
+    else
+      {
+      eval_base_text += param_p->GetCPPMacroType(type_text);
+      }
+    if (!type_text.IsEmpty()) type_text += TEXT(", ");
+    FString param_name = TEXT("Z_Param_") + param_p->GetName();
+    FString eval_parameter_text = FString::Printf(TEXT("(%s%s)"), *type_text, *param_name);
+    generated_code += FString::Printf(TEXT("        %s%s;\r\n"), *eval_base_text, *eval_parameter_text);
+    UByteProperty * byte_property_p = Cast<UByteProperty>(param_p);
+    if (byte_property_p && byte_property_p->Enum)
+      {
+      if (byte_property_p->Enum->GetCppForm() == UEnum::ECppForm::EnumClass)
+        {
+        param_name = FString::Printf(TEXT("(%s&)(%s)"), *byte_property_p->Enum->CppType, *param_name);
+        }
+      else
+        {
+        param_name = FString::Printf(TEXT("(TEnumAsByte<%s>&)(%s)"), *byte_property_p->Enum->CppType, *param_name);
+        }
+      }
+    param_list += separator_p + param_name;
+    separator_p = TEXT(", ");
+    }
+  generated_code += TEXT("        P_FINISH;\r\n");
+  generated_code += FString::Printf(TEXT("        this->%s(%s);\r\n"), *binding.m_property_p->GetName(), *param_list);
+  generated_code += TEXT("        }\r\n");
+
+  // The install callback
+  generated_code += FString::Printf(TEXT(
+    "      static void install(UObject * obj_p, USkookumScriptListener * listener_p)\r\n"
+    "        {\r\n"
+    "        add_dynamic_function(ms_name, obj_p->GetClass(), (Native)&USkookumScriptListener_%s::exec%s);\r\n"
+    "        static_cast<%s *>(obj_p)->%s.AddDynamic(static_cast<USkookumScriptListener_%s *>(listener_p), &USkookumScriptListener_%s::%s);\r\n"
+    "        }\r\n"),
+    *binding.m_property_p->GetName(),
+    *binding.m_property_p->GetName(),
+    *get_cpp_class_name(binding.m_property_p->GetOwnerClass()),
+    *binding.m_property_p->GetName(),
+    *binding.m_property_p->GetName(),
+    *binding.m_property_p->GetName(),
+    *binding.m_property_p->GetName());
+  
+  // The remove callback
+  generated_code += FString::Printf(TEXT(
+    "      static void uninstall(UObject * obj_p, USkookumScriptListener * listener_p)\r\n"
+    "        {\r\n"
+    "        static_cast<%s *>(obj_p)->%s.RemoveDynamic(static_cast<USkookumScriptListener_%s *>(listener_p), &USkookumScriptListener_%s::%s);\r\n"
+    "        }\r\n"),
+    *get_cpp_class_name(binding.m_property_p->GetOwnerClass()), 
+    *binding.m_property_p->GetName(), 
+    *binding.m_property_p->GetName(), 
+    *binding.m_property_p->GetName(), 
+    *binding.m_property_p->GetName());
+
+  // The name
+  generated_code += TEXT("    static FName ms_name;\r\n");
+  generated_code += TEXT("    };\r\n");
+  generated_code += FString::Printf(TEXT("  FName USkookumScriptListener_%s::ms_name(TEXT(\"%s\"));\r\n\r\n"), *binding.m_property_p->GetName(), *binding.m_property_p->GetName());
+
+  // 2) Create coroutine implementations
+  FString install_args = FString::Printf(TEXT("&USkookumScriptListener_%s::install, &USkookumScriptListener_%s::uninstall"), *binding.m_property_p->GetName(), *binding.m_property_p->GetName());
+  for (int32 i = 0; i < EventCoro__count; ++i)
+    {
+    generated_code += FString::Printf(TEXT(
+      "  static bool coro%s(SkInvokedCoroutine * scope_p)\r\n"
+      "    {\r\n"
+      "    return USkookumScriptListener::%s;\r\n"
+      "    }\r\n"), 
+      *FString::Printf(ms_event_coro_fmts_pp[i], *binding.m_script_name_base),
+      *FString::Printf(ms_event_coro_impl_fmts_pp[i], *install_args)
+      );
+    }
+
+  generated_code += TEXT("\r\n");
+
+  return generated_code;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGenerator::generate_routine_script_parameters(UFunction * function_p, int32 indent_spaces, FString * out_return_type_name_p, int32 * out_num_inputs_p)
+  {
+  if (out_return_type_name_p) out_return_type_name_p->Empty();
+  if (out_num_inputs_p) *out_num_inputs_p = 0;
+
+  FString parameter_body;
+  FString separator_indent = TEXT("\n") + FString::ChrN(indent_spaces, ' ');
+
+  bool has_params_or_return_value = (function_p->Children != NULL);
+  if (has_params_or_return_value)
+    {
+    // Figure out column width of variable types & names
+    int32 max_type_length = 0;
+    int32 max_name_length = 0;
+    int32 inputs_count = 0;
+    for (TFieldIterator<UProperty> param_it(function_p); param_it; ++param_it)
+      {
+      UProperty * param_p = *param_it;
+      if (!(param_p->GetPropertyFlags() & CPF_ReturnParm))
+        {
+        FString type_name = get_skookum_property_type_name(param_p);
+        FString var_name = skookify_var_name(param_p->GetName(), param_p->IsA(UBoolProperty::StaticClass()));
+        max_type_length = FMath::Max(max_type_length, type_name.Len());
+        max_name_length = FMath::Max(max_name_length, var_name.Len());
+        ++inputs_count;
+        }
+      }
+    if (out_num_inputs_p) *out_num_inputs_p = inputs_count;
+
+    // Format nicely
+    FString separator;
+    for (TFieldIterator<UProperty> param_it(function_p); param_it; ++param_it)
+      {
+      UProperty * param_p = *param_it;
+      if (param_p->GetPropertyFlags() & CPF_ReturnParm)
+        {
+        if (out_return_type_name_p) *out_return_type_name_p = get_skookum_property_type_name(param_p);
+        }
+      else
+        {
+        FString type_name = get_skookum_property_type_name(param_p);
+        FString var_name = skookify_var_name(param_p->GetName(), param_p->IsA(UBoolProperty::StaticClass()));
+        FString default_initializer = get_skookum_default_initializer(function_p, param_p);
+        parameter_body += separator + type_name.RightPad(max_type_length) + TEXT(" ");
+        if (default_initializer.IsEmpty())
+          {
+          parameter_body += var_name;
+          }
+        else
+          {
+          parameter_body += var_name.RightPad(max_name_length) + get_skookum_default_initializer(function_p, param_p);
+          }
+        }
+      separator = separator_indent;
+      }
+    }
+
+  return parameter_body;
+  }
+
+//---------------------------------------------------------------------------------------
+
 FString FSkookumScriptGenerator::generate_method_binding_declaration(const FString & function_name, bool is_static)
   {
   return FString::Printf(TEXT("static void mthd%s_%s(SkInvokedMethod * scope_p, SkInstance ** result_pp)"), is_static ? TEXT("c") : TEXT(""), *function_name);
@@ -1048,7 +1354,7 @@ FString FSkookumScriptGenerator::generate_method_out_parameter_expression(UFunct
       UProperty * element_property_p = array_property_p->Inner;
       fmt = FString::Printf(TEXT("SkUEClassBindingHelper::initialize_list_from_array<%s,%s>(&scope_p->get_arg<SkList>(SkArg_%%d), %%s)"),
         *get_skookum_property_binding_class_name(element_property_p),
-        *get_cpp_property_type_name(element_property_p));
+        *get_cpp_property_type_name(element_property_p, true));
       }
       break;
     default:  FError::Throwf(TEXT("Unsupported return param type: %s"), *param_p->GetClass()->GetName()); break;
@@ -1102,7 +1408,7 @@ FString FSkookumScriptGenerator::generate_method_parameter_assignment(UProperty 
         UProperty * element_property_p = array_property_p->Inner;
         generated_code = FString::Printf(TEXT("SkUEClassBindingHelper::initialize_array_from_list<%s,%s,%s>(&%s, scope_p->get_arg<SkList>(SkArg_%d));"),
           *get_skookum_property_binding_class_name(element_property_p),
-          *get_cpp_property_type_name(element_property_p),
+          *get_cpp_property_type_name(element_property_p, true),
           *get_cpp_property_cast_name(element_property_p),
           *assignee_name,
           param_index + 1);
@@ -1156,47 +1462,53 @@ FString FSkookumScriptGenerator::generate_return_value_passing(UProperty * retur
   {
   if (return_value_p)
     {
-    FString fmt;
-
-    eSkTypeID type_id = get_skookum_property_type(return_value_p, true);
-    switch (type_id)
-      {
-      case SkTypeID_Integer:
-      case SkTypeID_Real:
-      case SkTypeID_Boolean:
-      case SkTypeID_Vector2:
-      case SkTypeID_Vector3:
-      case SkTypeID_Vector4:
-      case SkTypeID_Rotation:
-      case SkTypeID_RotationAngles:
-      case SkTypeID_Transform:
-      case SkTypeID_Color:
-      case SkTypeID_Name:
-      case SkTypeID_Enum:
-      case SkTypeID_UStruct:
-      case SkTypeID_UClass:
-      case SkTypeID_UObject:
-      case SkTypeID_UObjectWeakPtr:  fmt = FString::Printf(TEXT("%s::new_instance(%%s)"), *get_skookum_property_binding_class_name(return_value_p)); break;
-      case SkTypeID_String:          fmt = TEXT("SkString::new_instance(AString(*(%s), %s.Len()))"); break; // $revisit MBreyer - Avoid copy here
-      case SkTypeID_List:
-        {
-        const UArrayProperty * array_property_p = Cast<UArrayProperty>(return_value_p);
-        UProperty * element_property_p = array_property_p->Inner;
-        fmt = FString::Printf(TEXT("SkUEClassBindingHelper::list_from_array<%s,%s>(%%s)"),
-          *get_skookum_property_binding_class_name(element_property_p),
-          *get_cpp_property_type_name(element_property_p));
-        }
-        break;
-      default:  FError::Throwf(TEXT("Unsupported return param type: %s"), *return_value_p->GetClass()->GetName()); break;
-      }
-
-    FString initializer = FString::Printf(*fmt, *return_value_name, *return_value_name);
-    return FString::Printf(TEXT("if (result_pp) *result_pp = %s;"), *initializer);
+    return FString::Printf(TEXT("if (result_pp) *result_pp = %s;"), *generate_var_to_instance_expression(return_value_p, return_value_name));
     }
   else
     {
     return TEXT(""); // TEXT("if (result_pp) *result_pp = SkBrain::ms_nil_p;");
     }
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGenerator::generate_var_to_instance_expression(UProperty * var_p, const FString & var_name)
+  {
+  FString fmt;
+
+  eSkTypeID type_id = get_skookum_property_type(var_p, true);
+  switch (type_id)
+    {
+    case SkTypeID_Integer:
+    case SkTypeID_Real:
+    case SkTypeID_Boolean:
+    case SkTypeID_Vector2:
+    case SkTypeID_Vector3:
+    case SkTypeID_Vector4:
+    case SkTypeID_Rotation:
+    case SkTypeID_RotationAngles:
+    case SkTypeID_Transform:
+    case SkTypeID_Color:
+    case SkTypeID_Name:
+    case SkTypeID_Enum:
+    case SkTypeID_UStruct:
+    case SkTypeID_UClass:
+    case SkTypeID_UObject:
+    case SkTypeID_UObjectWeakPtr:  fmt = FString::Printf(TEXT("%s::new_instance(%%s)"), *get_skookum_property_binding_class_name(var_p)); break;
+    case SkTypeID_String:          fmt = TEXT("SkString::new_instance(AString(*(%s), %s.Len()))"); break; // $revisit MBreyer - Avoid copy here
+    case SkTypeID_List:
+    {
+    const UArrayProperty * array_property_p = Cast<UArrayProperty>(var_p);
+    UProperty * element_property_p = array_property_p->Inner;
+    fmt = FString::Printf(TEXT("SkUEClassBindingHelper::list_from_array<%s,%s>(%%s)"),
+      *get_skookum_property_binding_class_name(element_property_p),
+      *get_cpp_property_type_name(element_property_p, true));
+    }
+    break;
+    default:  FError::Throwf(TEXT("Unsupported return param type: %s"), *var_p->GetClass()->GetName()); break;
+    }
+
+  return FString::Printf(*fmt, *var_name, *var_name);
   }
 
 //---------------------------------------------------------------------------------------
@@ -1236,51 +1548,169 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
   // Clear contents of scripts folder for a fresh start
   FString directory_to_delete(m_overlay_path / TEXT("Object"));
   IFileManager::Get().DeleteDirectory(*directory_to_delete, false, true);
-  // Create class "Enum" and "UStruct" as these folders will not get automagically created when m_overlay_path_depth <= 1
-  generate_class_meta_file(nullptr, m_overlay_path / TEXT("Object") / TEXT("Enum"), TEXT("Enum"));
-  generate_class_meta_file(nullptr, m_overlay_path / TEXT("Object") / TEXT("UStruct"), TEXT("UStruct"));
 
-  // Loop through generated scripts and write them to disk
-  for (const GeneratedType & generated_type : m_types_generated)
+  // Create single packed file or folder structure of loose files?
+  if (m_overlay_path_depth == 0)
     {
-    if (generated_type.m_class_scope == class_scope)
+    // Packed file, generate it
+
+    // Output in correct order
+    struct GenerateEntry
+      {      
+      const GeneratedType * m_generated_type_p;
+      FString               m_type_name;
+      FString               m_parent_name;
+      int                   m_sort_index;
+
+      bool operator < (const GenerateEntry & other) const { return m_sort_index > other.m_sort_index; }
+      };
+
+    // List of classes to generate
+    TArray<GenerateEntry> generate_list;
+    generate_list.Reserve(m_types_generated.Num());
+
+    // Fast lookup table from name to list entry
+    TMap<FString, int> generate_list_lookup; // Lookup types to generate by name
+    generate_list_lookup.Reserve(m_types_generated.Num());
+
+    // Build lookup table and create entry for each type
+    for (const GeneratedType & generated_type : m_types_generated)
       {
-      FString skookum_class_path = get_skookum_class_path(generated_type.m_type_p, 0);
+      generate_list_lookup.Add(generated_type.m_sk_name, generate_list.Num());
+      generate_list.Add({ &generated_type, generated_type.m_sk_name, FString(), 0 });
+      }
+    // Build complete list
+    int type_index = 0;
+    for (const GeneratedType & generated_type : m_types_generated)
+      {
+      // Determine parent and its name
+      UStruct * parent_p = nullptr;
+      FString parent_name = get_skookum_parent_name(generated_type.m_type_p, 0, 0, &parent_p);
 
-      // Write meta file (even if empty)
-      save_text_file(skookum_class_path / TEXT("!Class.sk-meta"), generated_type.m_sk_meta_file_body);
+      // Update entry
+      GenerateEntry & entry = generate_list[type_index++];
+      entry.m_parent_name = parent_name;
 
-      // Write instance data if any
-      if (!generated_type.m_sk_instance_data_file_body.IsEmpty())
+      // Crawl up hierarchy to make sure all parents are present
+      int sort_index = entry.m_sort_index;
+      while (parent_p)
         {
-        save_text_file(skookum_class_path / TEXT("!Data.sk"), generated_type.m_sk_instance_data_file_body);
-        }
-
-      // Write class data if any
-      if (!generated_type.m_sk_class_data_file_body.IsEmpty())
-        {
-        save_text_file(skookum_class_path / TEXT("!DataC.sk"), generated_type.m_sk_class_data_file_body);
-        }
-
-      // Write method definitions
-      for (tSkMethods::TConstIterator iter(generated_type.m_sk_methods); iter; ++iter)
-        {
-        save_text_file(skookum_class_path / iter.Key(), iter.Value());
+        ++sort_index;
+        // Does entry for this parent already exist?
+        int * parent_index_p = generate_list_lookup.Find(parent_name);
+        if (parent_index_p)
+          {
+          // Yes, update the sort index and keep crawling
+          GenerateEntry & parent_entry = generate_list[*parent_index_p];
+          parent_entry.m_sort_index = FMath::Max(parent_entry.m_sort_index, sort_index);
+          parent_name = get_skookum_parent_name(parent_entry.m_generated_type_p->m_type_p, 0, 0, &parent_p);
+          }
+        else
+          {
+          // No, create entry with current sort index and keep crawling
+          generate_list_lookup.Add(parent_name, generate_list.Num());
+          FString type_name = parent_name;
+          parent_name = get_skookum_parent_name(parent_p, 0, 0, &parent_p);
+          generate_list.Add({ nullptr, type_name, parent_name, sort_index });
+          }
         }
       }
-    }
+    generate_list.Add({ nullptr, TEXT("Enum"), TEXT("Object"), INT_MAX });
+    generate_list.Add({ nullptr, TEXT("UStruct"), TEXT("Object"), INT_MAX });
+    // Sort list
+    generate_list.Sort();
 
-  // In game mode, make sure parent classes that come from the Engine-Generated overlay exist as well
-  if (class_scope == ClassScope_project)
-    {
-    // Loop through all parent classes we encountered while generating the class paths in the above loop
-    for (const TypeToGenerate & type_to_generate : m_types_to_generate)
+    FString script;
+
+    // Loop through generated scripts and write them to disk
+    for (GenerateEntry & entry : generate_list)
       {
-      const GeneratedType * generated_type_p = m_types_generated.FindByKey(type_to_generate.m_type_p);
-      if (generated_type_p && generated_type_p->m_class_scope == ClassScope_engine)
+      script += FString::Printf(TEXT("$$ %s < %s\n"), *entry.m_type_name, *entry.m_parent_name);
+
+      const GeneratedType * generated_type_p = entry.m_generated_type_p;
+      if (generated_type_p && generated_type_p->m_class_scope == class_scope)
         {
-        // Write just the meta file to ensure class exists
-        save_text_file(get_skookum_class_path(type_to_generate.m_type_p, type_to_generate.m_include_priority) / TEXT("!Class.sk-meta"), generated_type_p->m_sk_meta_file_body);
+        script += generated_type_p->m_sk_meta_file_body + TEXT("\n");
+
+        // Write instance data if any
+        if (!generated_type_p->m_sk_instance_data_file_body.IsEmpty())
+          {
+          script += TEXT("$$ @\n");
+          script += generated_type_p->m_sk_instance_data_file_body + TEXT("\n");
+          }
+
+        // Write class data if any
+        if (!generated_type_p->m_sk_class_data_file_body.IsEmpty())
+          {
+          script += TEXT("$$ @@\n");
+          script += generated_type_p->m_sk_class_data_file_body + TEXT("\n");
+          }
+
+        // Write method definitions
+        for (tSkRoutines::TConstIterator iter(generated_type_p->m_sk_routines); iter; ++iter)
+          {
+          script += FString::Printf(TEXT("$$ @%s%s\n"), iter->m_is_class_member ? TEXT("@") : TEXT(""), *iter->m_name);
+          script += iter->m_body + TEXT("\n");
+          }
+        }
+      }
+
+    // Append terminator
+    script += "$$\n";
+
+    // And write it out
+    save_text_file(m_overlay_path / TEXT("!Overlay.sk"), script);
+    }
+  else
+    {
+    // Loose files, generate them
+
+    // Create class "Enum" and "UStruct" as these folders will not get automagically created when m_overlay_path_depth <= 1
+    generate_class_meta_file(nullptr, m_overlay_path / TEXT("Object") / TEXT("Enum"), TEXT("Enum"));
+    generate_class_meta_file(nullptr, m_overlay_path / TEXT("Object") / TEXT("UStruct"), TEXT("UStruct"));
+
+    // Loop through generated scripts and write them to disk
+    for (const GeneratedType & generated_type : m_types_generated)
+      {
+      if (generated_type.m_class_scope == class_scope)
+        {
+        FString skookum_class_path = get_skookum_class_path(generated_type.m_type_p, 0, 0);
+
+        // Write meta file (even if empty)
+        save_text_file(skookum_class_path / TEXT("!Class.sk-meta"), generated_type.m_sk_meta_file_body);
+
+        // Write instance data if any
+        if (!generated_type.m_sk_instance_data_file_body.IsEmpty())
+          {
+          save_text_file(skookum_class_path / TEXT("!Data.sk"), generated_type.m_sk_instance_data_file_body);
+          }
+
+        // Write class data if any
+        if (!generated_type.m_sk_class_data_file_body.IsEmpty())
+          {
+          save_text_file(skookum_class_path / TEXT("!DataC.sk"), generated_type.m_sk_class_data_file_body);
+          }
+
+        // Write method definitions
+        for (tSkRoutines::TConstIterator iter(generated_type.m_sk_routines); iter; ++iter)
+          {
+          save_text_file(skookum_class_path / get_skookum_method_file_name(iter->m_name, iter->m_is_class_member), iter->m_body);
+          }
+        }
+      }
+
+    // In game mode, make sure parent classes that come from the Engine-Generated overlay exist as well
+    if (class_scope == ClassScope_project)
+      {
+      // Loop through all parent classes we encountered while generating the class paths in the above loop
+      for (const TypeToGenerate & type_to_generate : m_types_to_generate)
+        {
+        const GeneratedType * generated_type_p = m_types_generated.FindByKey(type_to_generate.m_type_p);
+        if (generated_type_p && generated_type_p->m_class_scope == ClassScope_engine)
+          {
+          // Write just the meta file to ensure class exists
+          save_text_file(get_skookum_class_path(type_to_generate.m_type_p, type_to_generate.m_include_priority, type_to_generate.m_referenced_flags) / TEXT("!Class.sk-meta"), generated_type_p->m_sk_meta_file_body);
+          }
         }
       }
     }
@@ -1295,39 +1725,41 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
   FString engine_project = class_scope == ClassScope_engine ? TEXT("Engine") : TEXT("Project");
 
   //---------------------------------------------------------------------------------------
-  // 1) Header
+  // 1) Determine output path
+
+  FString binding_code_directory_path;
+  if (class_scope == ClassScope_project)
+    {
+    // Find module in which to place the generated files (first module in the list of ScriptSupportedModules that is a game module)
+    for (const ModuleInfo & module : m_targets[ClassScope_project].m_script_supported_modules)
+      {
+      if (module.m_scope == ClassScope_project)
+        {
+        // Found it, use its generated_include_folder path
+        binding_code_directory_path = module.m_generated_include_folder;
+        break;
+        }
+      }
+    }
+  else
+    {
+    binding_code_directory_path = m_binding_code_path_engine;
+    }
+
+  // Got a path?
+  if (binding_code_directory_path.IsEmpty())
+    {
+    // No path = nothing to do
+    return;
+    }
+
+  //---------------------------------------------------------------------------------------
+  // 2) SkUEBindingsInterface header
 
   FString header_code = TEXT(
     "#pragma once\r\n\r\n"
     "#include \"SkUEBindingsInterface.hpp\"\r\n"
-    "#include \"SkUEClassBinding.hpp\"\r\n"
-    "#include \"SkookumScript/SkEnum.hpp\"\r\n"
     "\r\n");
-
-  // Add extra include files if specified
-  TSet<FString> included_files;
-  included_files.Reserve(m_types_to_generate.Num());
-  for (const FString & include_file_path : m_targets[class_scope].m_additional_includes)
-    {
-    header_code += FString::Printf(TEXT("#include \"%s\"\r\n"), *include_file_path);
-    included_files.Add(include_file_path);
-    }
-
-  // Include all UE4 headers referenced
-  // Sort descending by include priority
-  m_types_to_generate.Sort();
-  m_types_to_generate_lookup.Empty();
-  for (const TypeToGenerate & type_to_generate : m_types_to_generate)
-    {
-    FString include_file_path = type_to_generate.m_type_p->GetMetaData(ms_meta_data_key_module_relative_path);
-    if (!include_file_path.IsEmpty() && !included_files.Contains(include_file_path))
-      {
-      //FPaths::MakePathRelativeTo(include_file_path, *(m_unreal_engine_root_path_local / TEXT("Engine/Source/")));
-      header_code += FString::Printf(TEXT("#include \"%s\"\r\n"), *include_file_path);
-      included_files.Add(include_file_path);
-      }
-    }
-  header_code += TEXT("\r\n");
 
   // Open up namespace for binding classes so that in monolithic builds names won't clash between engine and project
   header_code += FString::Printf(TEXT("namespace SkUE%sGenerated\r\n{\r\n\r\n"), *engine_project);
@@ -1345,20 +1777,48 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
     "\r\n"
     "  };\r\n\r\n");
 
-  // Declaration of all generated binding classes
+  // Close namespace for binding classes and use it by default
+  header_code += FString::Printf(TEXT("} // namespace SkUE%sGenerated\r\n\r\nusing namespace SkUE%sGenerated;\r\n"), *engine_project, *engine_project);
+
+  // Save to disk
+  save_text_file_if_changed(binding_code_directory_path / TEXT("SkUEGeneratedBindings.generated.hpp"), header_code);
+
+  //---------------------------------------------------------------------------------------
+  // 3) Individual header files for each of the binding classes
+
   for (const GeneratedType & generated_type : m_types_generated)
     {
     if (class_scope == ClassScope_project || generated_type.m_class_scope == ClassScope_engine)
       {
-      header_code += generated_type.m_cpp_header_file_body;
+      FString class_header_code = TEXT(
+        "#pragma once\r\n\r\n"
+        "#include \"SkUEClassBinding.hpp\"\r\n");
+
+      if (Cast<UEnum>(generated_type.m_type_p) != nullptr)
+        {
+        class_header_code += TEXT("#include \"SkookumScript/SkEnum.hpp\"\r\n");
+        }
+
+      FString include_file_path = generated_type.m_type_p->GetMetaData(ms_meta_data_key_module_relative_path);
+      if (!include_file_path.IsEmpty())
+        {
+        class_header_code += FString::Printf(TEXT("#include \"%s\"\r\n"), *include_file_path);
+        }
+
+      // Open up namespace for binding classes so that in monolithic builds names won't clash between engine and project
+      class_header_code += FString::Printf(TEXT("\r\nnamespace SkUE%sGenerated\r\n{\r\n\r\n"), *engine_project);
+
+      class_header_code += generated_type.m_cpp_header_file_body;
+
+      // Close namespace for binding classes and use it by default
+      class_header_code += FString::Printf(TEXT("} // namespace SkUE%sGenerated\r\n\r\nusing namespace SkUE%sGenerated;\r\n"), *engine_project, *engine_project);
+
+      save_text_file_if_changed(FString::Printf(TEXT("%s/SkUE%s.generated.hpp"), *binding_code_directory_path, *generated_type.m_sk_name), class_header_code);
       }
     }
 
-  // Close namespace for binding classes and use it by default
-  header_code += FString::Printf(TEXT("} // namespace SkUE%sGenerated\r\n\r\nusing namespace SkUE%sGenerated;\r\n"), *engine_project, *engine_project);
-
   //---------------------------------------------------------------------------------------
-  // 2) Binding code (inl file)
+  // 4) Binding code (inl file)
 
   // Include some required headers
   FString binding_code = TEXT(
@@ -1384,7 +1844,64 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
     "#include \"VectorMath/SkColor.hpp\"\r\n"
     "\r\n"
     "#include \"Engine/SkUEName.hpp\"\r\n"
+    "\r\n"
+    "#include \"SkookumScriptListener.h\"\r\n"
     "\r\n");
+
+  // Add extra include files if specified
+  TSet<FString> included_files;
+  included_files.Reserve(m_types_to_generate.Num());
+  for (const FString & include_file_path : m_targets[class_scope].m_additional_includes)
+    {
+    binding_code += FString::Printf(TEXT("#include \"%s\"\r\n"), *include_file_path);
+    included_files.Add(include_file_path);
+    }
+
+  // Include all UE4 headers referenced
+  // Sort descending by include priority
+  m_types_to_generate.Sort();
+  m_types_to_generate_lookup.Empty();
+  for (const TypeToGenerate & type_to_generate : m_types_to_generate)
+    {
+    // Get include path so we can make not try to include anything multiple times
+    FString include_file_path = type_to_generate.m_type_p->GetMetaData(ms_meta_data_key_module_relative_path);
+    bool dont_include = include_file_path.IsEmpty() || included_files.Contains(include_file_path);
+
+    // Does it have an associated generated type?
+    if (type_to_generate.m_generated_type_index >= 0)
+      {
+      // Yes, include the corresponding generated binding class declaration header - if scope is proper
+      // Always include even if `dont_include` is true, since we need the binding class declaration
+      const GeneratedType & generated_type = m_types_generated[type_to_generate.m_generated_type_index];
+      if (generated_type.m_class_scope == class_scope || (class_scope == ClassScope_project && (type_to_generate.m_referenced_flags & Referenced_by_game_module)))
+        {
+        if (generated_type.m_class_scope == class_scope || (type_to_generate.m_referenced_flags & Referenced_as_binding_class))
+          {
+          binding_code += FString::Printf(TEXT("#include \"SkUE%s.generated.hpp\"\r\n"), *generated_type.m_sk_name);
+          }
+        else if (!dont_include)
+          {
+          binding_code += FString::Printf(TEXT("#include \"%s\"\r\n"), *include_file_path);
+          }
+        }
+      }
+    else
+      {
+      // No, include the UE4 header just to be sure
+      if (!dont_include)
+        {
+        //FPaths::MakePathRelativeTo(include_file_path, *(m_unreal_engine_root_path_local / TEXT("Engine/Source/")));
+        binding_code += FString::Printf(TEXT("#include \"%s\"\r\n"), *include_file_path);
+        }
+      }
+
+    if (!dont_include)
+      {
+      included_files.Add(include_file_path);
+      }
+    }
+
+  binding_code += TEXT("\r\n");
 
   // Disable pesky clang warnings on Mac/iOS builds
   binding_code += TEXT(
@@ -1403,7 +1920,7 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
   int32 num_generated_enums = 0;
   for (const GeneratedType & generated_type : m_types_generated)
     {
-    if (class_scope == ClassScope_project || generated_type.m_class_scope == ClassScope_engine)
+    if (generated_type.m_class_scope == class_scope)
       {
       binding_code += generated_type.m_cpp_binding_file_body;
 
@@ -1423,14 +1940,25 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
       }
     }
 
+  binding_code += TEXT("\r\n");
+
   // Generate definition of register_static_ue_types()
   binding_code += TEXT("void SkUEGeneratedBindings::register_static_ue_types()\r\n  {\r\n");
-  binding_code += FString::Printf(TEXT("  SkUEClassBindingHelper::reset_static_class_mappings(%d);\r\n"), num_generated_classes);
-  binding_code += FString::Printf(TEXT("  SkUEClassBindingHelper::reset_static_struct_mappings(%d);\r\n"), num_generated_structs);
-  binding_code += FString::Printf(TEXT("  SkUEClassBindingHelper::reset_static_enum_mappings(%d);\r\n"), num_generated_enums);
+  if (class_scope == ClassScope_engine)
+    {
+    binding_code += FString::Printf(TEXT("  SkUEClassBindingHelper::reset_static_class_mappings(%d);\r\n"), num_generated_classes);
+    binding_code += FString::Printf(TEXT("  SkUEClassBindingHelper::reset_static_struct_mappings(%d);\r\n"), num_generated_structs);
+    binding_code += FString::Printf(TEXT("  SkUEClassBindingHelper::reset_static_enum_mappings(%d);\r\n"), num_generated_enums);
+    }
+  else
+    {
+    binding_code += FString::Printf(TEXT("  SkUEClassBindingHelper::add_slack_to_static_class_mappings(%d);\r\n"), num_generated_classes);
+    binding_code += FString::Printf(TEXT("  SkUEClassBindingHelper::add_slack_to_static_struct_mappings(%d);\r\n"), num_generated_structs);
+    binding_code += FString::Printf(TEXT("  SkUEClassBindingHelper::add_slack_to_static_enum_mappings(%d);\r\n"), num_generated_enums);
+    }
   for (const GeneratedType & generated_type : m_types_generated)
     {
-    if (class_scope == ClassScope_project || generated_type.m_class_scope == ClassScope_engine)
+    if (generated_type.m_class_scope == class_scope)
       {
       binding_code += TEXT("\r\n  ") + generated_type.m_cpp_register_static_ue_type;
       }
@@ -1438,11 +1966,16 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
   binding_code += TEXT("\r\n  }\r\n\r\n");
 
   // Generate definition of register_static_sk_types()
-  binding_code += TEXT("void SkUEGeneratedBindings::register_static_sk_types()\r\n  {\r\n");
-  binding_code += TEXT("  SkUEClassBindingHelper::forget_sk_classes_in_all_mappings();\r\n");
+  binding_code += TEXT(
+    "void SkUEGeneratedBindings::register_static_sk_types()\r\n"
+    "  {\r\n");
+  if (class_scope == ClassScope_engine)
+    {
+    binding_code += TEXT("  SkUEClassBindingHelper::forget_sk_classes_in_all_mappings();\r\n");
+    }
   for (const GeneratedType & generated_type : m_types_generated)
     {
-    if (class_scope == ClassScope_project || generated_type.m_class_scope == ClassScope_engine)
+    if (generated_type.m_class_scope == class_scope)
       {
       binding_code += TEXT("\r\n  ") + generated_type.m_cpp_register_static_sk_type;
       }
@@ -1453,7 +1986,7 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
   binding_code += TEXT("void SkUEGeneratedBindings::register_bindings()\r\n  {\r\n");
   for (const GeneratedType & generated_type : m_types_generated)
     {
-    if ((class_scope == ClassScope_project || generated_type.m_class_scope == ClassScope_engine) && !generated_type.m_is_hierarchy_stub && !Cast<UEnum>(generated_type.m_type_p))
+    if ((generated_type.m_class_scope == class_scope) && !generated_type.m_is_hierarchy_stub && !Cast<UEnum>(generated_type.m_type_p))
       {
       binding_code += FString::Printf(TEXT("  SkUE%s::register_bindings();\r\n"), *generated_type.m_sk_name);
       }
@@ -1469,34 +2002,8 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
     "#pragma clang diagnostic pop\r\n"
     "#endif\r\n\r\n");
 
-  //---------------------------------------------------------------------------------------
-  // 3) Save header and binding code to disk
-
-  FString binding_code_directory_path;
-  if (class_scope == ClassScope_project)
-    {
-    // Find module in which to place the generated files (first module in the list of ScriptSupportedModules that is a game module)
-    for (const ModuleInfo & module : m_targets[ClassScope_project].m_script_supported_modules)
-      {
-      if (module.m_scope == ClassScope_project)
-        {
-        // Found it, use its generated_include_folder path
-        binding_code_directory_path = module.m_generated_include_folder;
-        break;
-        }
-      }
-    }
-  else
-    {
-    binding_code_directory_path = m_binding_code_path_engine;
-    }
-
-  // Save them to disk
-  if (!binding_code_directory_path.IsEmpty())
-    {
-    save_text_file_if_changed(binding_code_directory_path / TEXT("SkUEGeneratedBindings.generated.hpp"), header_code);
-    save_text_file_if_changed(binding_code_directory_path / TEXT("SkUEGeneratedBindings.generated.inl"), binding_code);
-    }
+  // Save to disk
+  save_text_file_if_changed(binding_code_directory_path / TEXT("SkUEGeneratedBindings.generated.inl"), binding_code);
   }
 
 //---------------------------------------------------------------------------------------
@@ -1508,10 +2015,10 @@ bool FSkookumScriptGenerator::can_export_enum(UEnum * enum_p)
 
 //---------------------------------------------------------------------------------------
 
-bool FSkookumScriptGenerator::can_export_method(UFunction * function_p, int32 include_priority)
+bool FSkookumScriptGenerator::can_export_method(UFunction * function_p, int32 include_priority, uint32 referenced_flags, bool allow_delegate)
   {
   // We don't support delegates and non-public functions
-  if ((function_p->FunctionFlags & FUNC_Delegate))
+  if (!allow_delegate && (function_p->FunctionFlags & FUNC_Delegate))
     {
     return false;
     }
@@ -1541,19 +2048,7 @@ bool FSkookumScriptGenerator::can_export_method(UFunction * function_p, int32 in
       }
 
     // Property is supported - use the opportunity to make it known to SkookumScript
-    eSkTypeID type_id = get_skookum_property_type(param_p, true);
-    if (type_id == SkTypeID_Enum)
-      {
-      on_enum_property_referenced(param_p, include_priority);
-      }
-    else if (type_id == SkTypeID_UStruct)
-      {
-      on_struct_property_referenced(param_p, include_priority);
-      }
-    else if (type_id == SkTypeID_UClass)
-      {
-      on_class_property_referenced(param_p, include_priority);
-      }
+    on_property_referenced(param_p, include_priority, referenced_flags);
     }
 
   return true;
@@ -1561,58 +2056,30 @@ bool FSkookumScriptGenerator::can_export_method(UFunction * function_p, int32 in
 
 //---------------------------------------------------------------------------------------
 
-bool FSkookumScriptGenerator::can_export_property(UProperty * property_p, int32 include_priority)
+bool FSkookumScriptGenerator::can_export_property(UProperty * property_p, int32 include_priority, uint32 referenced_flags)
   {
   // Check if property type is supported
   if (!is_property_type_supported(property_p))
     return false;
 
   // Property is supported - use the opportunity to make it known to SkookumScript
-  eSkTypeID type_id = get_skookum_property_type(property_p, true);
-  if (type_id == SkTypeID_Enum)
-    {
-    on_enum_property_referenced(property_p, include_priority);
-    }
-  else if (type_id == SkTypeID_UStruct)
-    {
-    on_struct_property_referenced(property_p, include_priority);
-    }
-  else if (type_id == SkTypeID_UClass)
-    {
-    on_class_property_referenced(property_p, include_priority);
-    }
-  else if (type_id == SkTypeID_List)
-    {
-    UProperty * element_property_p = Cast<UArrayProperty>(property_p)->Inner;
-    eSkTypeID inner_type_id = get_skookum_property_type(element_property_p, true);
-    if (inner_type_id == SkTypeID_Enum)
-      {
-      on_enum_property_referenced(element_property_p, include_priority + 1);
-      }
-    else if (inner_type_id == SkTypeID_UStruct)
-      {
-      on_struct_property_referenced(element_property_p, include_priority + 1);
-      }
-    else if (inner_type_id == SkTypeID_UClass)
-      {
-      on_class_property_referenced(element_property_p, include_priority + 1);
-      }
-    }
+  on_property_referenced(property_p, include_priority, referenced_flags);
+
   return true;
   }
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptGenerator::on_type_referenced(UField * type_p, int32 include_priority)
+void FSkookumScriptGenerator::on_type_referenced(UField * type_p, int32 include_priority, uint32 referenced_flags)
   {
-  request_generate_type(type_p, include_priority);
+  request_generate_type(type_p, include_priority, referenced_flags);
   }
 
 //---------------------------------------------------------------------------------------
 
 void FSkookumScriptGenerator::report_error(const FString & message)
   {
-  FError::Throwf(TEXT("%s"), *message);
+  GWarn->Log(ELogVerbosity::Error, message);
   }
 
 //---------------------------------------------------------------------------------------
@@ -1644,7 +2111,7 @@ FString FSkookumScriptGenerator::get_cpp_class_name(UStruct * struct_or_class_p)
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGenerator::get_cpp_property_type_name(UProperty * property_p)
+FString FSkookumScriptGenerator::get_cpp_property_type_name(UProperty * property_p, bool is_array_element, bool with_const, bool with_ref)
   {
   static FString decl_Enum(TEXT("enum "));
   static FString decl_Struct(TEXT("struct "));
@@ -1658,9 +2125,10 @@ FString FSkookumScriptGenerator::get_cpp_property_type_name(UProperty * property
 
   // Check for enum
   UByteProperty * byte_property_p = Cast<UByteProperty>(property_p);
-  if (byte_property_p && byte_property_p->Enum && byte_property_p->Enum->GetCppForm() == UEnum::ECppForm::Regular)
+  if (byte_property_p && byte_property_p->Enum && (is_array_element
+       || byte_property_p->GetName() == TEXT("PathEvent"))) // HACK MJB I see no proper way to detect this from the UProperty
     {
-    property_type_name = TEXT("TEnumAsByte<") + byte_property_p->Enum->GetName() + TEXT(">");
+    property_type_name = TEXT("TEnumAsByte<") + property_type_name + TEXT(">");
     }
 
   // Strip any forward declaration keywords
@@ -1678,8 +2146,11 @@ FString FSkookumScriptGenerator::get_cpp_property_type_name(UProperty * property
     {
     const UArrayProperty * array_property_p = Cast<UArrayProperty>(property_p);
     UProperty * element_property_p = array_property_p->Inner;
-    property_type_name = FString::Printf(TEXT("TArray<%s>"), *get_cpp_property_type_name(element_property_p));
+    property_type_name = FString::Printf(TEXT("TArray<%s>"), *get_cpp_property_type_name(element_property_p, true));
     }
+
+  if (with_const && property_p->HasAnyPropertyFlags(CPF_ConstParm)) property_type_name = TEXT("const ") + property_type_name;
+  if (with_ref && property_p->HasAnyPropertyFlags(CPF_ReferenceParm)) property_type_name += TEXT(" &");
 
   return property_type_name;
   }
@@ -1813,36 +2284,46 @@ FString FSkookumScriptGenerator::get_skookum_default_initializer(UFunction * fun
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptGenerator::on_class_property_referenced(UProperty * prop_p, int32 include_priority)
-	{
-  request_generate_type(UClass::StaticClass(), include_priority + 1);
-	}
-
-//---------------------------------------------------------------------------------------
-
-void FSkookumScriptGenerator::on_struct_property_referenced(UProperty * prop_p, int32 include_priority)
+void FSkookumScriptGenerator::on_property_referenced(UProperty * prop_p, int32 include_priority, uint32 referenced_flags)
   {
-  UStruct * struct_p = Cast<UStructProperty>(prop_p)->Struct;
-  if (struct_p)
+  eSkTypeID type_id = get_skookum_property_type(prop_p, true);
+  if (type_id == SkTypeID_Enum)
     {
-    request_generate_type(struct_p, include_priority + 1);
+    UEnum * enum_p = get_enum(prop_p);
+    if (enum_p)
+      {
+      request_generate_type(enum_p, include_priority + 1, referenced_flags);
+      }
+    }
+  else if (type_id == SkTypeID_UStruct)
+    {
+    UStruct * struct_p = Cast<UStructProperty>(prop_p)->Struct;
+    if (struct_p)
+      {
+      request_generate_type(struct_p, include_priority + 1, referenced_flags);
+      }
+    }
+  else if (type_id == SkTypeID_UClass)
+    {
+    request_generate_type(UClass::StaticClass(), include_priority + 1, referenced_flags);
+    }
+  else if (type_id == SkTypeID_UObject || type_id == SkTypeID_UObjectWeakPtr)
+    {
+    UClass * class_p = Cast<UObjectPropertyBase>(prop_p)->PropertyClass;
+    if (class_p)
+      {
+      request_generate_type(class_p, include_priority + 1, referenced_flags);
+      }
+    }
+  else if (type_id == SkTypeID_List)
+    {
+    on_property_referenced(CastChecked<UArrayProperty>(prop_p)->Inner, include_priority + 1, referenced_flags);
     }
   }
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptGenerator::on_enum_property_referenced(UProperty * prop_p, int32 include_priority)
-  {
-  UEnum * enum_p = get_enum(prop_p);
-  if (enum_p)
-    {
-    request_generate_type(enum_p, include_priority + 1);
-    }
-  }
-
-//---------------------------------------------------------------------------------------
-
-void FSkookumScriptGenerator::request_generate_type(UField * type_p, int32 include_priority)
+void FSkookumScriptGenerator::request_generate_type(UField * type_p, int32 include_priority, uint32 referenced_flags)
   {
   // Add it or consolidate include path
   TypeToGenerate * type_to_generate_p;
@@ -1852,6 +2333,7 @@ void FSkookumScriptGenerator::request_generate_type(UField * type_p, int32 inclu
     type_to_generate_p = &m_types_to_generate[*existing_index_p];
     // Maximize priority
     type_to_generate_p->m_include_priority = FMath::Max(type_to_generate_p->m_include_priority, include_priority);
+    type_to_generate_p->m_referenced_flags |= (uint16)referenced_flags;
     }
   else
     {
@@ -1860,6 +2342,8 @@ void FSkookumScriptGenerator::request_generate_type(UField * type_p, int32 inclu
     type_to_generate_p = &m_types_to_generate[new_index];
     type_to_generate_p->m_type_p = type_p;
     type_to_generate_p->m_include_priority = include_priority;
+    type_to_generate_p->m_referenced_flags = (uint16)referenced_flags;
+    type_to_generate_p->m_generated_type_index = -1;
     }
 
   // Also request/update all parent structs
@@ -1870,7 +2354,7 @@ void FSkookumScriptGenerator::request_generate_type(UField * type_p, int32 inclu
     if (struct_p)
       {
       // Parent has to be included before child, so must have higher priority
-      request_generate_type(struct_p, include_priority + 1);
+      request_generate_type(struct_p, include_priority + 1, referenced_flags & ~Referenced_as_binding_class);
       }
     }
   }
@@ -1879,7 +2363,7 @@ void FSkookumScriptGenerator::request_generate_type(UField * type_p, int32 inclu
 // GenerationTarget implementation
 //=======================================================================================
 
-void FSkookumScriptGenerator::GenerationTarget::initialize(const FString & root_directory_path, const FString & default_root_directory_path)
+void FSkookumScriptGenerator::GenerationTarget::initialize(const FString & root_directory_path, const GenerationTarget * inherit_from_p)
   {
   // Check if root path actually exists
   if (IFileManager::Get().DirectoryExists(*root_directory_path))
@@ -1887,18 +2371,12 @@ void FSkookumScriptGenerator::GenerationTarget::initialize(const FString & root_
     // Yes, only then set it
     m_root_directory_path = root_directory_path;
 
+    TArray<FString> script_supported_modules;
+    TArray<FString> skip_classes;
+
     // Do we have a SkookumScript.ini file?
     FString skookumscript_ini_file_path = root_directory_path / TEXT("Config/SkookumScript.ini");
     bool ini_file_exists = IFileManager::Get().FileExists(*skookumscript_ini_file_path);
-    if (!ini_file_exists && !default_root_directory_path.IsEmpty())
-      {
-      skookumscript_ini_file_path = default_root_directory_path / TEXT("Config/SkookumScript.ini");
-      ini_file_exists = IFileManager::Get().FileExists(*skookumscript_ini_file_path);
-      }
-
-    // Determine which modules we want to generate scripts for
-    TArray<FString> script_supported_modules;
-    TArray<FString> skip_classes;
     if (ini_file_exists)
       {
       // Load settings from SkookumScript.ini
@@ -1907,16 +2385,33 @@ void FSkookumScriptGenerator::GenerationTarget::initialize(const FString & root_
       skookumscript_ini.GetArray(TEXT("CommonSettings"), TEXT("+SkipClasses"), skip_classes, skookumscript_ini_file_path);
       skookumscript_ini.GetArray(TEXT("CommonSettings"), TEXT("+AdditionalIncludes"), m_additional_includes, skookumscript_ini_file_path);
       }
-    else
+    else if (!inherit_from_p)
       {
       // No SkookumScript.ini found, load legacy specifications from UHT's DefaultEngine.ini
       GConfig->GetArray(TEXT("Plugins"), TEXT("ScriptSupportedModules"), script_supported_modules, GEngineIni);
       GConfig->GetArray(TEXT("SkookumScriptGenerator"), TEXT("SkipClasses"), skip_classes, GEngineIni);
       }
-    m_script_supported_modules.Reserve(script_supported_modules.Num());
+    if (inherit_from_p)
+      {
+      m_script_supported_modules.Append(inherit_from_p->m_script_supported_modules);
+      //m_additional_includes.Append(inherit_from_p->m_additional_includes);
+      //m_skip_classes.Append(inherit_from_p->m_skip_classes);
+      }
     for (const FString & module_name : script_supported_modules)
       {
-      m_script_supported_modules.Add(ModuleInfo(module_name));
+      if (inherit_from_p && inherit_from_p->m_script_supported_modules.FindByKey(module_name))
+        {
+        FString inherited_skookumscript_ini_file_path = inherit_from_p->m_root_directory_path / TEXT("Config/SkookumScript.ini");
+        GWarn->Log(ELogVerbosity::Warning, FString::Printf(TEXT("Module '%s' specified in both '%s' and '%s'. Ignoring duplicate."), *module_name, *skookumscript_ini_file_path, *inherited_skookumscript_ini_file_path));
+        }
+      else if (m_script_supported_modules.FindByKey(module_name))
+        {
+        GWarn->Log(ELogVerbosity::Warning, FString::Printf(TEXT("Module' %s' specified twice in '%s'. Ignoring duplicate."), *module_name, *skookumscript_ini_file_path));
+        }
+      else
+        {
+        m_script_supported_modules.Add(ModuleInfo(module_name));
+        }
       }
     m_skip_classes.Append(skip_classes);
     }
@@ -1990,3 +2485,17 @@ void FSkookumScriptGenerator::MethodBinding::make_method(UFunction * function_p)
   m_script_name = skookify_method_name(function_p->GetName(), function_p->GetReturnProperty());
   m_code_name   = m_script_name.Replace(TEXT("?"), TEXT("_Q"));
   }
+
+//=======================================================================================
+// DelegateBinding implementation
+//=======================================================================================
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptGenerator::EventBinding::make_event(UMulticastDelegateProperty * property_p)
+  {
+  m_property_p = property_p;
+  m_script_name_base = skookify_method_name(property_p->GetName());
+  m_script_name_base.RemoveFromStart(TEXT("on_"));
+  }
+
