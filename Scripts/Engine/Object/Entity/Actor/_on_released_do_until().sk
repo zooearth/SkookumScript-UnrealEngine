@@ -1,9 +1,0 @@
-//---------------------------------------------------------------------------------------
-// Whenever a `Released` event occurs on this actor, run `code` on it.
-// If `code` returns `false`, continue waiting for next event, 
-// otherwise, exit
-//
-// See: _on_begin_overlap_do, _on_end_overlap_do_until
-//---------------------------------------------------------------------------------------
-
-(() Boolean code)

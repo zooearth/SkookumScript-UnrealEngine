@@ -12,6 +12,7 @@
 //=======================================================================================
 
 #include "../../SkookumScriptRuntimePrivatePCH.h"
+#include "SkUEActor.generated.hpp"
 #include "SkUEActorComponent.hpp"
 #include "SkUEName.hpp"
 

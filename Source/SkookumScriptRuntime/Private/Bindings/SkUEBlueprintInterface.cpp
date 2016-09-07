@@ -162,13 +162,18 @@ bool SkUEBlueprintInterface::is_skookum_blueprint_event(UFunction * function_p) 
 
 //---------------------------------------------------------------------------------------
 
-void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, SkInstance * this_p)
+void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, SkClass * class_scope_p, SkInstance * this_p)
   {
   const FunctionEntry & function_entry = static_cast<const FunctionEntry &>(*ms_singleton_p->m_binding_entry_array[stack.CurrentNativeFunction->RepOffset]);
   SK_ASSERTX(function_entry.m_type == BindingType_Function, "BindingEntry has bad type!");
   SK_ASSERTX(function_entry.m_sk_invokable_p->get_invoke_type() == SkInvokable_method, "Must be a method at this point.");
 
-  SkInvokedMethod imethod(nullptr, this_p, static_cast<SkMethodBase *>(function_entry.m_sk_invokable_p), a_stack_allocate(function_entry.m_sk_invokable_p->get_invoked_data_array_size(), SkInstance*));
+  SkMethodBase * method_p = static_cast<SkMethodBase *>(function_entry.m_sk_invokable_p);
+  if (method_p->get_scope() != class_scope_p)
+    {
+    method_p = static_cast<SkMethodBase *>(class_scope_p->get_invokable_from_vtable(this_p ? SkScope_instance : SkScope_class, method_p->get_vtable_index()));
+    }
+  SkInvokedMethod imethod(nullptr, this_p, method_p, a_stack_allocate(method_p->get_invoked_data_array_size(), SkInstance*));
 
   SKDEBUG_ICALL_SET_INTERNAL(&imethod);
   SKDEBUG_HOOK_SCRIPT_ENTRY(function_entry.m_invokable_name);
@@ -195,7 +200,7 @@ void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, 
       {
       // Call method
       SkInstance * result_instance_p = SkBrain::ms_nil_p;
-      static_cast<SkMethod *>(function_entry.m_sk_invokable_p)->SkMethod::invoke(&imethod, nullptr, &result_instance_p); // We know it's a method so call directly
+      static_cast<SkMethod *>(method_p)->SkMethod::invoke(&imethod, nullptr, &result_instance_p); // We know it's a method so call directly
       if (function_entry.m_result_getter)
         {
         (*function_entry.m_result_getter)(result_p, result_instance_p, function_entry.m_result_type);
@@ -209,7 +214,8 @@ void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, 
 
 void SkUEBlueprintInterface::exec_class_method(FFrame & stack, void * const result_p)
   {
-  exec_method(stack, result_p, nullptr);
+  SkClass * class_scope_p = SkUEClassBindingHelper::get_object_class((UObject *)this);
+  exec_method(stack, result_p, class_scope_p, nullptr);
   }
 
 //---------------------------------------------------------------------------------------
@@ -217,7 +223,7 @@ void SkUEBlueprintInterface::exec_class_method(FFrame & stack, void * const resu
 void SkUEBlueprintInterface::exec_instance_method(FFrame & stack, void * const result_p)
   {
   SkInstance * this_p = SkUEEntity::new_instance((UObject *)this);
-  exec_method(stack, result_p, this_p);
+  exec_method(stack, result_p, this_p->get_class(), this_p);
   this_p->dereference();
   }
 
@@ -229,11 +235,17 @@ void SkUEBlueprintInterface::exec_coroutine(FFrame & stack, void * const result_
   SK_ASSERTX(function_entry.m_type == BindingType_Function, "BindingEntry has bad type!");
   SK_ASSERTX(function_entry.m_sk_invokable_p->get_invoke_type() == SkInvokable_coroutine, "Must be a coroutine at this point.");
 
-  // Create invoked coroutine
-  SkInvokedCoroutine * icoroutine_p = SkInvokedCoroutine::pool_new(static_cast<SkCoroutine *>(function_entry.m_sk_invokable_p));
-
   // Get instance of this object
   SkInstance * this_p = SkUEEntity::new_instance((UObject *)this);
+
+  // Create invoked coroutine
+  SkCoroutine * coro_p = static_cast<SkCoroutine *>(function_entry.m_sk_invokable_p);
+  SkClass * class_scope_p = this_p->get_class();
+  if (coro_p->get_scope() != class_scope_p)
+    {
+    coro_p = static_cast<SkCoroutine *>(class_scope_p->get_invokable_from_vtable_i(coro_p->get_vtable_index()));
+    }
+  SkInvokedCoroutine * icoroutine_p = SkInvokedCoroutine::pool_new(coro_p);
 
   // Set parameters
   icoroutine_p->reset(SkCall_interval_always, nullptr, this_p, nullptr, nullptr);
