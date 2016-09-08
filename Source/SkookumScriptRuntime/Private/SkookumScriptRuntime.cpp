@@ -25,8 +25,6 @@
 #include "SkookumScriptClassDataComponent.h"
 #include "SkookumScriptMindComponent.h"
 
-#include <SkUEGeneratedBindings.generated.hpp>
-
 // For profiling SkookumScript performance
 DECLARE_CYCLE_STAT(TEXT("SkookumScript Time"), STAT_SkookumScriptTime, STATGROUP_Game);
 
