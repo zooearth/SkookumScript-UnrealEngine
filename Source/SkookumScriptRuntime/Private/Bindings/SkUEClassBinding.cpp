@@ -131,7 +131,8 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
   // I.e. that therefore, except for unsupported properties, they must be in the same order
   // So all we should have to do is loop forward and skip the occasional non-exported UE4 property
   UProperty * ue_var_p = nullptr;
-  ASymbol ue_var_name;
+  FString ue_var_name;
+  ASymbol ue_var_name_sk;
   TFieldIterator<UProperty> property_it(ue_struct_or_class_p, EFieldIteratorFlags::ExcludeSuper);
   tSkTypedNameRawArray & raw_data = class_p->get_instance_data_raw_for_resolving();
   for (auto var_p : raw_data)
@@ -146,13 +147,23 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
     while (property_it)
       {
       ue_var_p = *property_it;
-      ue_var_name = ASymbol::create_existing(FStringToAString(FSkookumScriptGeneratorBase::skookify_var_name(ue_var_p->GetName(), ue_var_p->IsA(UBoolProperty::StaticClass()), true)));
+      ue_var_name = ue_var_p->GetName();
+      bool is_boolean = ue_var_p->IsA(UBoolProperty::StaticClass());
+      ue_var_name_sk = ASymbol::create_existing(FStringToAString(FSkookumScriptGeneratorBase::skookify_var_name(ue_var_name, is_boolean, true)));
+      // If it's unknown it might be due to case insensitivity of FName - check if it's a boolean, and if so, swap case
+      if (ue_var_name_sk.is_null() && is_boolean && ue_var_name.Len() >= 2 && ue_var_name[0] == TCHAR('B'))
+        {
+        // E.g. "Blocked" might really be "bLocked"
+        ue_var_name[0] = FChar::ToLower(ue_var_name[0]);
+        ue_var_name[1] = FChar::ToUpper(ue_var_name[1]);
+        ue_var_name_sk = ASymbol::create_existing(FStringToAString(FSkookumScriptGeneratorBase::skookify_var_name(ue_var_name, is_boolean, true)));
+        }
       ++property_it;
-      if (var_p->get_name() == ue_var_name) break;
+      if (var_p->get_name() == ue_var_name_sk) break;
       }
 
     // Store raw data info in the raw data member object
-    if (var_p->get_name() == ue_var_name)
+    if (var_p->get_name() == ue_var_name_sk)
       {
       var_p->m_raw_data_info = compute_raw_data_info(ue_var_p);
       }
