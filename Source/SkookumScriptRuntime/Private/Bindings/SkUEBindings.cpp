@@ -87,14 +87,11 @@ void SkUEBindings::register_all_bindings(SkUEBindingsInterface * game_generated_
   // Engine-Generated/Project-Generated-C++ Overlay
   // Register static Sk types on both overlays, but register bindings only on one of them
   s_generated_bindings.register_static_sk_types();
+  s_generated_bindings.register_bindings();
   if (game_generated_bindings_p)
     {
     game_generated_bindings_p->register_static_sk_types();
     game_generated_bindings_p->register_bindings();
-    }
-  else
-    {
-    s_generated_bindings.register_bindings();
     }
 
   // Engine Overlay
