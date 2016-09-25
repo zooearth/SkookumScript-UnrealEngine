@@ -434,7 +434,7 @@ void ADebug::print_args(
 
   if (func_num)
     {
-    AString        str(buffer_p, uint(length));
+    AString        str(buffer_p, uint(length), false);
     tAPrintFunc ** print_funcs_pp     = g_dprint_funcs.get_array();
     tAPrintFunc ** print_funcs_end_pp = print_funcs_pp + func_num;
 
