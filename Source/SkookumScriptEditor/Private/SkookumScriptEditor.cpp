@@ -116,7 +116,7 @@ void FSkookumScriptEditor::StartupModule()
 
     // Instrument all already existing blueprints
     TArray<UObject*> blueprint_array;
-    GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array, false, RF_ClassDefaultObject);
+    GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array, true, RF_ClassDefaultObject);
     for (UObject * obj_p : blueprint_array)
       {
       on_new_asset(obj_p);
