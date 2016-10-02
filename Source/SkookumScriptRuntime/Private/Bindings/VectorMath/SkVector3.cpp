@@ -15,6 +15,7 @@
 #include "SkVector3.hpp"
 #include "SkRotation.hpp"
 #include "SkTransform.hpp"
+#include "SkRotationAngles.hpp"
 
 //=======================================================================================
 // Method Definitions
@@ -480,6 +481,19 @@ namespace SkVector3_Impl
       }
     }
 
+  //---------------------------------------------------------------------------------------
+  // # Skookum:   Vector3@RotationAngles() RotationAngles
+  // # Author(s): Zachary Burke
+  static void mthd_RotationAngles(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+	{
+	// Do nothing if result not desired
+	if (result_pp)
+	  {
+		const FRotator & rotation = scope_p->this_as<SkVector3>().Rotation();
+		*result_pp = SkRotationAngles::new_instance(rotation);
+	  }
+	}
+
   /*
   //---------------------------------------------------------------------------------------
   // # Skookum:   Vector3@angle(Vector3 vec) Real
@@ -565,6 +579,7 @@ namespace SkVector3_Impl
       { "length",           mthd_length },
       { "length_squared",   mthd_length_squared },
       { "near?",            mthd_nearQ },
+	  { "RotationAngles",   mthd_RotationAngles },
       //{ "angle",            mthd_angle },
       //{ "normalize",        mthd_normalize },
     };
