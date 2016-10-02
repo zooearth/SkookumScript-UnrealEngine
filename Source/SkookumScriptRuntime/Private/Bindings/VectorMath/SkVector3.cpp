@@ -490,7 +490,7 @@ namespace SkVector3_Impl
     if (result_pp)
       {
       const FRotator & rotation = scope_p->this_as<SkVector3>().Rotation();
-        *result_pp = SkRotationAngles::new_instance(rotation);
+      *result_pp = SkRotationAngles::new_instance(rotation);
       }
     }
 
