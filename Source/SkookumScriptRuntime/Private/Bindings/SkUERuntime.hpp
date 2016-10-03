@@ -85,7 +85,7 @@ class SkUERuntime : public SkookumRuntimeBase
         const SkUEBlueprintInterface *         get_blueprint_interface() const { return &m_blueprint_interface; }
         ISkookumScriptRuntimeEditorInterface * get_editor_interface() const    { return m_editor_interface_p; }
 
-        void                                   set_game_generated_bindings(SkUEBindingsInterface * game_bindings_p);
+        void                                   set_project_generated_bindings(SkUEBindingsInterface * game_bindings_p);
         void                                   set_editor_interface(ISkookumScriptRuntimeEditorInterface * editor_interface_p)  { m_editor_interface_p = editor_interface_p; }
 
   protected:
@@ -95,7 +95,7 @@ class SkUERuntime : public SkookumRuntimeBase
       bool                m_is_static_ue_types_registered;
       bool                m_is_initialized;
       bool                m_is_compiled_scripts_bound; // If on_bind_routines() has been called at least once
-      bool                m_have_game_module; // If set_game_generated_bindings() was called at least once
+      bool                m_have_game_module; // If set_project_generated_bindings() was called at least once
 
       mutable bool        m_compiled_file_b;
       mutable FString     m_compiled_path;
@@ -103,7 +103,7 @@ class SkUERuntime : public SkookumRuntimeBase
       SkookumScriptListenerManager m_listener_manager;
       SkUEBlueprintInterface       m_blueprint_interface;
 
-      SkUEBindingsInterface *                 m_game_generated_bindings_p;
+      SkUEBindingsInterface *                 m_project_generated_bindings_p;
       ISkookumScriptRuntimeEditorInterface *  m_editor_interface_p;
 
   };  // SkUERuntime
