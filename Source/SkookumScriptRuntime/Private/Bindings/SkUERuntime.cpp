@@ -103,7 +103,7 @@ SkUERuntime::SkUERuntime()
   , m_have_game_module(false)
   , m_compiled_file_b(false)
   , m_listener_manager(256, 256)
-  , m_game_generated_bindings_p(nullptr)
+  , m_project_generated_bindings_p(nullptr)
   , m_editor_interface_p(nullptr)
   {
   ms_singleton_p = this;
@@ -178,7 +178,7 @@ void SkUERuntime::ensure_static_ue_types_registered()
   {
   if (!m_is_static_ue_types_registered)
     {
-    SkUEBindings::register_static_ue_types(m_game_generated_bindings_p);
+    SkUEBindings::register_static_ue_types(m_project_generated_bindings_p);
     m_is_static_ue_types_registered = true;
     }
   }
@@ -198,7 +198,7 @@ void SkUERuntime::on_bind_routines()
   #endif
 
   ensure_static_ue_types_registered();                                                            // HACK                                                                                               // Initialize custom UE4 classes
-  SkUEBindings::register_all_bindings(m_game_generated_bindings_p);
+  SkUEBindings::register_all_bindings(m_project_generated_bindings_p);
   USkookumScriptBehaviorComponent::initialize();
   
   // We bound all routines at least once
@@ -221,12 +221,12 @@ void SkUERuntime::on_pre_deinitialize_session()
 
 //---------------------------------------------------------------------------------------
 
-void SkUERuntime::set_game_generated_bindings(SkUEBindingsInterface * game_generated_bindings_p)
+void SkUERuntime::set_project_generated_bindings(SkUEBindingsInterface * project_generated_bindings_p)
   {
-  SK_ASSERTX(!m_is_compiled_scripts_bound || !game_generated_bindings_p, "Tried to set game bindings but routines have already been bound to the default generated bindings. You need to call this function earlier in the initialization sequence.");
-  m_game_generated_bindings_p = game_generated_bindings_p;
+  SK_ASSERTX(!m_is_compiled_scripts_bound || !project_generated_bindings_p, "Tried to set project bindings but routines have already been bound to the default generated bindings. You need to call this function earlier in the initialization sequence.");
+  m_project_generated_bindings_p = project_generated_bindings_p;
 
-  if (game_generated_bindings_p)
+  if (project_generated_bindings_p)
     {
     m_have_game_module = true;
 

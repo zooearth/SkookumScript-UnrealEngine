@@ -132,8 +132,7 @@ void USkookumScriptBehaviorComponent::attach(SkInstance * instance_p)
 
 void USkookumScriptBehaviorComponent::detach()
   {
-  UnregisterComponent();
-  MarkPendingKill();
+  DestroyComponent();
   }
 
 //---------------------------------------------------------------------------------------
@@ -169,11 +168,15 @@ void USkookumScriptBehaviorComponent::InitializeComponent()
 
 void USkookumScriptBehaviorComponent::BeginPlay()
   {
-  Super::BeginPlay();
+  // We might have been detached in the on_attached function - bail if that's the case
+  if (IsRegistered())
+    {
+    Super::BeginPlay();
 
-  SK_ASSERTX(m_component_instance_p != nullptr, a_str_format("SkookumScriptBehaviorComponent '%S' on actor '%S' has no SkookumScript instance upon BeginPlay. This means its InitializeComponent() method was never called during initialization. Please check your initialization sequence and make sure this component gets properly initialized.", *GetName(), *GetOwner()->GetName()));
+    SK_ASSERTX(m_component_instance_p != nullptr, a_str_format("SkookumScriptBehaviorComponent '%S' on actor '%S' has no SkookumScript instance upon BeginPlay. This means its InitializeComponent() method was never called during initialization. Please check your initialization sequence and make sure this component gets properly initialized.", *GetName(), *GetOwner()->GetName()));
 
-  m_component_instance_p->method_call(ms_symbol_on_begin_play);
+    m_component_instance_p->method_call(ms_symbol_on_begin_play);
+    }
   }
 
 //---------------------------------------------------------------------------------------

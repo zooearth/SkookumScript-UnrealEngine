@@ -41,7 +41,7 @@ class ISkookumScriptRuntime : public IModuleInterface
 
     // Methods
 
-    virtual void  set_game_generated_bindings(SkUEBindingsInterface * game_generated_bindings_p) = 0;
+    virtual void  set_project_generated_bindings(SkUEBindingsInterface * project_generated_bindings_p) = 0;
 
     virtual bool  is_skookum_disabled() const = 0;
     virtual bool  is_freshen_binaries_pending() const = 0;
