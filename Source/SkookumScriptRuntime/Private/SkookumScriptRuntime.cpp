@@ -81,7 +81,7 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
     // Overridden from ISkookumScriptRuntime
 
-    virtual void  set_game_generated_bindings(SkUEBindingsInterface * game_generated_bindings_p) override;
+    virtual void  set_project_generated_bindings(SkUEBindingsInterface * project_generated_bindings_p) override;
     virtual bool  is_skookum_disabled() const override;    
     virtual bool  is_freshen_binaries_pending() const override;
 
@@ -655,7 +655,7 @@ void FSkookumScriptRuntime::ShutdownModule()
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntime::set_game_generated_bindings(SkUEBindingsInterface * game_generated_bindings_p)
+void FSkookumScriptRuntime::set_project_generated_bindings(SkUEBindingsInterface * project_generated_bindings_p)
   {
   // Have we had any game bindings before?
   if (m_runtime.have_game_module())
@@ -670,7 +670,7 @@ void FSkookumScriptRuntime::set_game_generated_bindings(SkUEBindingsInterface * 
     ensure_runtime_initialized();
     }
   // Now that binaries are loaded, point to the bindings to use
-  m_runtime.set_game_generated_bindings(game_generated_bindings_p);
+  m_runtime.set_project_generated_bindings(project_generated_bindings_p);
   }
 
 //---------------------------------------------------------------------------------------

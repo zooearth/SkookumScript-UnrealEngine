@@ -316,10 +316,13 @@ class SK_API SkInvokeRace : public SkInvocation
 //            This class is similar to the SkInvocation class except that it has more
 //            than one 'command' to give to the receiver.
 // See Also   SkInvocation, SkInvokeSync, SkInvokeRace, SkInstantiate
-// Examples:      receiver
-//              :call1()
-//              :call2()
-//              :call3()
+// Examples:
+//   receiver.
+//     [     
+//     call1
+//     call2
+//     call3
+//     ]
 // Author(s)  Conan Reis
 class SK_API SkInvokeCascade : public SkExpressionBase
   {

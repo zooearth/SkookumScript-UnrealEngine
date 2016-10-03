@@ -105,6 +105,20 @@ void USkookumScriptListener::free_event(EventInfo * event_p, bool free_arguments
 
 //---------------------------------------------------------------------------------------
 
+void USkookumScriptListener::push_event_and_resume(EventInfo * event_p, uint32_t num_arguments)
+  {
+  #if (SKOOKUM & SK_DEBUG)
+    for (uint32_t i = 0; i < num_arguments; ++i) SK_ASSERTX(event_p->m_argument_p[i], "All event arguments must be set.");
+    for (uint32_t i = num_arguments; i < A_COUNT_OF(event_p->m_argument_p); ++i) SK_ASSERTX(!event_p->m_argument_p[i], "Unused event arguments must be left alone.");
+    SK_ASSERTX(m_num_arguments == 0 || m_num_arguments == num_arguments, "All events must have same argument count.");
+  #endif
+  m_num_arguments = num_arguments;
+  m_event_queue.append(event_p);
+  if (m_coro_p.is_valid()) m_coro_p->resume();
+  }
+
+//---------------------------------------------------------------------------------------
+
 bool USkookumScriptListener::coro_on_event_do(SkInvokedCoroutine * scope_p, tRegisterCallback register_f, tUnregisterCallback unregister_f, bool do_until)
   {
   UObject * this_p = scope_p->this_as<SkUEEntity>();
@@ -219,20 +233,6 @@ bool USkookumScriptListener::coro_wait_event(SkInvokedCoroutine * scope_p, tUnre
 
   // Ok done, return event parameters and quit
   return true;
-  }
-
-//---------------------------------------------------------------------------------------
-
-inline void USkookumScriptListener::push_event_and_resume(EventInfo * event_p, uint32_t num_arguments)
-  {
-  #if (SKOOKUM & SK_DEBUG)
-    for (uint32_t i = 0; i < num_arguments; ++i) SK_ASSERTX(event_p->m_argument_p[i], "All event arguments must be set.");
-    for (uint32_t i = num_arguments; i < A_COUNT_OF(event_p->m_argument_p); ++i) SK_ASSERTX(!event_p->m_argument_p[i], "Unused event arguments must be left alone.");
-    SK_ASSERTX(m_num_arguments == 0 || m_num_arguments == num_arguments, "All events must have same argument count.");
-  #endif
-  m_num_arguments = num_arguments;
-  m_event_queue.append(event_p);
-  if (m_coro_p.is_valid()) m_coro_p->resume();
   }
 
 //---------------------------------------------------------------------------------------

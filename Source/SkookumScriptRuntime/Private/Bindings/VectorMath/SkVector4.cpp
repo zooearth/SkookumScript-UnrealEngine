@@ -13,6 +13,7 @@
 
 #include "../../SkookumScriptRuntimePrivatePCH.h"
 #include "SkVector4.hpp"
+#include "SkRotationAngles.hpp"
 
 //=======================================================================================
 // Method Definitions
@@ -353,6 +354,19 @@ namespace SkVector4_Impl
       }
     }
 
+  //---------------------------------------------------------------------------------------
+  // # Skookum:   Vector4@RotationAngles() RotationAngles
+  // # Author(s): Zachary Burke
+  static void mthd_RotationAngles(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    // Do nothing if result not desired
+    if (result_pp)
+      {
+      const FRotator & rotation = scope_p->this_as<SkVector4>().Rotation();
+      *result_pp = SkRotationAngles::new_instance(rotation);
+      }
+    }
+
   /*
   //---------------------------------------------------------------------------------------
   // # Skookum:   Vector4@distance(Vector4 vec) Real
@@ -503,6 +517,7 @@ namespace SkVector4_Impl
       { "set",              mthd_set },
       { "zero?",            mthd_zeroQ },
       { "zero",             mthd_zero },
+      { "RotationAngles",   mthd_RotationAngles },
 
       //{ "distance",         mthd_distance },
       //{ "distance_squared", mthd_distance_squared },
