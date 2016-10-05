@@ -2035,7 +2035,6 @@ bool FSkookumScriptGenerator::can_export_method(UFunction * function_p, int32 in
 
     if (param_p->IsA(UDelegateProperty::StaticClass()) ||
         param_p->IsA(UMulticastDelegateProperty::StaticClass()) ||
-        param_p->IsA(UWeakObjectProperty::StaticClass()) ||
         param_p->IsA(UInterfaceProperty::StaticClass()))
       {
       return false;
