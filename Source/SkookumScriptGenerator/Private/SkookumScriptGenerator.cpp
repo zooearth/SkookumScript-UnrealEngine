@@ -1990,6 +1990,17 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
     "#pragma clang diagnostic pop\r\n"
     "#endif\r\n\r\n");
 
+  // Hack to fix linker error - should submit pull request to Epic to fix this on Engine end
+  binding_code += TEXT(
+    "// HACK to fix UE4 linker error\r\n"
+    "#if !IS_MONOLITHIC\r\n"
+    "namespace FNavigationSystem\r\n"
+    "  {\r\n"
+    "  const float FallbackAgentRadius = 35.f;\r\n"
+    "  const float FallbackAgentHeight = 144.f;\r\n"
+    "  }\r\n"
+    "#endif\r\n");
+
   // Save to disk
   save_text_file_if_changed(binding_code_directory_path / FString::Printf(TEXT("SkUE%sGeneratedBindings.generated.inl"), engine_project_p), binding_code);
   }
