@@ -194,14 +194,35 @@ UBlueprint * FSkookumScriptRuntimeGenerator::load_blueprint_asset(const FString 
         {
         // Successfully got the path of the package, so assemble with asset name and load the asset
         FString package_path = meta_file_text.Mid(package_path_begin_pos, package_path_end_pos - package_path_begin_pos);
+
+        // Get Sk class name
         FString class_name = FPaths::GetCleanFilename(class_path);
-        // If there's a dot in the name, use portion right of it
+        // If there's a dot in the class name, use portion right of it
         int dot_pos = -1;
         if (class_name.FindChar(TCHAR('.'), dot_pos))
           {
           class_name = class_name.Mid(dot_pos + 1);
           }
-        FString asset_path = package_path + TEXT(".") + class_name;
+        // Default asset name is the Sk class name
+        FString asset_name = class_name;
+        // Now try to extract exact asset name from comment, as it may differ in punctuation
+        int32 asset_name_begin_pos = meta_file_text.Find(ms_asset_name_key);
+        if (asset_name_begin_pos >= 0)
+          {
+          asset_name_begin_pos += ms_asset_name_key.Len();
+          int32 asset_name_end_pos = meta_file_text.Find(TEXT("\r\n"), ESearchCase::CaseSensitive, ESearchDir::FromStart, asset_name_begin_pos);
+          if (asset_name_end_pos <= asset_name_begin_pos)
+            {
+            asset_name_end_pos = meta_file_text.Find(TEXT("\n"), ESearchCase::CaseSensitive, ESearchDir::FromStart, asset_name_begin_pos);
+            }
+          if (asset_name_end_pos > asset_name_begin_pos)
+            {
+            asset_name = meta_file_text.Mid(asset_name_begin_pos, asset_name_end_pos - asset_name_begin_pos);
+            }
+          }
+
+        // Now try to find the Blueprint
+        FString asset_path = package_path + TEXT(".") + asset_name;
         UBlueprint * blueprint_p = LoadObject<UBlueprint>(nullptr, *asset_path);
         if (!blueprint_p)
           {
