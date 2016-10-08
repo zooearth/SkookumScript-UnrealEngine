@@ -109,6 +109,7 @@ class FSkookumScriptGeneratorBase
     static const FString        ms_reserved_keywords[]; // = Forbidden variable names
     static const FName          ms_meta_data_key_function_category;
     static const FName          ms_meta_data_key_blueprint_type;
+    static const FString        ms_asset_name_key; // Label used to extract asset name from Sk class meta file
     static const FString        ms_package_name_key; // Label used to extract package name from Sk class meta file
     static const FString        ms_package_path_key; // Label used to extract package path from Sk class meta file
     static TCHAR const * const  ms_editable_ini_settings_p; // ini file settings to describe that a project is not editable

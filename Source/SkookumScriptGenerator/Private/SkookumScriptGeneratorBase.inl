@@ -78,6 +78,7 @@ const FString FSkookumScriptGeneratorBase::ms_reserved_keywords[] =
 
 const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_function_category(TEXT("Category"));
 const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_blueprint_type(TEXT("BlueprintType"));
+const FString       FSkookumScriptGeneratorBase::ms_asset_name_key(TEXT("// UE4 Asset Name: "));
 const FString       FSkookumScriptGeneratorBase::ms_package_name_key(TEXT("// UE4 Package Name: \""));
 const FString       FSkookumScriptGeneratorBase::ms_package_path_key(TEXT("// UE4 Package Path: \""));
 TCHAR const * const FSkookumScriptGeneratorBase::ms_editable_ini_settings_p(TEXT("Editable=false\r\nCanMakeEditable=true\r\n"));
@@ -813,7 +814,7 @@ FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type
       UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(class_p);
       if (blueprint_p)
         {
-        meta_body += TEXT("// UE4 Asset Name: ") + blueprint_p->GetName() + TEXT("\r\n");
+        meta_body += ms_asset_name_key + blueprint_p->GetName() + TEXT("\r\n");
         UPackage * blueprint_package_p = Cast<UPackage>(blueprint_p->GetOuter());
         if (blueprint_package_p)
           {
