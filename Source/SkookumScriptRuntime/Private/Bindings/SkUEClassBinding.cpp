@@ -197,6 +197,12 @@ bool SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p)
       }
     }
 
+  // If there's nothing to resolve, we're done!
+  if (class_p->get_instance_data_raw().is_empty())
+    {
+    return true;
+    }
+
   // First check if it's a class
   UStruct * ue_struct_or_class_p = get_ue_class_from_sk_class(class_p);
   if (!ue_struct_or_class_p)
