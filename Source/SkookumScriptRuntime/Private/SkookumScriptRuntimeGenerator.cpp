@@ -512,7 +512,7 @@ void FSkookumScriptRuntimeGenerator::initialize_paths()
   if (!FPaths::GameDir().IsEmpty())
     {
     bool created = false;
-    project_file_path = get_or_create_project_file(FPaths::GameDir(), &created);
+    project_file_path = get_or_create_project_file(FPaths::GameDir(), FApp::GetGameName(), &created);
     if (created)
       {
       generate_all_class_script_files();

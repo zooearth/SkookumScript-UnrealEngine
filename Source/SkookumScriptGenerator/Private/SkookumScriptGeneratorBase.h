@@ -69,7 +69,7 @@ class FSkookumScriptGeneratorBase
     //---------------------------------------------------------------------------------------
     // Methods
 
-    static FString        get_or_create_project_file(const FString & ue_project_directory_path, bool * created_p = nullptr);
+    static FString        get_or_create_project_file(const FString & ue_project_directory_path, const TCHAR * project_name_p, bool * created_p = nullptr);
     bool                  compute_scripts_path_depth(FString project_ini_file_path, const FString & overlay_name);
     void                  save_text_file(const FString & file_path, const FString & contents);
     bool                  save_text_file_if_changed(const FString & file_path, const FString & new_file_contents); // Helper to change a file only if needed

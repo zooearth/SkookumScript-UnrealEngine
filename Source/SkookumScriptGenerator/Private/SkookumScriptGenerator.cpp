@@ -71,13 +71,14 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
   struct GenerationTarget
     {
     FString               m_root_directory_path;      // Root of the runtime plugin or project we're generating the code for
+    FString               m_project_name;             // Name of this project
     TArray<ModuleInfo>    m_script_supported_modules; // List of module names specified in SkookumScript.ini
     TSet<FString>         m_skip_classes;             // All classes set to skip in SkookumScript.ini
     TArray<FString>       m_additional_includes;      // Workaround - extra header files to include
 
     mutable ModuleInfo *  m_current_module_p;  // Module that is currently processed by UHT
 
-    void                initialize(const FString & root_directory_path, const GenerationTarget * inherit_from_p = nullptr);
+    void                initialize(const FString & root_directory_path, const FString & project_name, const GenerationTarget * inherit_from_p = nullptr);
     bool                begin_process_module(const FString & module_name, EBuildModuleType::Type module_type, const FString & module_generated_include_folder) const;
     bool                can_export_class(UClass * class_p) const;
     bool                can_export_struct(UStruct * struct_p) const;
@@ -312,10 +313,8 @@ void FSkookumScriptGenerator::Initialize(const FString & root_local_path, const 
   m_unreal_engine_root_path_build = root_build_path;
 
   // Set up information about engine and project code generation
-  FString root_directory_path_engine = include_base / TEXT("../..");
-  FString root_directory_path_project = FPaths::GetPath(FPaths::GetProjectFilePath());
-  m_targets[ClassScope_engine].initialize(root_directory_path_engine);
-  m_targets[ClassScope_project].initialize(root_directory_path_project, &m_targets[ClassScope_engine]);
+  m_targets[ClassScope_engine].initialize(include_base / TEXT("../.."), TEXT("UE4"));
+  m_targets[ClassScope_project].initialize(FPaths::GetPath(FPaths::GetProjectFilePath()), FPaths::GetBaseFilename(FPaths::GetProjectFilePath()), &m_targets[ClassScope_engine]);
 
   // Use some conservative estimates to avoid unnecessary reallocations
   m_types_to_generate.Reserve(3000);
@@ -1534,7 +1533,7 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
   // Set up output path for scripts
   if (class_scope == ClassScope_project)
     {
-    FString project_file_path = get_or_create_project_file(m_targets[ClassScope_project].m_root_directory_path);
+    FString project_file_path = get_or_create_project_file(m_targets[ClassScope_project].m_root_directory_path, *m_targets[ClassScope_project].m_project_name);
     if (project_file_path.IsEmpty())
       {
       return false;
@@ -2361,13 +2360,14 @@ void FSkookumScriptGenerator::request_generate_type(UField * type_p, int32 inclu
 // GenerationTarget implementation
 //=======================================================================================
 
-void FSkookumScriptGenerator::GenerationTarget::initialize(const FString & root_directory_path, const GenerationTarget * inherit_from_p)
+void FSkookumScriptGenerator::GenerationTarget::initialize(const FString & root_directory_path, const FString & project_name, const GenerationTarget * inherit_from_p)
   {
   // Check if root path actually exists
   if (IFileManager::Get().DirectoryExists(*root_directory_path))
     {
     // Yes, only then set it
     m_root_directory_path = root_directory_path;
+    m_project_name = project_name;
 
     TArray<FString> script_supported_modules;
     TArray<FString> skip_classes;
