@@ -16,39 +16,42 @@
 #include <SkookumScript/SkookumRemoteRuntimeBase.hpp>
 #include <Networking.h>
 
-
 //=======================================================================================
 // Global Structures
 //=======================================================================================
 
-#ifdef SKOOKUM_REMOTE
-  // Enable remote Skookum IDE for debugging in the SkookumScript Unreal plug-in
+#if (SKOOKUM & SK_DEBUG)
+//#ifdef SKOOKUM_REMOTE
+  // Enable remote SkookumIDE for debugging in the SkookumScript Unreal plug-in
   #define SKOOKUM_REMOTE_UNREAL
 #endif
 
 #ifdef SKOOKUM_REMOTE_UNREAL
 
+class FSkookumScriptRuntimeGenerator;
+  
 //---------------------------------------------------------------------------------------
-// Skookum remote IDE communication commands that are specific to the server IDE.
+// Communication commands that are specific to the SkookumIDE.
 class SkUERemote : public SkookumRemoteRuntimeBase
   {
   public:
 
   // Common Methods
 
-    SkUERemote();
+    SkUERemote(FSkookumScriptRuntimeGenerator * runtime_generator_p);
     ~SkUERemote();
 
     void                      process_incoming();
 
     TSharedPtr<FInternetAddr> get_ip_address_local();
+    TSharedPtr<FInternetAddr> get_ip_address_ide();
 
     virtual bool              is_connected() const override;
     virtual void              set_mode(eSkLocale mode) override;
 
-    bool                      is_load_compiled_binaries_requested() const { return m_load_compiled_binaries_requested; }
-    void                      clear_load_compiled_binaries_requested()    { m_load_compiled_binaries_requested = false; }
-    bool                      is_compiled_binaries_have_errors() const    { return m_compiled_binaries_have_errors; }
+    bool                      is_load_compiled_binaries_requested() const { return m_remote_binaries == CompiledState_fresh; }
+    void                      clear_load_compiled_binaries_requested()    { m_remote_binaries = CompiledState_unknown; }
+    bool                      is_compiled_binaries_have_errors() const    { return m_remote_binaries == CompiledState_errors; }
 
     //---------------------------------------------------------------------------------------
     // Determines amount of time elapsed time in seconds (from some consistent start time at
@@ -93,6 +96,7 @@ class SkUERemote : public SkookumRemoteRuntimeBase
 
   protected:
 
+    AString                   get_socket_str(const FInternetAddr & addr);
     AString                   get_socket_str();
 
   // Events
@@ -112,12 +116,11 @@ class SkUERemote : public SkookumRemoteRuntimeBase
     // Data byte index point - ADef_uint32 when not in progress
     uint32_t      m_data_idx;
 
-    // Binaries have been successfully compiled and are ready to load
-    bool          m_load_compiled_binaries_requested;
-    bool          m_compiled_binaries_have_errors;
-
     // Editor interface so we can notify it about interesting events
     ISkookumScriptRuntimeEditorInterface * m_editor_interface_p;
+
+    // Generator so we can get project information
+    FSkookumScriptRuntimeGenerator * m_runtime_generator_p;
 
   };  // SkUERemote
 

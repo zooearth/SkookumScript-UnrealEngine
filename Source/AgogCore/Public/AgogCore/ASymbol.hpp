@@ -144,7 +144,7 @@
 #if !defined(ASYMBOL_DEFINE_STR)
   // Define for identifier definition
   #define ASYMBOL_DEFINE_STR(_prefix, _id, _str)       const ASymbol _prefix##_##_id(ASymbol::create(_str));
-  #define ASYMBOL_DEFINE_STR_NULL(_prefix, _id, _str)  const ASymbol _prefix##_##_id;
+  #define ASYMBOL_DEFINE_STR_NULL(_prefix, _id, _str)  const ASymbol _prefix##_##_id(ASymbol::get_null());
   #define ASYMBOL_ASSIGN_STR(_prefix, _id, _str)       const_cast<ASymbol&>(_prefix##_##_id) = ASymbol::create(_str);
   #define ASYMBOL_ASSIGN_STR_NULL(_prefix, _id, _str)  const_cast<ASymbol&>(_prefix##_##_id) = ASymbol::ms_null;
 #endif
@@ -266,7 +266,7 @@ class A_API ASymbol
 
     static ASymbol create(const AString & str, eATerm term = ATerm_long);
     static ASymbol create(const char * cstr_p, uint32_t length = ALength_calculate, eATerm term = ATerm_long);
-    static ASymbol create_from_binary(const void ** sym_binary_pp);
+    static ASymbol create_from_binary(const void ** sym_binary_pp, bool require_existance = true);
     static ASymbol create_existing(uint32_t id);
     static ASymbol create_existing(const AString & str);
     static ASymbol create_existing(const char * cstr_p, uint32_t length = ALength_calculate);

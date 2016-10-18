@@ -13,7 +13,6 @@
 
 #include "../../SkookumScriptRuntimePrivatePCH.h"
 #include "SkUEEntityClass.hpp"
-#include <SkUEEntity.generated.hpp>
 
 //---------------------------------------------------------------------------------------
 

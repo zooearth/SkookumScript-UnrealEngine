@@ -13,15 +13,17 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
-#include "../Classes/SkookumScriptListener.h"
+#include "SkookumScriptListener.h"
 #include "SkookumScriptListenerManager.hpp"
 
 #include "Bindings/VectorMath/SkVector3.hpp"
 #include "Bindings/Engine/SkUEName.hpp"
-#include "SkUEActor.generated.hpp"
-#include "SkUEDamageType.generated.hpp"
-#include "SkUEController.generated.hpp"
-#include "SkUEPrimitiveComponent.generated.hpp"
+
+#include <SkUEActor.generated.hpp>
+#include <SkUEEntity.generated.hpp>
+#include <SkUEDamageType.generated.hpp>
+#include <SkUEController.generated.hpp>
+#include <SkUEPrimitiveComponent.generated.hpp>
 
 //=======================================================================================
 // FSkookumScriptListenerAutoPtr
@@ -103,7 +105,7 @@ void USkookumScriptListener::free_event(EventInfo * event_p, bool free_arguments
 
 //---------------------------------------------------------------------------------------
 
-inline void USkookumScriptListener::push_event_and_resume(EventInfo * event_p, uint32_t num_arguments)
+void USkookumScriptListener::push_event_and_resume(EventInfo * event_p, uint32_t num_arguments)
   {
   #if (SKOOKUM & SK_DEBUG)
     for (uint32_t i = 0; i < num_arguments; ++i) SK_ASSERTX(event_p->m_argument_p[i], "All event arguments must be set.");
@@ -115,50 +117,180 @@ inline void USkookumScriptListener::push_event_and_resume(EventInfo * event_p, u
   if (m_coro_p.is_valid()) m_coro_p->resume();
   }
 
-//=======================================================================================
-// Various event handlers
-//======================================================================================
-
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptListener::OnActorOverlap(AActor * other_actor_p)
+bool USkookumScriptListener::coro_on_event_do(SkInvokedCoroutine * scope_p, tRegisterCallback register_f, tUnregisterCallback unregister_f, bool do_until)
   {
-  EventInfo * event_p = alloc_event();
-  event_p->m_argument_p[SkArg_1] = SkUEActor::new_instance(other_actor_p);
-  push_event_and_resume(event_p, 1);
+  UObject * this_p = scope_p->this_as<SkUEEntity>();
+
+  // Just started?
+  if (scope_p->m_update_count == 0u)
+    {
+    // Install and store away event listener
+    USkookumScriptListener * listener_p = SkookumScriptListenerManager::get_singleton()->alloc_listener(this_p, scope_p, unregister_f);
+    scope_p->append_user_data<FSkookumScriptListenerAutoPtr, USkookumScriptListener *>(listener_p);
+    (*register_f)(this_p, listener_p);
+
+    // Suspend coroutine
+    scope_p->suspend();
+
+    // Coroutine not complete yet - call again when resumed
+    return false;
+    }
+
+  // Get back stored event listener
+  USkookumScriptListener * listener_p = scope_p->get_user_data<FSkookumScriptListenerAutoPtr>()->Get();
+  SK_ASSERTX(listener_p->has_event(), "Must have event at this point as coroutine was resumed by delegate object.");
+
+  // Run closure on each event accumulated in the listener
+  SkClosure * closure_p = scope_p->get_arg_data<SkClosure>(SkArg_1);
+  uint32_t num_arguments = listener_p->get_num_arguments();
+  bool exit = false;
+  SkInstance * closure_result_p = SkBrain::ms_nil_p;
+  SkInstance * return_value_p = SkBrain::ms_nil_p;
+  do
+    {
+    // Use event parameters to invoke closure, then recycle event
+    USkookumScriptListener::EventInfo * event_p = listener_p->pop_event();
+    if (do_until)
+      {
+      // Add reference to potential return values so they survive closure_method_call 
+      for (uint32_t i = 0; i < num_arguments; ++i)
+        {
+        event_p->m_argument_p[SkArg_1 + i]->reference();
+        }
+      }
+    closure_p->closure_method_call(&event_p->m_argument_p[0], listener_p->get_num_arguments(), &closure_result_p, scope_p);
+    if (do_until)
+      {
+      exit = closure_result_p->as<SkBoolean>();
+      if (exit)
+        {
+        for (uint32_t i = 0; i < num_arguments; ++i)
+          {
+          scope_p->set_arg(SkArg_2 + i, event_p->m_argument_p[i]); // Store parameters as return values if exiting
+          }
+        }
+      else
+        {
+        for (uint32_t i = 0; i < num_arguments; ++i)
+          {
+          event_p->m_argument_p[i]->dereference(); // Dereference parameters if not needed after all
+          }
+        }
+      closure_result_p->dereference(); // Free Boolean return value
+      }
+    listener_p->free_event(event_p, false);
+    } while (listener_p->has_event() && !exit);
+
+    if (!do_until || !exit)
+      {
+      // We're not done - wait for more events
+      scope_p->suspend();
+      return false;
+      }
+
+    // Ok done, return event parameters and quit
+    return true;
   }
 
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptListener::OnTakeAnyDamage(float damage, const UDamageType * damage_type_p, AController * instigated_by_p, AActor * damage_causer_p)
+bool USkookumScriptListener::coro_wait_event(SkInvokedCoroutine * scope_p, tUnregisterCallback register_f, tUnregisterCallback unregister_f)
   {
-  EventInfo * event_p = alloc_event();
-  event_p->m_argument_p[SkArg_1] = SkReal::new_instance(damage);
-  event_p->m_argument_p[SkArg_2] = SkUEDamageType::new_instance(const_cast<UDamageType*>(damage_type_p));
-  event_p->m_argument_p[SkArg_3] = SkUEController::new_instance(instigated_by_p);
-  event_p->m_argument_p[SkArg_4] = SkUEActor::new_instance(damage_causer_p);
-  push_event_and_resume(event_p, 4);
+  UObject * this_p = scope_p->this_as<SkUEEntity>();
+
+  // Just started?
+  if (scope_p->m_update_count == 0u)
+    {
+    // Install and store away event listener
+    USkookumScriptListener * listener_p = SkookumScriptListenerManager::get_singleton()->alloc_listener(this_p, scope_p, unregister_f);
+    scope_p->append_user_data<FSkookumScriptListenerAutoPtr, USkookumScriptListener *>(listener_p);
+    (*register_f)(this_p, listener_p);
+
+    // Suspend coroutine
+    scope_p->suspend();
+
+    // Coroutine not complete yet - call again when resumed
+    return false;
+    }
+
+  // Get back stored event listener
+  USkookumScriptListener * listener_p = scope_p->get_user_data<FSkookumScriptListenerAutoPtr>()->Get();
+  SK_ASSERTX(listener_p->has_event(), "Must have event at this point as coroutine was resumed by delegate object.");
+
+  // Return first event queued up on listener
+  // and *DISCARD* potential other events
+  SkClosure * closure_p = scope_p->get_arg_data<SkClosure>(SkArg_1);
+  uint32_t num_arguments = listener_p->get_num_arguments();
+  bool exit = false;
+  USkookumScriptListener::EventInfo * event_p = listener_p->pop_event();
+  for (uint32_t i = 0; i < num_arguments; ++i)
+    {
+    scope_p->set_arg(SkArg_1 + i, event_p->m_argument_p[i]); // Store parameters as return values if exiting
+    }
+  listener_p->free_event(event_p, false);
+
+  // Ok done, return event parameters and quit
+  return true;
   }
 
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptListener::OnTakePointDamage(float damage, AController * instigated_by_p, FVector hit_location, UPrimitiveComponent * hit_component_p, FName bone_name, FVector shot_from_direction, const UDamageType * damage_type_p, AActor * damage_causer_p)
+void USkookumScriptListener::add_dynamic_function(FName callback_name, UClass * callback_owner_class_p, Native exec_p)
   {
-  EventInfo * event_p = alloc_event();
-  event_p->m_argument_p[SkArg_1] = SkReal::new_instance(damage);
-  event_p->m_argument_p[SkArg_2] = SkUEController::new_instance(instigated_by_p);
-  event_p->m_argument_p[SkArg_3] = SkVector3::new_instance(hit_location);
-  event_p->m_argument_p[SkArg_4] = SkUEPrimitiveComponent::new_instance(hit_component_p);
-  event_p->m_argument_p[SkArg_5] = SkUEName::new_instance(bone_name);
-  event_p->m_argument_p[SkArg_6] = SkVector3::new_instance(shot_from_direction);
-  event_p->m_argument_p[SkArg_7] = SkUEDamageType::new_instance(const_cast<UDamageType*>(damage_type_p));
-  event_p->m_argument_p[SkArg_8] = SkUEActor::new_instance(damage_causer_p);
-  push_event_and_resume(event_p, 8);
+  // Find the function
+  UFunction * function_p = StaticClass()->FindFunctionByName(callback_name, EIncludeSuperFlag::ExcludeSuper);
+  if (!function_p)
+    {
+    // Duplicate the signature function object
+
+    // Find callback event object on owner class
+    UMulticastDelegateProperty * event_property_p = CastChecked<UMulticastDelegateProperty>(callback_owner_class_p->FindPropertyByName(callback_name));
+
+    // Duplicate it
+    FObjectDuplicationParameters dupe_parameters(event_property_p->SignatureFunction, StaticClass());
+    //Parameters.CreatedObjects = &DuplicatedObjectList;
+    dupe_parameters.DestName = callback_name;
+    function_p = Cast<UFunction>(StaticDuplicateObjectEx(dupe_parameters));
+
+    // Adjust parameters
+    function_p->FunctionFlags |= FUNC_Public | FUNC_BlueprintCallable | FUNC_Native;
+    function_p->SetNativeFunc(exec_p);
+    function_p->StaticLink(true);
+    for (TFieldIterator<UProperty> param_it(function_p); param_it; ++param_it)
+      {
+      // Callback parameters are always inputs
+      (*param_it)->PropertyFlags &= ~CPF_OutParm;
+      }
+
+    // Make method known to its class
+    StaticClass()->LinkChild(function_p);
+    StaticClass()->AddFunctionToFunctionMap(function_p);
+    }
   }
 
 //---------------------------------------------------------------------------------------
 
-void USkookumScriptListener::OnDestroyed()
+void USkookumScriptListener::remove_dynamic_function(FName callback_name)
   {
-  push_event_and_resume(alloc_event(), 0);
+  // Find the function
+  UFunction * function_p = StaticClass()->FindFunctionByName(callback_name, EIncludeSuperFlag::ExcludeSuper);
+  if (function_p)
+    {
+    // Unlink it from class
+    StaticClass()->RemoveFunctionFromFunctionMap(function_p);
+    UField ** prev_field_pp = &StaticClass()->Children;
+    for (UField * field_p = *prev_field_pp; field_p; prev_field_pp = &field_p->Next, field_p = *prev_field_pp)
+      {
+      if (field_p == function_p)
+        {
+        *prev_field_pp = field_p->Next;
+        break;
+        }
+      }
+
+    // Destroy the function along with its attached properties
+    function_p->MarkPendingKill();
+    }
   }

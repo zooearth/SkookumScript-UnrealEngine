@@ -430,9 +430,8 @@ A_INLINE AString::AString(const char * cstr_p)
   //A_ASSERT(cstr_p != nullptr, "Given nullptr instead of valid C-String", ErrId_null_cstr, AString);
 
   uint32_t length = uint32_t(::strlen(cstr_p));
-  uint32_t size   = AStringRef::request_char_count(length);
 
-  m_str_ref_p = AStringRef::pool_new(cstr_p, length, size, 1u, false, true);
+  m_str_ref_p = AStringRef::pool_new_copy(cstr_p, length, 1u);
   }
 
 //---------------------------------------------------------------------------------------

@@ -72,6 +72,12 @@ void FSkookumScriptEditorGUI::StartupModule()
   // Get pointer to runtime module
   m_runtime_p = FModuleManager::Get().GetModule("SkookumScriptRuntime");
 
+  // Don't do anything if SkookumScript is not active
+  if (get_runtime()->is_skookum_disabled())
+    {
+    return;
+    }
+
   if (!IsRunningCommandlet())
     {
     // Register commands and styles
@@ -106,6 +112,12 @@ void FSkookumScriptEditorGUI::StartupModule()
 
 void FSkookumScriptEditorGUI::ShutdownModule()
   {
+  // Don't do anything if SkookumScript is not active
+  if (get_runtime()->is_skookum_disabled())
+    {
+    return;
+    }
+  
   get_runtime()->set_editor_interface(nullptr);
   m_runtime_p.Reset();
 
@@ -149,7 +161,7 @@ void FSkookumScriptEditorGUI::add_skookum_button_to_level_tool_bar(FToolBarBuild
   #define LOCTEXT_NAMESPACE "LevelEditorToolBar"
 
     FSlateIcon icon_brush = FSlateIcon(FSkookumStyles::GetStyleSetName(), "SkookumScriptEditor.ShowIDE", "SkookumScriptEditor.ShowIDE.Small");
-    builder.AddToolBarButton(FSkookumScriptEditorCommands::Get().m_skookum_button, NAME_None, LOCTEXT("SkookumButton_Override", "Skookum IDE"), LOCTEXT("SkookumButton_ToolTipOverride", "Summons the Skookum IDE and navigates to the related class"), icon_brush, NAME_None);
+    builder.AddToolBarButton(FSkookumScriptEditorCommands::Get().m_skookum_button, NAME_None, LOCTEXT("SkookumButton_Override", "SkookumIDE"), LOCTEXT("SkookumButton_ToolTipOverride", "Summons the SkookumIDE and navigates to the related class"), icon_brush, NAME_None);
 
   #undef LOCTEXT_NAMESPACE
   }
@@ -161,7 +173,7 @@ void FSkookumScriptEditorGUI::add_skookum_button_to_blueprint_tool_bar(FToolBarB
   #define LOCTEXT_NAMESPACE "BlueprintEditorToolBar"
 
     FSlateIcon icon_brush = FSlateIcon(FSkookumStyles::GetStyleSetName(), "SkookumScriptEditor.ShowIDE", "SkookumScriptEditor.ShowIDE.Small");
-    builder.AddToolBarButton(FSkookumScriptEditorCommands::Get().m_skookum_button, NAME_None, LOCTEXT("SkookumButton_Override", "Show in IDE"), LOCTEXT("SkookumButton_ToolTipOverride", "Summons the Skookum IDE and navigates to the related class or method/coroutine"), icon_brush, NAME_None);
+    builder.AddToolBarButton(FSkookumScriptEditorCommands::Get().m_skookum_button, NAME_None, LOCTEXT("SkookumButton_Override", "Show in IDE"), LOCTEXT("SkookumButton_ToolTipOverride", "Summons the SkookumIDE and navigates to the related class or method/coroutine"), icon_brush, NAME_None);
 
   #undef LOCTEXT_NAMESPACE
   }

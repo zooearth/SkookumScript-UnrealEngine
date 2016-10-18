@@ -13,6 +13,7 @@
 // Includes
 //=======================================================================================
 
+typedef AFunctionArgBase<UClass *> tSkUEOnClassUpdatedFunc;
 
 //---------------------------------------------------------------------------------------
 // Class for managing functions exposed to Blueprint graphs
@@ -25,9 +26,9 @@ class SkUEBlueprintInterface
     static SkUEBlueprintInterface * get() { return ms_singleton_p; }
 
     void      clear();
-    UClass *  reexpose_class(SkClass * sk_class_p);
-    void      reexpose_class_recursively(SkClass * sk_class_p);
-    void      reexpose_all(); // Gather methods from SkookumScript
+    UClass *  reexpose_class(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f);
+    void      reexpose_class_recursively(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f);
+    void      reexpose_all(tSkUEOnClassUpdatedFunc * on_class_updated_f); // Gather methods from SkookumScript
 
     bool      is_skookum_blueprint_function(UFunction * function_p) const;
     bool      is_skookum_blueprint_event(UFunction * function_p) const;
@@ -138,14 +139,14 @@ class SkUEBlueprintInterface
       tSkValueGetter    m_sk_value_getter_p;
       };
 
-    void                exec_method(FFrame & stack, void * const result_p, SkInstance * this_p);
+    void                exec_method(FFrame & stack, void * const result_p, SkClass * class_scope_p, SkInstance * this_p);
     void                exec_class_method(FFrame & stack, void * const result_p);
     void                exec_instance_method(FFrame & stack, void * const result_p);
     void                exec_coroutine(FFrame & stack, void * const result_p);
 
     static void         mthd_trigger_event(SkInvokedMethod * scope_p, SkInstance ** result_pp);
 
-    void                reexpose_class(SkClass * sk_class_p, UClass * ue_class_p);
+    void                reexpose_class(SkClass * sk_class_p, UClass * ue_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f);
     bool                try_update_binding_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, int32_t * out_binding_index_p);
     int32_t             try_add_binding_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p);
     int32_t             add_function_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p);

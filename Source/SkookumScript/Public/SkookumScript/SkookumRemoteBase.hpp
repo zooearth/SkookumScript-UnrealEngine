@@ -25,12 +25,10 @@
 // Global Defines / Macros
 //=======================================================================================
 
-// SKOOKUM_IDE_EMBEDDED must be defined if the Skookum IDE is embedded in the application
-// and SKOOKUM_REMOTE is defined if this application is a client/server that communicates
-// with a remote Skookum IDE/runtime.  Neither is defined if there is no access to the
-// Skookum IDE.
-#if (SKOOKUM & SK_DEBUG) && !defined(SKOOKUM_IDE_EMBEDDED)
-  // Default to use remote Skookum IDE for debugging.
+// SKOOKUM_REMOTE is defined if this application is a client/server that communicates
+// with a remote runtime.  Neither is defined if there is no access to the SkookumIDE.
+#if (SKOOKUM & SK_DEBUG)
+  // Default to use remote SkookumIDE for debugging.
   #define SKOOKUM_REMOTE
 #endif
 
@@ -124,7 +122,7 @@ class SK_API SkookumRemoteBase
 
       // IDE State
 
-        Command_show,                    // R->I cmd_show() - Show/hide/toggle Skookum IDE
+        Command_show,                    // R->I cmd_show() - Show/hide/toggle SkookumIDE
         Command_disconnect,              // I->R cmd_disconnect() - Some socket implementations cannot detect or do not have an event for disconnection of a socket so explicitly tell runtim that IDE is disconnecting.
 
       // Project management
@@ -238,10 +236,10 @@ class SK_API SkookumRemoteBase
     
   // Commands
 
-    #ifdef SKOOKUM_REMOTE
+    // *Note all these commands do byte swapping as necessary since they could be run on
+    // the client of any platform.
 
-      // *Note all these commands do byte swapping as necessary since they could be run on
-      // the client of any platform.
+    #ifdef SKOOKUM_REMOTE
 
       void cmd_simple(eCommand cmd);
       void cmd_simple_uint32(eCommand cmd, uint32_t value);

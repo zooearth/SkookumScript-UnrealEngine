@@ -1026,11 +1026,11 @@ void AString::append(
   uint32_t     length // = ALength_calculate
   )
   {
-  A_ASSERT(cstr_p != nullptr, "Given nullptr instead of valid C-String", ErrId_null_cstr, AString);
+  A_ASSERT(cstr_p != nullptr || length == 0 || length == ALength_calculate, "Given nullptr and specified length", ErrId_null_cstr, AString);
 
   if (length == ALength_calculate)
     {
-    length = uint32_t(::strlen(cstr_p));
+    length = cstr_p ? uint32_t(::strlen(cstr_p)) : 0;
     }
 
   if (length)
@@ -4729,7 +4729,7 @@ void AString::init_match_table()
   // #################### Negative Classifications #######################
 
   // Most of the negative classification tests return true
-  memset(ms_char_match_table[ACharMatch__not_start], true, bool_bytes * ACharMatch__not_start * AString_ansi_charset_length);
+  memset(ms_char_match_table[ACharMatch__not_start], true, bool_bytes * (ACharMatch__length - ACharMatch__not_start) * AString_ansi_charset_length);
 
   // Set alphabetic ACharMatch_not_alphabetic
   memset(&ms_char_match_table[ACharMatch_not_alphabetic]['A'], false, bool_bytes * ('Z' - 'A' + 1));
@@ -4798,8 +4798,12 @@ void AString::init_match_table()
   // Set white space ACharMatch_not_white_space
   // Horizontal Tab, Line Feed, Vertical Tab, Form Feed, Carriage Return
   memset(&ms_char_match_table[ACharMatch_not_white_space][9], false, bool_bytes * 5);
+  memset(&ms_char_match_table[ACharMatch_not_white_space_except_lf][9], false, bool_bytes * 5);
   // Space
   ms_char_match_table[ACharMatch_not_white_space][' '] = false;
+  ms_char_match_table[ACharMatch_not_white_space_except_lf][' '] = false;
+  // Line feed
+  ms_char_match_table[ACharMatch_not_white_space_except_lf]['\n'] = true;
   }
 
 

@@ -10,6 +10,7 @@
 #include "SlateGameResources.h" 
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
+#include "IPluginManager.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/SClassPickerDialog.h"
 

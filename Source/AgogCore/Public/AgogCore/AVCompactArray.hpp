@@ -520,7 +520,7 @@ void AVCompactArray<_ElementType, _KeyType, _CompareClass>::append(const _Elemen
   ::memcpy(this->m_array_p, old_array_p, length * sizeof(_ElementType));
   tAVCompactArrayBase::free_array(old_array_p);
 
-  this->m_array_p[length] = elem;  // insert element
+  new (this->m_array_p + length) _ElementType(elem);  // insert element
   this->m_count++;
   }
 

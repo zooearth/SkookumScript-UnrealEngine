@@ -18,6 +18,7 @@
 //=======================================================================================
 
 #include <AgogCore/AList.hpp>
+#include <AgogCore/AVArray.hpp>
 #include <SkookumScript/SkNamed.hpp>
 #include <SkookumScript/SkTyped.hpp>
 #include <SkookumScript/SkParameters.hpp>
@@ -40,7 +41,24 @@ class SkParameters;
   #include <AgogCore/AVCompactSorted.hpp>
 #endif
 
-typedef APArrayLogical<SkNamedIndexed, ASymbol> tSkNamedIndexedArray;
+typedef AVArrayLogical<AIdPtr<SkIndexed>, ASymbol>      tSkIndexedArray;
+typedef AVArrayLogical<AIdPtr<SkNamedIndexed>, ASymbol> tSkNamedIndexedArray;
+
+//---------------------------------------------------------------------------------------
+// Why we are nesting
+enum eSkNestReason
+{
+  SkNestReason_Invocation,   // The nested block will be invoked in its own invoked context scope
+  SkNestReason_Exploratory,  // The nested block is in the same invoked context scope as its parent scope, but might get discarded when backtracking
+};
+
+//---------------------------------------------------------------------------------------
+// Why we are unnesting
+enum eSkUnnestAction
+{
+  eSkUnnestAction_Accept,  // The nested block will be invoked in its own invoked context scope
+  eSkUnnestAction_Reject,  // The nested block is in the same invoked context scope as its parent scope, but might get discarded when backtracking
+};
 
 //---------------------------------------------------------------------------------------
 // Notes      Class Type Scope Context - used to track variable scope & type when
@@ -52,10 +70,13 @@ struct SK_API SkTypeContext
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Variables (and member variables that have their type changed) and their class types
-    // for a specific scope level.
+    // for a specific scope (invoked context) level.
     struct ScopeVars : public AListNode<ScopeVars>
       {
       // Public Data Members
+
+        // Why we are nesting - invocation or backtracking
+        eSkNestReason m_nest_reason;
 
         // Available/type-modified variables at a particular scope.
         tSkTypedNamesIndexed m_vars;
@@ -73,7 +94,7 @@ struct SK_API SkTypeContext
 
         SK_NEW_OPERATORS(ScopeVars);
 
-        ScopeVars(uint32_t data_idx_count) { m_data_idx_count_max = m_data_idx_count = data_idx_count; }
+        ScopeVars(eSkNestReason nest_reason, uint32_t data_idx_count) : m_nest_reason(nest_reason), m_data_idx_count(data_idx_count), m_data_idx_count_max(data_idx_count) {}
         ~ScopeVars() { empty(); }
 
         void empty() { m_vars.free_all(); m_var_history.free_all(); }
@@ -81,7 +102,7 @@ struct SK_API SkTypeContext
       };
   
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Tracking info for a set of captured variables.
+    // Tracking info for a set of variables captured during the parse of a closure.
     struct CapturedVars : public AListNode<CapturedVars>
       {
       // Public Data Members
@@ -93,10 +114,11 @@ struct SK_API SkTypeContext
         // Parent scope at which the capture was created
         tSkTypedNamesIndexed * m_scope_p;
 
-        // Keep track of any indexed names used during this capture session
-        tSkNamedIndexedArray m_indices_to_patch;
+        // Keep track of any indices used during this capture session
+        tSkIndexedArray       m_indices_to_patch;
+        tSkNamedIndexedArray  m_named_indices_to_patch;
 
-      // Methods
+        // Methods
 
         SK_NEW_OPERATORS(CapturedVars);
 
@@ -162,9 +184,10 @@ struct SK_API SkTypeContext
       void                  merge_locals(tSkTypedNamesIndexed * merge_vars_p, bool first_path_b) const;
       void                  capture_locals_start();
       void                  capture_locals_stop(tSkIndexedNames * captured_p);
+      void                  on_local_data_index_created(SkIndexed * indexed_p);
       void                  on_identifier_created(SkIdentifierLocal * identifier_p);
-      void                  nest_locals();
-      void                  unnest_locals(eAHistory history = AHistory_remember);
+      void                  nest_locals(eSkNestReason nest_reason);
+      void                  unnest_locals(eSkUnnestAction unnest_action);
       void                  accept_nest();
 
     // Combined Member & Local Methods

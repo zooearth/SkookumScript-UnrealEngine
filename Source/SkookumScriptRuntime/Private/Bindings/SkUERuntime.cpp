@@ -16,9 +16,10 @@
 #include "SkUERuntime.hpp"
 #include "SkUERemote.hpp"
 #include "SkUEBindings.hpp"
-#include "SkUEClassBinding.hpp"
 
-#include "../../Classes/SkookumScriptComponent.h"
+#include "SkookumScriptComponent.h"
+
+#include <AgogCore/AMethodArg.hpp>
 
 #include "GenericPlatformProcess.h"
 #include <chrono>
@@ -94,6 +95,21 @@ namespace
 //=======================================================================================
 
 //---------------------------------------------------------------------------------------
+
+SkUERuntime::SkUERuntime() 
+  : m_is_static_ue_types_registered(false)
+  , m_is_initialized(false)
+  , m_is_compiled_scripts_bound(false)
+  , m_have_game_module(false)
+  , m_compiled_file_b(false)
+  , m_listener_manager(256, 256)
+  , m_project_generated_bindings_p(nullptr)
+  , m_editor_interface_p(nullptr)
+  {
+  ms_singleton_p = this;
+  }
+
+//---------------------------------------------------------------------------------------
 // One-time initialization of SkookumScript
 // See Also    shutdown()
 // Author(s)   Conan Reis
@@ -109,6 +125,8 @@ void SkUERuntime::startup()
   #ifdef SKOOKUM_REMOTE_UNREAL
     SkDebug::register_print_with_agog();
   #endif
+
+  SkBrain::ms_component_class_name = ASymbol::create("SkookumScriptBehaviorComponent");
 
   SkBrain::register_bind_atomics_func(SkookumRuntimeBase::bind_routines);
   SkClass::register_raw_resolve_func(SkUEClassBindingHelper::resolve_raw_data);
@@ -145,7 +163,24 @@ void SkUERuntime::shutdown()
   // Gets rid of registered bind functions
   SkBrain::unregister_all_bind_atomics_funcs();
 
+  // Get rid of symbol so references are released
+  SkBrain::ms_component_class_name = ASymbol::get_null();
+
+  // Deinitialize custom UE4 classes
+  USkookumScriptBehaviorComponent::deinitialize();
+
   m_is_initialized = false;
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUERuntime::ensure_static_ue_types_registered()
+  {
+  if (!m_is_static_ue_types_registered)
+    {
+    SkUEBindings::register_static_ue_types(m_project_generated_bindings_p);
+    m_is_static_ue_types_registered = true;
+    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -162,14 +197,42 @@ void SkUERuntime::on_bind_routines()
     SkUEClassBindingHelper::reset_dynamic_class_mappings(); // Start over fresh
   #endif
 
-  SkUEBindings::register_all_bindings();
-  m_blueprint_interface.reexpose_all(); // Hook up Blueprint functions and events for static classes
+  ensure_static_ue_types_registered();                                                            // HACK                                                                                               // Initialize custom UE4 classes
+  SkUEBindings::register_all_bindings(m_project_generated_bindings_p);
+  USkookumScriptBehaviorComponent::initialize();
+  
+  // We bound all routines at least once
+  m_is_compiled_scripts_bound = true;
+
+  #if WITH_EDITOR
+    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
+    tSkUEOnClassUpdatedFunc * on_class_updated_f = &editor_on_class_updated_f;
+  #else
+    tSkUEOnClassUpdatedFunc * on_class_updated_f = nullptr;
+  #endif
+  m_blueprint_interface.reexpose_all(on_class_updated_f); // Hook up Blueprint functions and events for static classes
   }
 
 //---------------------------------------------------------------------------------------
 // Override to run cleanup code before SkookumScript deinitializes its session
 void SkUERuntime::on_pre_deinitialize_session()
   {
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUERuntime::set_project_generated_bindings(SkUEBindingsInterface * project_generated_bindings_p)
+  {
+  SK_ASSERTX(!m_is_compiled_scripts_bound || !project_generated_bindings_p, "Tried to set project bindings but routines have already been bound to the default generated bindings. You need to call this function earlier in the initialization sequence.");
+  m_project_generated_bindings_p = project_generated_bindings_p;
+
+  if (project_generated_bindings_p)
+    {
+    m_have_game_module = true;
+
+    // Now that bindings are known, bind the atomics
+    bind_compiled_scripts();
+    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -199,7 +262,7 @@ bool SkUERuntime::content_file_exists(const TCHAR * file_name_p, FString * folde
   if (game_name.IsEmpty())
     {
     // No game, look for default project binaries
-    folder_path = FPaths::EngineContentDir() / TEXT("skookumscript") /*TEXT(SK_BITS_ID)*/;
+    folder_path = FPaths::EngineContentDir() / TEXT("SkookumScript") /*TEXT(SK_BITS_ID)*/;
     if (!FPaths::FileExists(folder_path / file_name_p))
       {
       return false;
@@ -208,12 +271,12 @@ bool SkUERuntime::content_file_exists(const TCHAR * file_name_p, FString * folde
   else
     {
     // We have a game, so first check if it exists in the game content folder
-    folder_path = FPaths::GameContentDir() / TEXT("skookumscript") /*TEXT(SK_BITS_ID)*/;
+    folder_path = FPaths::GameContentDir() / TEXT("SkookumScript") /*TEXT(SK_BITS_ID)*/;
     if (!FPaths::FileExists(folder_path / file_name_p))
       {
       #if WITH_EDITORONLY_DATA
         // If not found in game, check in temp location
-        folder_path = FPaths::GameIntermediateDir() / TEXT("SkookumScript/Content/skookumscript");
+        folder_path = FPaths::GameIntermediateDir() / TEXT("SkookumScript/Content/SkookumScript");
         if (!FPaths::FileExists(folder_path / file_name_p))
           {
           return false;
@@ -231,28 +294,16 @@ bool SkUERuntime::content_file_exists(const TCHAR * file_name_p, FString * folde
 //---------------------------------------------------------------------------------------
 // Load the Skookum class hierarchy scripts in compiled binary form.
 // 
-// #Params
-//   ensure_atomics:
-//     If set makes sure all atomic (C++) scripts that were expecting a C++ function to be
-//     bound/hooked up to them do actually have a binding.
-//   ignore_classes_pp:
-//     array of classes to ignore when ensure_atomics is set.
-//     This allows some classes with optional or delayed bindings to be skipped such as
-//     bindings to a in-game world editor.
-//   ignore_count:  number of class pointers in ignore_classes_pp
-//
 // #Returns
 //   true if compiled scrips successfully loaded, false if not
 // 
-// #See:        load_compiled_class_group(), SkCompiler::compiled_load()
+// #See:        load_compiled_scripts()
 // #Modifiers:  static
 // #Author(s):  Conan Reis
-bool SkUERuntime::load_compiled_scripts(
-  bool       ensure_atomics,     // = true
-  SkClass ** ignore_classes_pp,  // = nullptr
-  uint32_t   ignore_count        // = 0u
-  )
+bool SkUERuntime::load_compiled_scripts()
   {
+  SK_ASSERTX(m_is_initialized, "SkookumScruipt must be initialized to be able to load compiled scripts.");
+
   A_DPRINT("\nSkookumScript loading previously parsed compiled binary...\n");
 
   if (load_compiled_hierarchy() != SkLoadStatus_ok)
@@ -262,6 +313,35 @@ bool SkUERuntime::load_compiled_scripts(
 
   A_DPRINT("  ...done!\n\n");
 
+  // After fresh loading of binaries, there are no bindings
+  m_is_static_ue_types_registered = false;
+  m_is_compiled_scripts_bound = false;
+
+  return true;
+  }
+
+//---------------------------------------------------------------------------------------
+// Bind atomic routines to the compiled binary loaded by load_compiled_scripts()
+// 
+// #Params
+//   ensure_atomics:
+//     If set makes sure all atomic (C++) scripts that were expecting a C++ function to be
+//     bound/hooked up to them do actually have a binding.
+//   ignore_classes_pp:
+//     array of classes to ignore when ensure_atomics is set.
+//     This allows some classes with optional or delayed bindings to be skipped such as
+//     bindings to a in-game world editor.
+//   ignore_count:  number of class pointers in ignore_classes_pp
+// 
+// #See:        load_compiled_class_group(), SkCompiler::compiled_load()
+// #Author(s):  Markus Breyer
+void SkUERuntime::bind_compiled_scripts(
+  bool       ensure_atomics,     // = true
+  SkClass ** ignore_classes_pp,  // = nullptr
+  uint32_t   ignore_count        // = 0u
+  )
+  {
+  SK_ASSERTX(m_is_initialized, "SkookumScruipt must be initialized to be able to bind compiled scripts.");
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Bind atomics
@@ -281,7 +361,6 @@ bool SkUERuntime::load_compiled_scripts(
 
   A_DPRINT("  ...done!\n\n");
 
-
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Enable SkookumScript evaluation
   SkookumScript::enable_flag(SkookumScript::Flag_evaluate);
@@ -289,8 +368,25 @@ bool SkUERuntime::load_compiled_scripts(
   A_DPRINT("SkookumScript initializing session...\n");
   SkookumScript::initialize_session();
   A_DPRINT("  ...done!\n\n");
+  }
 
-  return true;
+//---------------------------------------------------------------------------------------
+// Load Skookum class hierarchy scripts in compiled binary form and bind atomic routines
+//
+// #See:        load_compiled_scripts(), bind_compiled_scripts()
+// #Author(s):  Markus Breyer
+bool SkUERuntime::load_and_bind_compiled_scripts(
+  bool       ensure_atomics,     // = true
+  SkClass ** ignore_classes_pp,  // = nullptr
+  uint32_t   ignore_count        // = 0u
+  )
+  {
+  bool success = load_compiled_scripts();
+  if (success)
+    {
+    bind_compiled_scripts(ensure_atomics, ignore_classes_pp, ignore_count);
+    }
+  return success;
   }
 
 //---------------------------------------------------------------------------------------
@@ -325,7 +421,7 @@ void SkUERuntime::on_binary_hierarchy_path_changed()
 // #Author(s):  Conan Reis
 SkBinaryHandle * SkUERuntime::get_binary_hierarchy()
   {
-  FString compiled_file = get_compiled_path() / TEXT("classes.sk-bin");
+  FString compiled_file = FPaths::ConvertRelativePathToFull(get_compiled_path() / TEXT("classes.sk-bin"));
 
   A_DPRINT("  Loading compiled binary file '%ls'...\n", *compiled_file);
 
@@ -359,7 +455,7 @@ SkBinaryHandle * SkUERuntime::get_binary_class_group(const SkClass & cls)
 // #Author(s):  Conan Reis
 SkBinaryHandle * SkUERuntime::get_binary_symbol_table()
   {
-  FString sym_file = get_compiled_path() / TEXT("classes.sk-sym");
+  FString sym_file = FPaths::ConvertRelativePathToFull(get_compiled_path() / TEXT("classes.sk-sym"));
 
   A_DPRINT("  Loading compiled binary symbol file '%ls'...\n", *sym_file);
 

@@ -15,6 +15,7 @@
 #include "SkVector3.hpp"
 #include "SkRotation.hpp"
 #include "SkTransform.hpp"
+#include "SkRotationAngles.hpp"
 
 //=======================================================================================
 // Method Definitions
@@ -46,6 +47,15 @@ namespace SkVector3_Impl
       scope_p->get_arg<SkReal>(SkArg_2),
       0.0f);
     }
+
+  //---------------------------------------------------------------------------------------
+  // # Skookum:   Vector3@!scalar(Real s) Vector3
+  // # Author(s): Markus Breyer
+  static void mthd_ctor_scalar(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+  {
+    // Results are ignored for constructors
+    scope_p->get_this()->construct<SkVector3>(scope_p->get_arg<SkReal>(SkArg_1));
+  }
 
   //---------------------------------------------------------------------------------------
   // # Skookum:   Vector3@!axis_x() Vector3
@@ -257,6 +267,18 @@ namespace SkVector3_Impl
     }
 
   //---------------------------------------------------------------------------------------
+  // # Skookum:	  -Vector3
+  // # Author(s): Zachary Burke
+  static void mthd_op_negated(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    // Do nothing if result not desired
+    if (result_pp)
+      {
+      *result_pp = SkVector3::new_instance(-scope_p->this_as<SkVector3>());
+      }
+    }
+
+  //---------------------------------------------------------------------------------------
   // # Skookum:   Vector3@rotate_by(Rotation rot) Vector3
   // # Author(s): Markus Breyer
   static void mthd_rotate_by(SkInvokedMethod * scope_p, SkInstance ** result_pp)
@@ -459,6 +481,19 @@ namespace SkVector3_Impl
       }
     }
 
+  //---------------------------------------------------------------------------------------
+  // # Skookum:   Vector3@RotationAngles() RotationAngles
+  // # Author(s): Zachary Burke
+  static void mthd_RotationAngles(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    // Do nothing if result not desired
+    if (result_pp)
+      {
+      const FRotator & rotation = scope_p->this_as<SkVector3>().Rotation();
+      *result_pp = SkRotationAngles::new_instance(rotation);
+      }
+    }
+
   /*
   //---------------------------------------------------------------------------------------
   // # Skookum:   Vector3@angle(Vector3 vec) Real
@@ -500,6 +535,7 @@ namespace SkVector3_Impl
     {
       { "!xyz",             mthd_ctor_xyz },
       { "!xy",              mthd_ctor_xy },
+      { "!scalar",          mthd_ctor_scalar },
       { "!axis_x",          mthd_ctor_axis_x },
       { "!axis_x_neg",      mthd_ctor_axis_x_neg },
       { "!axis_y",          mthd_ctor_axis_y },
@@ -525,6 +561,7 @@ namespace SkVector3_Impl
       { "multiply_assign",  mthd_op_multiply_assign },
       { "divide",           mthd_op_divide },
       { "divide_assign",    mthd_op_divide_assign },
+      { "negated",          mthd_op_negated },
 
       { "rotate_by",        mthd_rotate_by },
       { "unrotate_by",      mthd_unrotate_by },
@@ -542,6 +579,7 @@ namespace SkVector3_Impl
       { "length",           mthd_length },
       { "length_squared",   mthd_length_squared },
       { "near?",            mthd_nearQ },
+      { "RotationAngles",   mthd_RotationAngles },
       //{ "angle",            mthd_angle },
       //{ "normalize",        mthd_normalize },
     };

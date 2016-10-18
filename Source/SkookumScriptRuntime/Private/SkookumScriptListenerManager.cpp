@@ -42,7 +42,8 @@ SkookumScriptListenerManager::~SkookumScriptListenerManager()
     USkookumScriptListener * listener_p = m_active_list.pop_last();
     if (listener_p->IsValidLowLevel())
       {
-      listener_p->ConditionalBeginDestroy();
+      listener_p->RemoveFromRoot(); // Make listener object garbage collectable
+      listener_p->MarkPendingKill();
       }
     }
   while (!m_inactive_list.is_empty())
@@ -50,7 +51,8 @@ SkookumScriptListenerManager::~SkookumScriptListenerManager()
     USkookumScriptListener * listener_p = m_inactive_list.pop_last();
     if (listener_p->IsValidLowLevel())
       {
-      listener_p->ConditionalBeginDestroy();
+      listener_p->RemoveFromRoot(); // Make listener object garbage collectable
+      listener_p->MarkPendingKill();
       }
     }
   }
@@ -91,7 +93,9 @@ void SkookumScriptListenerManager::grow_inactive_list(uint32_t pool_incr)
   m_inactive_list.ensure_size(m_inactive_list.get_length() + pool_incr);
   for (uint32_t i = 0; i < pool_incr; ++i)
     {
-    m_inactive_list.append(*NewObject<USkookumScriptListener>((UObject*)GetTransientPackage(), NAME_None));
+    USkookumScriptListener * listener_p = NewObject<USkookumScriptListener>((UObject*)GetTransientPackage(), NAME_None);
+    listener_p->AddToRoot(); // Prevent listener object from ever getting garbage collected
+    m_inactive_list.append(*listener_p);
     }
   m_active_list.ensure_size(m_inactive_list.get_length());
   }

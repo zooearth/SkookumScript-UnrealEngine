@@ -13,6 +13,7 @@
 //=======================================================================================
 
 #include "../SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkUEBindings.hpp"
 
 #include "VectorMath/SkVector2.hpp"
@@ -25,32 +26,19 @@
 
 #include "Engine/SkUEName.hpp"
 #include "Engine/SkUEActor.hpp"
+#include "Engine/SkUEActorComponent.hpp"
 #include "Engine/SkUEEntity.hpp"
 #include "Engine/SkUEEntityClass.hpp"
+#include "Engine/SkUESkookumScriptBehaviorComponent.hpp"
 
 //=======================================================================================
 // Engine-Generated
 //=======================================================================================
 
-// HACK to support UMG module
-#include "MovieScene.h"
-#include "UserWidget.h"
-#include "Widgets/Layout/SScaleBox.h"
+// Massive code file containing thousands of generated bindings
+#include <SkUEEngineGeneratedBindings.generated.inl> 
 
-#include <SkUE.generated.inl> // Massive code file containing thousands of generated bindings
-
-//=======================================================================================
-// Data
-//=======================================================================================
-
-// HACK - to fix linker error - remove this if it causes trouble
-#if !IS_MONOLITHIC
-  namespace FNavigationSystem
-    {
-    const float FallbackAgentRadius = 35.f;
-    const float FallbackAgentHeight = 144.f;
-    }
-#endif
+static SkUEEngineGeneratedBindings s_engine_generated_bindings;
 
 //=======================================================================================
 // SkUEBindings Methods
@@ -58,14 +46,26 @@
 
 //---------------------------------------------------------------------------------------
 // Registers UE classes, structs and enums
-void SkUEBindings::register_static_types()
+void SkUEBindings::register_static_ue_types(SkUEBindingsInterface * project_generated_bindings_p)
   {
-  SkUE::register_static_types();
+  // Register generated classes
+  s_engine_generated_bindings.register_static_ue_types();
+  if (project_generated_bindings_p)
+    {
+    project_generated_bindings_p->register_static_ue_types();
+    }
+
+  // Manually register additional classes
+  SkUESkookumScriptBehaviorComponent::ms_uclass_p = USkookumScriptBehaviorComponent::StaticClass();
+  SkUEClassBindingHelper::register_static_class(SkUESkookumScriptBehaviorComponent::ms_uclass_p);
+  #if WITH_EDITOR || HACK_HEADER_GENERATOR
+    SkUESkookumScriptBehaviorComponent::ms_uclass_p->SetMetaData(TEXT("IsBlueprintBase"), TEXT("true")); // So it will get recognized as a component allowing Blueprints to be derived from
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
 // Registers bindings for SkookumScript
-void SkUEBindings::register_all_bindings()
+void SkUEBindings::register_all_bindings(SkUEBindingsInterface * project_generated_bindings_p)
   {
   // Core Overlay
   SkBoolean::get_class()->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_boolean);
@@ -84,13 +84,22 @@ void SkUEBindings::register_all_bindings()
   SkTransform::register_bindings();
   SkColor::register_bindings();
 
-  // Engine-Generated Overlay
-  SkUE::register_bindings();
+  // Engine-Generated/Project-Generated-C++ Overlay
+  // Register static Sk types on both overlays, but register bindings only on one of them
+  s_engine_generated_bindings.register_static_sk_types();
+  s_engine_generated_bindings.register_bindings();
+  if (project_generated_bindings_p)
+    {
+    project_generated_bindings_p->register_static_sk_types();
+    project_generated_bindings_p->register_bindings();
+    }
 
   // Engine Overlay
   SkUEEntity_Ext::register_bindings();
   SkUEEntityClass_Ext::register_bindings();
   SkUEActor_Ext::register_bindings();
+  SkUEActorComponent_Ext::register_bindings();
+  SkUESkookumScriptBehaviorComponent::register_bindings();
   SkUEName::register_bindings();
   SkUEName::get_class()->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_struct<SkUEName>);
   }

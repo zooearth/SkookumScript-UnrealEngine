@@ -108,9 +108,10 @@ class SK_API SkBrain
 
       static SkInstance * ms_nil_p;  // The single instance of the None object
 
-    // Name of actor class
+    // Names of special classes
 
       static ASymbol ms_actor_class_name;
+      static ASymbol ms_component_class_name;
 
     // File management members
 
@@ -129,8 +130,6 @@ class SK_API SkBrain
 
       static void     as_binary(void ** binary_pp);
       static uint32_t as_binary_length();
-
-      static void     compact();
 
     #endif // (SKOOKUM & SK_COMPILED_OUT)
 
@@ -166,6 +165,8 @@ class SK_API SkBrain
     static void initialize_classes();
     static void deinitialize_classes();
     static void deinitialize();
+    static void compact();
+
 
     #if (SKOOKUM & SK_DEBUG)
 

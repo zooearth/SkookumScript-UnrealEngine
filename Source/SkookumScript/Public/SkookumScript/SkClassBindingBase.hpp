@@ -18,7 +18,8 @@
 #include <SkookumScript/SkInvokedMethod.hpp>
 
 #ifdef _MSC_VER
-#pragma warning(disable : 4127) // Some functions below contain constant conditionals on purpose
+  #pragma warning(push)
+  #pragma warning(disable : 4127) // Some functions below contain constant conditionals on purpose
 #endif
 
 //---------------------------------------------------------------------------------------
@@ -79,9 +80,12 @@ class SkClassBindingBase : public SkClassBindingAbstract<_BindingClass>, public 
     SkClassBindingBase() : SkInstance(_BindingClass::get_class()) {}
 
     // Make method bindings known to SkookumScript
-    static void register_bindings(ASymbol class_name);
-    static void register_bindings(const char * class_name_p)  { register_bindings(ASymbol::create_existing(class_name_p)); }
-    static void register_bindings(uint32_t class_name_id)     { register_bindings(ASymbol::create_existing(class_name_id)); }
+    static void register_bindings();
+
+    // Convenience methods - initialize Sk class and bind methods
+    static void register_bindings(ASymbol class_name)         { tBindingAbstract::initialize_class(class_name); register_bindings(); }
+    static void register_bindings(const char * class_name_p)  { tBindingAbstract::initialize_class(class_name_p); register_bindings(); }
+    static void register_bindings(uint32_t class_name_id)     { tBindingAbstract::initialize_class(class_name_id); register_bindings(); }
 
   };
 
@@ -207,11 +211,8 @@ void SkClassBindingBase<_BindingClass, _DataType>::mthd_op_assign(SkInvokedMetho
 //---------------------------------------------------------------------------------------
 // Make method bindings known to SkookumScript
 template<class _BindingClass, typename _DataType>
-void SkClassBindingBase<_BindingClass, _DataType>::register_bindings(ASymbol class_name)
+void SkClassBindingBase<_BindingClass, _DataType>::register_bindings()
   {
-  // Initialize class information
-  tBindingAbstract::initialize(class_name);
-
   // Bind raw pointer callback function
   _BindingClass::get_class()->register_raw_pointer_func(sizeof(_DataType) <= sizeof(SkInstance::tUserData) ? &SkInstance::get_raw_pointer_val : &SkInstance::get_raw_pointer_ref);
 
@@ -219,24 +220,24 @@ void SkClassBindingBase<_BindingClass, _DataType>::register_bindings(ASymbol cla
   static_assert(_BindingClass::Binding_has_ctor || sizeof(_DataType) <= sizeof(tUserData), "If _DataType does not fit inside m_user_data, it will be allocated from the heap, hence there must be a constructor to allocate the memory.");
   if (_BindingClass::Binding_has_ctor)
     {
-    _BindingClass::get_class()->register_method_func("!", _BindingClass::mthd_ctor, SkBindFlag_instance_no_rebind);
+    _BindingClass::get_class()->register_method_func(ASymbolX_ctor, _BindingClass::mthd_ctor, SkBindFlag_instance_no_rebind);
     }
   if (_BindingClass::Binding_has_ctor_copy)
     {
-    _BindingClass::get_class()->register_method_func("!copy", _BindingClass::mthd_ctor_copy, SkBindFlag_instance_no_rebind);
+    _BindingClass::get_class()->register_method_func(ASymbolX_ctor_copy, _BindingClass::mthd_ctor_copy, SkBindFlag_instance_no_rebind);
     }
   if (_BindingClass::Binding_has_assign)
     {
-    _BindingClass::get_class()->register_method_func("assign", _BindingClass::mthd_op_assign, SkBindFlag_instance_no_rebind);
+    _BindingClass::get_class()->register_method_func(ASymbol_assign, _BindingClass::mthd_op_assign, SkBindFlag_instance_no_rebind);
     }
   static_assert(_BindingClass::Binding_has_dtor || sizeof(_DataType) <= sizeof(tUserData), "If _DataType does not fit inside m_user_data, it will be allocated from the heap, hence there must be a destructor to free the memory.");
   if (_BindingClass::Binding_has_dtor)
     {
-    _BindingClass::get_class()->register_method_func("!!", _BindingClass::mthd_dtor, SkBindFlag_instance_no_rebind);
+    _BindingClass::get_class()->register_method_func(ASymbolX_dtor, _BindingClass::mthd_dtor, SkBindFlag_instance_no_rebind);
     }
   }
 
 
 #ifdef _MSC_VER
-#pragma warning(default : 4127)
+  #pragma warning(pop)
 #endif

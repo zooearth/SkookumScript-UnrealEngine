@@ -14,12 +14,16 @@
 
 #include "../SkookumScriptRuntimePrivatePCH.h"
 #include "SkUERemote.hpp"
+
+#ifdef SKOOKUM_REMOTE_UNREAL
+
 #include "SkUERuntime.hpp"
 #include "Bindings/SkUEBlueprintInterface.hpp"
+#include "../SkookumScriptRuntimeGenerator.h"
 #include <AssertionMacros.h>
 #include <Runtime/Launch/Resources/Version.h>
 //#include <ws2tcpip.h>
-
+#include <AgogCore/AMethodArg.hpp>
 
 //=======================================================================================
 // Local Global Structures
@@ -36,18 +40,15 @@ namespace
 // SkUERemote Methods
 //=======================================================================================
 
-#ifdef SKOOKUM_REMOTE_UNREAL
-
 //---------------------------------------------------------------------------------------
 // Constructor
 // 
 // #Author(s): Conan Reis
-SkUERemote::SkUERemote() :
+SkUERemote::SkUERemote(FSkookumScriptRuntimeGenerator * runtime_generator_p) :
   m_socket_p(nullptr),
   m_data_idx(ADef_uint32),
-  m_load_compiled_binaries_requested(false),
-  m_compiled_binaries_have_errors(false),
-  m_editor_interface_p(nullptr)
+  m_editor_interface_p(nullptr),
+  m_runtime_generator_p(runtime_generator_p)
   {
   }
 
@@ -135,7 +136,23 @@ void SkUERemote::process_incoming()
   }
 
 //---------------------------------------------------------------------------------------
-// Get (ANSI) string representation of socket IP Address and port
+// Get (ANSI) string representation of specified socket IP Address and port
+// 
+// #Author(s): Conan Reis
+AString SkUERemote::get_socket_str(const FInternetAddr & addr)
+  {
+  AString str;
+  uint8_t ipv4addr[4];
+
+  addr.GetIp(*reinterpret_cast<uint32 *>(ipv4addr));
+  str.ensure_size(32u);
+  str.format("%u.%u.%u.%u:%u", ipv4addr[3], ipv4addr[2], ipv4addr[1], ipv4addr[0], addr.GetPort());
+
+  return str;
+  }
+
+//---------------------------------------------------------------------------------------
+// Get (ANSI) string representation of current socket IP Address and port
 // 
 // #Author(s): Conan Reis
 AString SkUERemote::get_socket_str()
@@ -145,17 +162,12 @@ AString SkUERemote::get_socket_str()
     return "SkookumIDE.RemoteConnection(Disconnected)";
     }
 
-  AString str;
-  uint8_t ipv4addr[4];
   ISocketSubsystem * socket_system_p = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
   TSharedRef<FInternetAddr> local_addr = socket_system_p->CreateInternetAddr();
 
   m_socket_p->GetAddress(*local_addr);
-  local_addr->GetIp(*reinterpret_cast<uint32 *>(ipv4addr));
-  str.ensure_size(32u);
-  str.format("%u.%u.%u.%u:%u", ipv4addr[0], ipv4addr[1], ipv4addr[2], ipv4addr[3], m_socket_p->GetPortNo());
 
-  return str;
+  return get_socket_str(*local_addr);
   }
 
 //---------------------------------------------------------------------------------------
@@ -173,7 +185,59 @@ TSharedPtr<FInternetAddr> SkUERemote::get_ip_address_local()
   }
 
 //---------------------------------------------------------------------------------------
-// Determines if runtime connected to remote Skookum IDE
+TSharedPtr<FInternetAddr> SkUERemote::get_ip_address_ide()
+  {
+  FString ip_file_path;
+
+  TSharedPtr<FInternetAddr> ip_addr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
+
+  // Check if there's a file named "ide-ip.txt" present in the compiled binary folder
+  // If so, use the ip stored in it to connect to the IDE
+  if (static_cast<SkUERuntime*>(SkUERuntime::ms_singleton_p)->content_file_exists(
+    TEXT("ide-ip.txt"), &ip_file_path))
+    {
+    FString ip_text;
+
+    ip_file_path /= TEXT("ide-ip.txt");
+
+    if (FFileHelper::LoadFileToString(ip_text, *ip_file_path))
+      {
+      bool is_valid;
+
+      ip_addr->SetIp(*ip_text, is_valid);
+      }
+    }
+  else
+    {
+    // "localhost" - Use local machine loop back adapter by default
+    // Note that this is for 127.0.0.1 - the numbers are in network byte order.
+    const uint8_t local_host_ipv4[4] = {1u, 0u, 0u, 127u};
+
+    ip_addr->SetIp(*reinterpret_cast<const uint32 *>(local_host_ipv4));
+
+    // $Note - CReis localhost is used instead of adapter address by default
+    // Get IP address from network adapter
+    //ip_addr = get_ip_address_local();
+    
+    // If non-desktop expect SkookumIDE IP address to be specified
+    #if ((PLATFORM_WINDOWS == 0) && (PLATFORM_MAC == 0) && (PLATFORM_LINUX == 0))
+      A_DPRINT("SkookumIDE Warning!\n"
+        "  Did not find ide-ip.txt in the SkookumScript compiled binary folder.\n"
+        "  It specifies the SkookumIDE IP address and without it the runtime will not be able\n"
+        "  to connect to the SkookumIDE.\n\n"
+        "  See 'Specifying the SkookumRuntime IP address' here:\n"
+        "    http://skookumscript.com/docs/v3.0/ide/ip-addresses/#specifying-the-skookumruntime-ip-address"
+        );
+    #endif
+    }
+
+  ip_addr->SetPort(SkUERemote_ide_port);
+
+  return ip_addr;
+  }
+
+//---------------------------------------------------------------------------------------
+// Determines if runtime connected to remote SkookumIDE
 // 
 // #Author(s): Conan Reis
 bool SkUERemote::is_connected() const
@@ -214,19 +278,17 @@ void SkUERemote::set_mode(eSkLocale mode)
 
     SkookumRemoteBase::set_mode(mode);
 
-    // $Revisit - CReis Update debug UI of Skookum IDE connection state
+    // $Revisit - CReis Update debug UI of SkookumIDE connection state
 
     switch (mode)
       {
       case SkLocale_embedded:
         set_connect_state(ConnectState_disconnected);
-        SkDebug::print("\nSkookumScript: Skookum IDE not connected (off-line)\n\n", SkLocale_local);
+        SkDebug::print("\nSkookumScript: SkookumIDE not connected (off-line)\n\n", SkLocale_local);
         break;
 
       case SkLocale_runtime:
         {
-        SkDebug::print("SkookumScript: Attempting to connect to remote IDE\n", SkLocale_local);
-
         set_connect_state(ConnectState_connecting);
 
         m_socket_p = FTcpSocketBuilder(TEXT("SkookumIDE.RemoteConnection"))
@@ -237,29 +299,14 @@ void SkUERemote::set_mode(eSkLocale mode)
 
         if (m_socket_p)
           {
-          TSharedPtr<FInternetAddr> ip_addr = get_ip_address_local();
-
-          // Check if there's a file named "ide-ip.txt" present in the compiled binary folder
-          // If so, use the ip stored in it to connect to the IDE
-          FString ip_file_path;
-          if (static_cast<SkUERuntime*>(SkUERuntime::ms_singleton_p)->content_file_exists(TEXT("ide-ip.txt"), &ip_file_path))
-            {
-            ip_file_path /= TEXT("ide-ip.txt");
-            FString ip_text;
-            if (FFileHelper::LoadFileToString(ip_text, *ip_file_path))
-              {
-              bool is_valid;
-              ip_addr->SetIp(*ip_text, is_valid);
-              }
-            }
-
-          ip_addr->SetPort(SkUERemote_ide_port);
+          TSharedPtr<FInternetAddr> ip_addr = get_ip_address_ide();
+          SkDebug::print(a_str_format("SkookumScript: Attempting to connect to remote IDE at %s\n", get_socket_str(*ip_addr).as_cstr()), SkLocale_local);
           success = m_socket_p->Connect(*ip_addr);
           }
 
         if (!success)
           {
-          SkDebug::print("\nSkookumScript: Failed attempt to connect with remote IDE.!\n\n", SkLocale_local);
+          SkDebug::print("\nSkookumScript: Failed attempt to connect with remote IDE!\n\n", SkLocale_local);
           set_mode(SkLocale_embedded);
           return;
           }
@@ -308,7 +355,7 @@ void SkUERemote::on_cmd_send(const ADatum & datum)
     {
     SkDebug::print(
       "SkookumScript: Remote IDE is not connected - command ignored!\n"
-      "[Connect runtime to Skookum IDE and try again.]\n",
+      "[Connect runtime to SkookumIDE and try again.]\n",
       SkLocale_local,
       SkDPrintType_warning);
     }
@@ -322,9 +369,9 @@ void SkUERemote::on_cmd_make_editable()
 
   FString error_msg(TEXT("Can't make project editable!"));
   #if WITH_EDITORONLY_DATA
-    if (m_editor_interface_p)
+    if (m_runtime_generator_p)
       {
-      error_msg = m_editor_interface_p->make_project_editable();
+      error_msg = m_runtime_generator_p->make_project_editable();
       }
   #endif
   if (error_msg.IsEmpty())
@@ -342,23 +389,18 @@ void SkUERemote::on_cmd_freshen_compiled_reply(eCompiledState state)
   {
   // Call base class
   SkookumRemoteRuntimeBase::on_cmd_freshen_compiled_reply(state);
-
-  // Trigger load of binaries
-  m_load_compiled_binaries_requested = (state == CompiledState_fresh);
-  m_compiled_binaries_have_errors = (state == CompiledState_errors);
   }
 
 //---------------------------------------------------------------------------------------
 void SkUERemote::on_class_updated(SkClass * class_p)
   {
-  // Only care to do anything if editor is present
   #if WITH_EDITOR
-    UClass * uclass_p = SkUEBlueprintInterface::get()->reexpose_class(class_p);
-    if (m_editor_interface_p && uclass_p)
-      {
-      m_editor_interface_p->on_class_updated(uclass_p);
-      }
+    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
+    tSkUEOnClassUpdatedFunc * on_class_updated_f = &editor_on_class_updated_f;
+  #else
+    tSkUEOnClassUpdatedFunc * on_class_updated_f = nullptr;
   #endif
+  SkUEBlueprintInterface::get()->reexpose_class(class_p, on_class_updated_f);
   }
 
 //---------------------------------------------------------------------------------------
@@ -386,41 +428,22 @@ bool SkUERemote::spawn_remote_ide()
   #ifdef A_PLAT_PC
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Look for Skookum IDE in game/project plug-in folder first.
-    FString ide_path(
-      FPaths::GamePluginsDir()
-      / TEXT("SkookumScript/SkookumIDE/SkookumIDE") /*TEXT(SK_BITS_ID)*/ TEXT(".exe"));
+    // Look for SkookumIDE in game/project plug-in folder first.
+    FString plugin_root_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir());
+    FString ide_path(plugin_root_path / TEXT("SkookumIDE/SkookumIDE") /*TEXT(SK_BITS_ID)*/ TEXT(".exe"));
 
-    bool ide_exists = FPaths::FileExists(ide_path);
-
-    if (!ide_exists)
+    if (!FPaths::FileExists(ide_path))
       {
       //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-      // Look for Skookum IDE in engine plug-in folder next.
+      // Couldn't find IDE
+      UE_LOG(LogSkookum, Warning,
+        TEXT("Could not run SkookumScript IDE!\n")
+        TEXT("Looked in plugin folder and did not find it:\n")
+        TEXT("  %s\n\n")
+        TEXT("Please ensure SkookumScript IDE app is present.\n"),
+        *ide_path);
 
-      // Don't change ide_path yet so the game version stays the default if neither found.
-      FString ide_engine_path(
-        FPaths::EnginePluginsDir() / TEXT("SkookumScript/SkookumIDE/SkookumIDE") /*TEXT(SK_BITS_ID)*/ TEXT(".exe"));
-
-      ide_exists = FPaths::FileExists(ide_engine_path);
-
-      if (!ide_exists)
-        {
-        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        // Couldn't find IDE
-        UE_LOG(LogSkookum, Warning,
-          TEXT("Could not run SkookumScript IDE!\n")
-          TEXT("Looked in both game/project and engine folders and did not find it:\n")
-          TEXT("  %s\n")
-          TEXT("  %s\n\n")
-          TEXT("Please ensure SkookumScript IDE app is present.\n"),
-          *ide_path,
-          *ide_engine_path);
-
-        return false;
-        }
-
-      ide_path = ide_engine_path;
+      return false;
       }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -456,12 +479,27 @@ void SkUERemote::get_project_info(SkProjectInfo * out_project_info_p)
 
   // Get project paths if any
   #if WITH_EDITORONLY_DATA
-    if (m_editor_interface_p)
+    if (m_runtime_generator_p)
       {
-      out_project_info_p->m_project_path         = FStringToAString(m_editor_interface_p->get_project_path());
-      out_project_info_p->m_default_project_path = FStringToAString(m_editor_interface_p->get_default_project_path());
+      out_project_info_p->m_project_path         = FStringToAString(m_runtime_generator_p->get_project_path());
+      out_project_info_p->m_default_project_path = FStringToAString(m_runtime_generator_p->get_default_project_path());
       }
+    else
   #endif
+      {
+      // Is there an Sk project file in the usual location?
+      FString project_path(FPaths::GameDir() / TEXT("Scripts") / TEXT("Skookum-project.ini"));
+      if (FPaths::FileExists(project_path))
+        { 
+        out_project_info_p->m_project_path = FStringToAString(FPaths::ConvertRelativePathToFull(project_path));
+        }
+      // Is there an Sk default project file in the usual location?
+      FString default_project_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("Scripts") / TEXT("Skookum-project-default.ini"));
+      if (FPaths::FileExists(default_project_path))
+        {
+        out_project_info_p->m_default_project_path = FStringToAString(FPaths::ConvertRelativePathToFull(default_project_path));
+        }
+      }
   }
 
 

@@ -16,6 +16,7 @@
 //=======================================================================================
 
 #include <AgogCore/AgogCore.hpp> // Always include AgogCore first (as some builds require a designated precompiled header)
+#include <AgogCore/ADeferFunc.hpp>
 #include <AgogCore/ARandom.hpp>
 #include <AgogCore/AStringRef.hpp>
 #include <AgogCore/AString.hpp>
@@ -232,6 +233,7 @@ namespace AgogCore
   void deinitialize()
     {
     // Deinitialize subsystems
+    ADeferFunc::ms_deferred_funcs.free_all_compact();
     ADebug::deinitialize();
     ASymbolTable::deinitialize();
     AString::deinitialize();
@@ -350,7 +352,10 @@ AString a_str_format(const char * format_cstr_p, ...)
     g_cstr_p[length] = '\0';
     }
 
-  return AString(g_cstr_p, AFormat_string_char_max, length, false);
+  // MJB changed this to make copy of string as passing a pointer to the buffer down the chain
+  // can cause malfunction (buffer overwrite) when a_str_format is called again 
+  // before the previously returned string is deleted
+  return AString(g_cstr_p, length, false);
   }
 
 //=======================================================================================

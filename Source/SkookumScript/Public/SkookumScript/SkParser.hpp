@@ -66,7 +66,7 @@ string-literal    = simple-string {ws '+' ws simple-string}
 simple-string     = '"' {character} '"'
 symbol-literal    = ''' {character} '''
 character-literal = '`' character
-list-literal      = [list-class constructor-name invocation-args]
+list-literal      = [(list-class constructor-name invocation-args) | class]
                     '{' ws [expression {ws [',' ws] expression} ws] '}'
 closure           = ['^' {annotation ws} ['_' ws] [expression ws]] [parameters ws] code-block
 
@@ -365,7 +365,6 @@ class SK_API SkParser : public AString
       Result_err_expected_char_number,        // Escape sequence character must have an ASCII value between 0 and 255
       Result_err_expected_class,              // A class name must begin with an uppercase letter
       Result_err_expected_class_desc,         // Expected class, list-class, invoke class, metaclass or class union and did not find one.
-      Result_err_expected_class_list_item,    // A List class descriptor must follow the list class type with braces/curly brackets '{}' optionally enclosed around an item type.
       Result_err_expected_class_list_end,     // A List class descriptor must end with a closing brace/curly bracket '}'.
       Result_err_expected_class_instance,     // Expected a class, list-class or an invoke class and did not find one.
       Result_err_expected_class_meta,         // A metaclass descriptor must begin with an opening angle bracket '<'.
@@ -735,7 +734,7 @@ class SK_API SkParser : public AString
       };  // SkParser::Args
 
 
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Keep track of important nesting.
     // - currently tracking loops
     // - used by SkParser::m_nest_stack
@@ -744,7 +743,7 @@ class SK_API SkParser : public AString
       NestInfo(const ASymbol & name) : ANamed(name) {}
       };
 
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Represents parsed list of annotations
     struct Annotations
       {
@@ -824,7 +823,7 @@ class SK_API SkParser : public AString
       eResult parse_class(                uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkClass ** class_pp = nullptr) const;
       eResult parse_class_desc(           uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkClassDescBase ** type_p = nullptr) const;
       eResult parse_class_instance(       uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkClassUnaryBase ** class_pp = nullptr, bool * item_type_b_p = nullptr) const;
-      eResult parse_class_typed(          uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkTypedClass ** tclass_p = nullptr, bool * item_type_b_p = nullptr) const;
+      eResult parse_class_list_items(     uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkClass * class_p = nullptr, SkTypedClass ** tclass_p = nullptr, bool * item_type_b_p = nullptr) const;
       eResult parse_class_union(          uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkClassUnion ** union_p = nullptr) const;
       eResult parse_class_meta(           uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkMetaClass ** mclass_p = nullptr) const;
       eResult parse_class_scope(          uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkClass ** qual_scope_pp = nullptr, SkClassDescBase * scope_p = nullptr) const;
@@ -845,15 +844,15 @@ class SK_API SkParser : public AString
       eResult parse_name_method(          uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, ASymbol * name_p = nullptr) const;
       eResult parse_name_coroutine(       uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, ASymbol * name_p = nullptr) const;
       eResult parse_whitespace(           uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr) const;
-      eResult parse_ws_any(               uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr) const;
+      eResult parse_ws_any(               uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, bool treat_lf_as_ws = true) const;
       bool    parse_ws_any(               Args & args) const  { args.m_result = parse_ws_any(args.m_start_pos, &args.m_end_pos); return args.m_result == Result_ok; }
       void    parse_ws_end(               Args & args) const;
       eResult parse_ws_required(          uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr) const;
 
     // Preparse Methods - Partially parses code for context for later full parse.
 
-      SkMethodFunc *    preparse_method_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset()) const;
-      SkCoroutineFunc * preparse_coroutine_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset()) const;
+      SkMethodFunc *    preparse_method_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
+      SkCoroutineFunc * preparse_coroutine_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
 
     // Identification Methods  - Quickly identifies/categorizes a section of code without necessarily doing a full analysis.
 
@@ -1010,7 +1009,7 @@ class SK_API SkParser : public AString
         SkExpressionBase *   parse_class_cast(Args & args, SkExpressionBase * receiver_p) const;
         SkExpressionBase *   parse_class_conversion(Args & args, SkExpressionBase * receiver_p) const;
         SkIdentifierLocal *  parse_data_accessor(Args & args, SkExpressionBase * owner_p) const;
-        SkExpressionBase *   parse_expression_string(Args & args, SkExpressionBase * receiver_p) const;
+        SkExpressionBase *   parse_expression_string(Args & args, SkExpressionBase ** receiver_pp) const;
         SkInvokeCascade *    parse_invoke_cascade(Args & args, SkExpressionBase * receiver_p) const;
         SkExpressionBase *   parse_invoke_instantiate(Args & args, SkExpressionBase * receiver_p, bool * is_raw_data_pass_through_copy_p) const;
         SkInvokeSync *       parse_invoke_apply(Args & args, SkExpressionBase * receiver_p) const;

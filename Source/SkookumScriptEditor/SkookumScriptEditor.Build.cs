@@ -44,6 +44,7 @@ namespace UnrealBuildTool.Rules
           "BlueprintGraph",
           "SlateCore",
           "SourceControl",
+          "Projects",
           // ... add private dependencies that you statically link with here ...
         }
         );

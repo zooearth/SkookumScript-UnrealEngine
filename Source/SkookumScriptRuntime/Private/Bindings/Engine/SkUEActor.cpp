@@ -66,6 +66,27 @@ namespace SkUEActor_Impl
     }
 
   //---------------------------------------------------------------------------------------
+  // Make sure a given actor has overlap events enabled on at least one component
+#if (SKOOKUM & SK_DEBUG)
+  static void assert_actor_has_overlap_events_enabled(AActor * actor_p)
+    {
+    // Check that events will properly fire
+    TArray<UActorComponent *> components = actor_p->GetComponentsByClass(UPrimitiveComponent::StaticClass());
+    SK_ASSERTX(components.Num() > 0, a_cstr_format("Trying to receive overlap events on actor '%S' but it has no primitive (collision) component.", *actor_p->GetName()));
+    bool found_enabled_overlap_event = false;
+    for (UActorComponent * component_p : components)
+      {
+      if (Cast<UPrimitiveComponent>(component_p)->bGenerateOverlapEvents)
+        {
+        found_enabled_overlap_event = true;
+        break;
+        }
+      }
+    SK_ASSERTX(found_enabled_overlap_event, a_cstr_format("Trying to receive overlap events on actor '%S' but it has no primitive component that has overlap events turned on. To fix this, check the box 'Generate Overlap Events' for the primitive component (e.g. SkeletalMeshComponent, CapsuleComponent etc.) that you would like to trigger the overlap events. You might also simply have picked the wrong actor.", *actor_p->GetName()));
+    }
+#endif
+
+  //---------------------------------------------------------------------------------------
   // Actor@find_named(Name name) <ThisClass_|None>
   static void mthdc_find_named(SkInvokedMethod * scope_p, SkInstance ** result_pp)
     {
@@ -122,7 +143,8 @@ namespace SkUEActor_Impl
       APArray<SkInstance> & instances = list.get_instances();
       for (UObject ** RESTRICT obj_pp = object_array.GetData(), **RESTRICT end_pp = obj_pp + object_array.Num(); obj_pp != end_pp; ++obj_pp)
         {
-        if ((*obj_pp)->GetWorld() == world_p)
+        // Must be in this world and not about to die
+        if ((*obj_pp)->GetWorld() == world_p && !(*obj_pp)->IsPendingKill())
           {
           // This instance is already refcounted so directly append to underlying array
           instances.append(*SkUEActor::new_instance(static_cast<AActor *>(*obj_pp), uclass_p, class_p));
@@ -147,7 +169,8 @@ namespace SkUEActor_Impl
       UWorld * world_p = SkUEClassBindingHelper::get_world();
       for (UObject ** RESTRICT obj_pp = object_array.GetData(), **RESTRICT end_pp = obj_pp + object_array.Num(); obj_pp != end_pp; ++obj_pp)
         {
-        if ((*obj_pp)->GetWorld() == world_p)
+        // Must be in this world and not about to die
+        if ((*obj_pp)->GetWorld() == world_p && !(*obj_pp)->IsPendingKill())
           {
           *result_pp = SkUEActor::new_instance(static_cast<AActor *>(*obj_pp), uclass_p, class_p);
           return;
@@ -159,267 +182,12 @@ namespace SkUEActor_Impl
       }
     }
 
-
-  //---------------------------------------------------------------------------------------
-  // Event handler template parameter for handling ActorBeginOverlap events
-  class EventHandler_OnActorBeginOverlap
-    {
-    public:
-      // Add callback to object
-      static void install(UObject * obj_p, USkookumScriptListener * listener_p)
-        {
-        Cast<AActor>(obj_p)->OnActorBeginOverlap.AddDynamic(listener_p, &USkookumScriptListener::OnActorOverlap);
-        #if (SKOOKUM & SK_DEBUG)
-          // Check that events will properly fire
-          UPrimitiveComponent * component_p = Cast<UPrimitiveComponent>(Cast<AActor>(obj_p)->GetComponentByClass(UPrimitiveComponent::StaticClass()));
-          SK_ASSERTX(component_p, a_cstr_format("Trying to receive overlap events on actor '%S' but it has no primitive (collision) component.", *obj_p->GetName()));
-          SK_ASSERTX(component_p->bGenerateOverlapEvents, a_cstr_format("Trying to receive overlap events on actor '%S' but it has overlap events turned off. To fix this, check the box 'Generate Overlap Events' for the %S of '%S'. You might also simply have picked the wrong actor.", *obj_p->GetName(), *component_p->GetClass()->GetName(), *obj_p->GetName()));
-        #endif
-        }
-      // Remove callback from object
-      static void uninstall(UObject * obj_p, USkookumScriptListener * listener_p)
-        {
-        Cast<AActor>(obj_p)->OnActorBeginOverlap.RemoveDynamic(listener_p, &USkookumScriptListener::OnActorOverlap);
-        }
-    };
-
-  //---------------------------------------------------------------------------------------
-  // Event handler template parameter for handling ActorEndOverlap events
-  class EventHandler_OnActorEndOverlap
-    {
-    public:
-      // Add callback to object
-      static void install(UObject * obj_p, USkookumScriptListener * listener_p)
-        {
-        Cast<AActor>(obj_p)->OnActorEndOverlap.AddDynamic(listener_p, &USkookumScriptListener::OnActorOverlap);
-        #if (SKOOKUM & SK_DEBUG)
-          // Check that events will properly fire
-          UPrimitiveComponent * component_p = Cast<UPrimitiveComponent>(Cast<AActor>(obj_p)->GetComponentByClass(UPrimitiveComponent::StaticClass()));
-          SK_ASSERTX(component_p, a_cstr_format("Trying to receive overlap events on actor '%S' but it has no primitive (collision) component.", *obj_p->GetName()));
-          SK_ASSERTX(component_p->bGenerateOverlapEvents, a_cstr_format("Trying to receive overlap events on actor '%S' but it has overlap events turned off. To fix this, check the box 'Generate Overlap Events' for the %S of '%S'. You might also simply have picked the wrong actor.", *obj_p->GetName(), *component_p->GetClass()->GetName(), *obj_p->GetName()));
-        #endif
-        }
-      // Remove callback from object
-      static void uninstall(UObject * obj_p, USkookumScriptListener * listener_p)
-        {
-        Cast<AActor>(obj_p)->OnActorEndOverlap.RemoveDynamic(listener_p, &USkookumScriptListener::OnActorOverlap);
-        }
-    };
-
-  //---------------------------------------------------------------------------------------
-  // Event handler template parameter for handling TakeAnyDamage events
-  class EventHandler_OnTakeAnyDamage
-    {
-    public:
-      // Add callback to object
-      static void install(UObject * obj_p, USkookumScriptListener * listener_p)
-        {
-        Cast<AActor>(obj_p)->OnTakeAnyDamage.AddDynamic(listener_p, &USkookumScriptListener::OnTakeAnyDamage);
-        }
-      // Remove callback from object
-      static void uninstall(UObject * obj_p, USkookumScriptListener * listener_p)
-        {
-        Cast<AActor>(obj_p)->OnTakeAnyDamage.RemoveDynamic(listener_p, &USkookumScriptListener::OnTakeAnyDamage);
-        }
-    };
-
-  //---------------------------------------------------------------------------------------
-  // Event handler template parameter for handling TakePointDamage events
-  class EventHandler_OnTakePointDamage
-    {
-    public:
-      // Add callback to object
-      static void install(UObject * obj_p, USkookumScriptListener * listener_p)
-        {
-        Cast<AActor>(obj_p)->OnTakePointDamage.AddDynamic(listener_p, &USkookumScriptListener::OnTakePointDamage);
-        }
-      // Remove callback from object
-      static void uninstall(UObject * obj_p, USkookumScriptListener * listener_p)
-        {
-        Cast<AActor>(obj_p)->OnTakePointDamage.RemoveDynamic(listener_p, &USkookumScriptListener::OnTakePointDamage);
-        }
-    };
-
-  //---------------------------------------------------------------------------------------
-  // Event handler template parameter for handling Destroyed events
-  class EventHandler_OnDestroyed
-    {
-    public:
-      // Add callback to object
-      static void install(UObject * obj_p, USkookumScriptListener * listener_p)
-        {
-        Cast<AActor>(obj_p)->OnDestroyed.AddDynamic(listener_p, &USkookumScriptListener::OnDestroyed);
-        }
-      // Remove callback from object
-      static void uninstall(UObject * obj_p, USkookumScriptListener * listener_p)
-        {
-        Cast<AActor>(obj_p)->OnDestroyed.RemoveDynamic(listener_p, &USkookumScriptListener::OnDestroyed);
-        }
-    };
-
-  #ifdef _MSC_VER
-  #pragma warning(disable : 4127) // Function below contains constant conditionals on purpose
-  #endif
-
-  template<class tEventHandler, bool do_until>
-  bool coro_on_event(SkInvokedCoroutine * scope_p)
-    {
-    UObject * this_p = scope_p->this_as<SkUEEntity>();
-
-    // Just started?
-    if (scope_p->m_update_count == 0u)
-      {
-      // Install and store away event listener
-      USkookumScriptListener * listener_p = SkookumScriptListenerManager::get_singleton()->alloc_listener(this_p, scope_p, &tEventHandler::uninstall);
-      scope_p->append_user_data<FSkookumScriptListenerAutoPtr, USkookumScriptListener *>(listener_p);
-      tEventHandler::install(this_p, listener_p);
-
-      // Suspend coroutine
-      scope_p->suspend();
-
-      // Coroutine not complete yet - call again when resumed
-      return false;
-      }
-
-    // Get back stored event listener
-    USkookumScriptListener * listener_p = scope_p->get_user_data<FSkookumScriptListenerAutoPtr>()->Get();
-    SK_ASSERTX(listener_p->has_event(), "Must have event at this point as coroutine was resumed by delegate object.");
-
-    // Run closure on each event accumulated in the listener
-    SkClosure * closure_p = scope_p->get_arg_data<SkClosure>(SkArg_1);
-    uint32_t num_arguments = listener_p->get_num_arguments();
-    bool exit = false;
-    SkInstance * closure_result_p = SkBrain::ms_nil_p;
-    SkInstance * return_value_p = SkBrain::ms_nil_p;
-    do
-      {
-      // Use event parameters to invoke closure, then recycle event
-      USkookumScriptListener::EventInfo * event_p = listener_p->pop_event();
-      if (do_until)
-        {
-        // Add reference to potential return values so they survive closure_method_call 
-        for (uint32_t i = 0; i < num_arguments; ++i)
-          {
-          event_p->m_argument_p[SkArg_1 + i]->reference();
-          }
-        }
-      closure_p->closure_method_call(&event_p->m_argument_p[0], listener_p->get_num_arguments(), &closure_result_p, scope_p);
-      if (do_until)
-        {
-        exit = closure_result_p->as<SkBoolean>();
-        for (uint32_t i = 0; i < num_arguments; ++i)
-          {
-          if (exit)
-            {
-            scope_p->set_arg(SkArg_2 + i, event_p->m_argument_p[i]); // Store parameters as return values if exiting
-            }
-          else
-            {
-            event_p->m_argument_p[i]->dereference(); // Dereference parameters if not needed after all
-            }
-          }
-        closure_result_p->dereference(); // Free Boolean return value
-        }
-      listener_p->free_event(event_p, false);
-      } while (listener_p->has_event() && !exit);
-
-      if (!do_until || !exit)
-        {
-        // We're not done - wait for more events
-        scope_p->suspend();
-        return false;
-        }
-
-      // Ok done, return event parameters and quit
-      return true;
-    }
-
-  #ifdef _MSC_VER
-  #pragma warning(default : 4127)
-  #endif
-
-  //---------------------------------------------------------------------------------------
-  // Actor@((Actor actor) code)
-  static bool coro_on_begin_overlap_do(SkInvokedCoroutine * scope_p)
-    {
-    return coro_on_event<EventHandler_OnActorBeginOverlap, false>(scope_p);
-    }
-
-  //---------------------------------------------------------------------------------------
-  // Actor@((Actor actor) Boolean code; Actor match)
-  static bool coro_on_begin_overlap_do_until(SkInvokedCoroutine * scope_p)
-    {
-    return coro_on_event<EventHandler_OnActorBeginOverlap, true>(scope_p);
-    }
-
-  //---------------------------------------------------------------------------------------
-  // Actor@((Actor actor) code)
-  static bool coro_on_end_overlap_do(SkInvokedCoroutine * scope_p)
-    {
-    return coro_on_event<EventHandler_OnActorEndOverlap, false>(scope_p);
-    }
-
-  //---------------------------------------------------------------------------------------
-  // Actor@((Actor actor) Boolean code; Actor match)
-  static bool coro_on_end_overlap_do_until(SkInvokedCoroutine * scope_p)
-    {
-    return coro_on_event<EventHandler_OnActorEndOverlap, true>(scope_p);
-    }
-
-  //---------------------------------------------------------------------------------------
-  // Actor@((Real damage, DamageType damage_type, Controller instigated_by, Actor damage_causer) code)
-  static bool coro_on_take_any_damage_do(SkInvokedCoroutine * scope_p)
-    {
-    return coro_on_event<EventHandler_OnTakeAnyDamage, false>(scope_p);
-    }
-
-  //---------------------------------------------------------------------------------------
-  // Actor@((Actor actor) Boolean code; Actor match)
-  static bool coro_on_take_any_damage_do_until(SkInvokedCoroutine * scope_p)
-    {
-    return coro_on_event<EventHandler_OnTakeAnyDamage, true>(scope_p);
-    }
-
-  //---------------------------------------------------------------------------------------
-  // Actor@((Actor actor) code)
-  static bool coro_on_take_point_damage_do(SkInvokedCoroutine * scope_p)
-    {
-    return coro_on_event<EventHandler_OnTakePointDamage, false>(scope_p);
-    }
-
-  //---------------------------------------------------------------------------------------
-  // Actor@((Actor actor) Boolean code; Actor match)
-  static bool coro_on_take_point_damage_do_until(SkInvokedCoroutine * scope_p)
-    {
-    return coro_on_event<EventHandler_OnTakePointDamage, true>(scope_p);
-    }
-
-  //---------------------------------------------------------------------------------------
-  // Actor@(() code)
-  static bool coro_on_destroyed_do(SkInvokedCoroutine * scope_p)
-    {
-    return coro_on_event<EventHandler_OnDestroyed, false>(scope_p);
-    }
-
   static const SkClass::MethodInitializerFunc methods_c2[] =
     {
       { "find_named",       mthdc_find_named },
       { "named",            mthdc_named },
       { "instances",        mthdc_instances },
       { "instances_first",  mthdc_instances_first },
-    };
-
-  static const SkClass::CoroutineInitializerFunc coroutines_i[] =
-    {
-      { "_on_begin_overlap_do",           coro_on_begin_overlap_do },
-      { "_on_begin_overlap_do_until",     coro_on_begin_overlap_do_until },
-      { "_on_end_overlap_do",             coro_on_end_overlap_do },
-      { "_on_end_overlap_do_until",       coro_on_end_overlap_do_until },
-      { "_on_take_any_damage_do",         coro_on_take_any_damage_do },
-      { "_on_take_any_damage_do_until",   coro_on_take_any_damage_do_until },
-      { "_on_take_point_damage_do",       coro_on_take_point_damage_do },
-      { "_on_take_point_damage_do_until", coro_on_take_point_damage_do_until },
-      { "_on_destroyed_do",               coro_on_destroyed_do },
     };
 
   } // SkUEActor_Impl
@@ -429,7 +197,6 @@ namespace SkUEActor_Impl
 void SkUEActor_Ext::register_bindings()
   {
   ms_class_p->register_method_func_bulk(SkUEActor_Impl::methods_c2, A_COUNT_OF(SkUEActor_Impl::methods_c2), SkBindFlag_class_no_rebind);
-  ms_class_p->register_coroutine_func_bulk(SkUEActor_Impl::coroutines_i, A_COUNT_OF(SkUEActor_Impl::coroutines_i), eSkBindFlag(SkBindFlag_instance_no_rebind | SkBindFlag__arg_user_data));
   }
 
 

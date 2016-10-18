@@ -13,6 +13,7 @@
 
 #include "../../SkookumScriptRuntimePrivatePCH.h"
 #include "SkVector4.hpp"
+#include "SkRotationAngles.hpp"
 
 //=======================================================================================
 // Method Definitions
@@ -287,6 +288,18 @@ namespace SkVector4_Impl
     }
 
   //---------------------------------------------------------------------------------------
+  // # Skookum:	  -Vector4
+  // # Author(s): Zachary Burke
+  static void mthd_op_negated(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    // Do nothing if result not desired
+    if (result_pp)
+      {
+      *result_pp = SkVector4::new_instance(-scope_p->this_as<SkVector4>());
+      }
+    }
+
+  //---------------------------------------------------------------------------------------
   // # Skookum:   Vector4@set(Real x, Real y, Real z, Real w) Vector4
   // # Author(s): Markus Breyer
   static void mthd_set(SkInvokedMethod * scope_p, SkInstance ** result_pp)
@@ -338,6 +351,19 @@ namespace SkVector4_Impl
       {
       const FVector4 & vector = scope_p->this_as<SkVector4>();
       *result_pp = SkBoolean::new_instance(vector.X == 0.0f && vector.Y == 0.0f && vector.Z == 0.0f && vector.W == 0.0f);
+      }
+    }
+
+  //---------------------------------------------------------------------------------------
+  // # Skookum:   Vector4@RotationAngles() RotationAngles
+  // # Author(s): Zachary Burke
+  static void mthd_RotationAngles(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    // Do nothing if result not desired
+    if (result_pp)
+      {
+      const FRotator & rotation = scope_p->this_as<SkVector4>().Rotation();
+      *result_pp = SkRotationAngles::new_instance(rotation);
       }
     }
 
@@ -486,10 +512,12 @@ namespace SkVector4_Impl
       { "multiply_assign",  mthd_op_multiply_assign },
       { "divide",           mthd_op_divide },
       { "divide_assign",    mthd_op_divide_assign },
+      { "negated",          mthd_op_negated },
 
       { "set",              mthd_set },
       { "zero?",            mthd_zeroQ },
       { "zero",             mthd_zero },
+      { "RotationAngles",   mthd_RotationAngles },
 
       //{ "distance",         mthd_distance },
       //{ "distance_squared", mthd_distance_squared },

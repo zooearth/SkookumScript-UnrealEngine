@@ -25,7 +25,16 @@
   #include <windows.h>  // Uses: IsDebuggerPresent(), OutputDebugStringA()
 #endif
 #if defined(A_PLAT_OSX) && defined(A_EXTRA_CHECK)
+  #include <sys/types.h>
+  #include <unistd.h>      // Uses: getpid
   #include <sys/sysctl.h>  // Uses: struct kinfo_proc etc.
+#endif
+#if (defined(A_PLAT_iOS) || defined(A_PLAT_tvOS)) && defined(A_EXTRA_CHECK)
+  #include <sys/types.h>
+  #include <unistd.h>      // Uses: getpid
+  #include <sys/sysctl.h>  // Uses: struct kinfo_proc etc.
+  //#include <Foundation/NSString.h>
+  //#include <Foundation/NSObjCRuntime.h>
 #endif
 #ifdef A_PLAT_ANDROID
   #include <android/log.h>
@@ -161,6 +170,30 @@ AErrorOutputBase::~AErrorOutputBase()
   // Does nothing
   }
 
+//=======================================================================================
+// AScopedDebugPrintPerfCounter
+//=======================================================================================
+
+#if defined(A_PLAT_PC) && defined(A_EXTRA_CHECK)
+
+//---------------------------------------------------------------------------------------
+AScopedDebugPrintPerfCounter::AScopedDebugPrintPerfCounter(const char * label_p)
+  : m_label_p(label_p)
+  {
+  static_assert(sizeof(m_start_time) == sizeof(LARGE_INTEGER), "Must match.");
+  ::QueryPerformanceCounter((LARGE_INTEGER *)&m_start_time);
+  }
+
+//---------------------------------------------------------------------------------------
+AScopedDebugPrintPerfCounter::~AScopedDebugPrintPerfCounter()
+  {
+  LARGE_INTEGER stop_time, ticks_per_second;
+  ::QueryPerformanceCounter(&stop_time);
+  ::QueryPerformanceFrequency(&ticks_per_second);
+  ADebug::print(a_str_format("%s = %fms\n", m_label_p, double(stop_time.QuadPart - ((LARGE_INTEGER &)m_start_time).QuadPart) * 1000.0 / double(ticks_per_second.QuadPart)), false);
+  }
+
+#endif
 
 //=======================================================================================
 // ADebug Class Data
@@ -283,7 +316,7 @@ bool ADebug::is_debugging()
   #if defined(A_EXTRA_CHECK)
     #if defined(A_PLAT_PC)
       return ::IsDebuggerPresent();
-    #elif defined(A_PLAT_OSX)
+    #elif defined(A_PLAT_OSX) || defined(A_PLAT_iOS) || defined(A_PLAT_tvOS)
       int mib[4];
       struct kinfo_proc info;
       size_t size;
@@ -425,7 +458,7 @@ void ADebug::print_args(
 
   if (func_num)
     {
-    AString        str(buffer_p, uint(length));
+    AString        str(buffer_p, uint(length), false);
     tAPrintFunc ** print_funcs_pp     = g_dprint_funcs.get_array();
     tAPrintFunc ** print_funcs_end_pp = print_funcs_pp + func_num;
 
@@ -505,6 +538,12 @@ void ADebug::print_std(const AString & str)
     if (is_debugging())
       {
       ::printf("%s", str.as_cstr()); // This ensures strings containing a '%' will print properly      
+      }
+  #elif (defined(A_PLAT_iOS) || defined(A_PLAT_tvOS)) && defined(A_EXTRA_CHECK)
+    if (is_debugging())
+      {
+      ::printf("%s", str.as_cstr()); // This ensures strings containing a '%' will print properly
+      //NSLog(@"%s", str.as_cstr());
       }
   #elif defined(A_PLAT_ANDROID)
     __android_log_write(ANDROID_LOG_INFO, "SkookumScript", str.as_cstr());

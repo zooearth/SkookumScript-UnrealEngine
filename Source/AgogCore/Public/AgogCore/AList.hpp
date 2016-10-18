@@ -193,6 +193,26 @@ class AList
     bool           is_valid_quick() const;
     bool           is_valid_strict() const;
 
+  // C++11 range-based iteration
+
+    class Iterator
+      {
+      public:
+                        Iterator(_ElementType * elem_p) : m_elem_p(elem_p) {}
+        Iterator        operator ++()                     { Iterator i = *this; m_elem_p = m_elem_p->AListNode<_ElementType, _NodeIdType>::get_next(); return i; }
+        Iterator &      operator ++(int)                  { m_elem_p = m_elem_p->AListNode<_ElementType, _NodeIdType>::get_next(); return *this; }
+        _ElementType *  operator *()                      { return m_elem_p; }
+        _ElementType *  operator ->()                     { return m_elem_p; }
+        bool            operator ==(const Iterator & rhs) { return m_elem_p == rhs.m_elem_p; }
+        bool            operator !=(const Iterator & rhs) { return m_elem_p != rhs.m_elem_p; }
+
+      private:
+        _ElementType *  m_elem_p;
+      };
+
+    Iterator  begin() const   { return Iterator(get_first()); }
+    Iterator  end() const     { return Iterator(const_cast<_ElementType *>(get_sentinel())); }
+
   // Future Methods
 
     //template<class _InvokeType>

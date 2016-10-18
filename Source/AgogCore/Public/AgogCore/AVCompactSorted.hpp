@@ -355,7 +355,7 @@ AVCompactSorted<_ElementType, _KeyType, _CompareClass>::AVCompactSorted(
       {
       elem_p = va_arg(arg_array, _ElementType *);
       find(*elem_p, AMatch_first_found, &find_pos);
-      ::memmove(this->m_array_p + find_pos + 1u, this->m_array_p + find_pos, (this->m_count - find_pos) * sizeof(_ElementType *));
+      ::memmove(this->m_array_p + find_pos + 1u, this->m_array_p + find_pos, (this->m_count - find_pos) * sizeof(_ElementType));
       this->m_array_p[find_pos] = elem_p;  // insert element
       this->m_count++;
       pos++;
@@ -395,7 +395,7 @@ AVCompactSorted<_ElementType, _KeyType, _CompareClass>::AVCompactSorted(
   tAVCompactArrayBase(elem_count, elem_count, nullptr)
   {
   this->m_array_p = tAVCompactArrayBase::alloc_array(elem_count);
-  ::memcpy(this->m_array_p, elems_p, elem_count * sizeof(_ElementType *));
+  ::memcpy(this->m_array_p, elems_p, elem_count * sizeof(_ElementType));
 
   if (!pre_sorted && elem_count)
     {
@@ -438,7 +438,7 @@ AVCompactSorted<_ElementType, _KeyType, _CompareClass>::AVCompactSorted(
     for(; elem_p < elems_end_p; this->m_count++, elem_p++)
       {
       find(*elem_p, AMatch_first_found, &find_pos);
-      ::memmove(array_p + find_pos + 1u, array_p + find_pos, (this->m_count - find_pos) * sizeof(_ElementType *));
+      ::memmove(array_p + find_pos + 1u, array_p + find_pos, (this->m_count - find_pos) * sizeof(_ElementType));
       array_p[find_pos] = const_cast<_ElementType *>(elem_p);  // insert element
       }
     }
@@ -658,13 +658,13 @@ void AVCompactSorted<_ElementType, _KeyType, _CompareClass>::append_absent_all(c
           this->m_size    = size;
           array_pp        = tAVCompactArrayBase::alloc_array(this->m_size);
           this->m_array_p = array_pp;
-          ::memcpy(array_pp, old_array_pp, pos * sizeof(_ElementType *));
-          ::memcpy(array_pp + pos + 1u, old_array_pp + pos, (length - pos) * sizeof(_ElementType *));
+          ::memcpy(array_pp, old_array_pp, pos * sizeof(_ElementType));
+          ::memcpy(array_pp + pos + 1u, old_array_pp + pos, (length - pos) * sizeof(_ElementType));
           tAVCompactArrayBase::free_array(old_array_pp);
           }
         else  // enough size in existing array
           {
-          ::memmove(array_pp + pos + 1u, array_pp + pos, (length - pos) * sizeof(_ElementType *));
+          ::memmove(array_pp + pos + 1u, array_pp + pos, (length - pos) * sizeof(_ElementType));
           }
 
         array_pp[pos] = const_cast<_ElementType *>(*elems_pp);  // insert element
@@ -695,7 +695,7 @@ void AVCompactSorted<_ElementType, _KeyType, _CompareClass>::append_all(
   uint32_t length = array.get_length();
 
   this->ensure_size(this->m_count + length);
-  ::memcpy(this->m_array_p + this->m_count, array.get_array(), length * sizeof(_ElementType *));
+  ::memcpy(this->m_array_p + this->m_count, array.get_array(), length * sizeof(_ElementType));
   this->m_count += length;
 
   // Check for special case where no merge is necessary
@@ -718,7 +718,7 @@ void AVCompactSorted<_ElementType, _KeyType, _CompareClass>::append_all(const tA
   uint32_t length = sorted.get_length();
 
   this->ensure_size(this->m_count + length);
-  ::memcpy(this->m_array_p + this->m_count, sorted.get_array(), length * sizeof(_ElementType *));
+  ::memcpy(this->m_array_p + this->m_count, sorted.get_array(), length * sizeof(_ElementType));
   this->m_count += length;
 
   // Check for special case where no merge is necessary
@@ -751,7 +751,7 @@ void AVCompactSorted<_ElementType, _KeyType, _CompareClass>::append_all(
   )
   {
   this->ensure_size(this->m_count + elem_count);
-  ::memcpy(this->m_array_p + this->m_count, elems_p, elem_count * sizeof(_ElementType *));
+  ::memcpy(this->m_array_p + this->m_count, elems_p, elem_count * sizeof(_ElementType));
   this->m_count += elem_count;
 
   // Check for special case where no merge is necessary
@@ -797,7 +797,7 @@ void AVCompactSorted<_ElementType, _KeyType, _CompareClass>::append_all(
     for(; elem_p < elems_end_p; elem_p++)
       {
       find(*elem_p, AMatch_first_found, &find_pos);
-      ::memmove(array_p + find_pos + 1u, array_p + find_pos, (this->m_count - find_pos) * sizeof(_ElementType *));
+      ::memmove(array_p + find_pos + 1u, array_p + find_pos, (this->m_count - find_pos) * sizeof(_ElementType));
       array_p[find_pos] = const_cast<_ElementType *>(elem_p);  // insert element
       this->m_count++;
       }
@@ -842,7 +842,7 @@ uint32_t AVCompactSorted<_ElementType, _KeyType, _CompareClass>::remove_all(
     find_instance(key, AMatch_last, &last_match, this->m_array_p + first_match, this->m_array_p + end_pos);
     remove_count = last_match - first_match + 1u;
     this->m_count -= remove_count;
-    ::memmove(this->m_array_p + first_match, this->m_array_p + first_match + remove_count, (this->m_count - first_match) * sizeof(_ElementType *));
+    ::memmove(this->m_array_p + first_match, this->m_array_p + first_match + remove_count, (this->m_count - first_match) * sizeof(_ElementType));
     }
 
   return remove_count;
@@ -1356,7 +1356,7 @@ void AVCompactSorted<_ElementType, _KeyType, _CompareClass>::get_all(
     // Check for special case where no merge is necessary
     if (collected_p->m_count == 0u)
       {
-      ::memcpy(collected_p->m_array_p + collected_p->m_count, this->m_array_p + pos, elem_count * sizeof(_ElementType *));
+      ::memcpy(collected_p->m_array_p + collected_p->m_count, this->m_array_p + pos, elem_count * sizeof(_ElementType));
       collected_p->m_count += elem_count;
       }
     else
