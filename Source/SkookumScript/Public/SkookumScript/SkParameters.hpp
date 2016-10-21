@@ -85,6 +85,7 @@ class SK_API SkParameters : public ARefCountMix<SkParameters>
     bool operator==(const SkParameters & params) const;
     bool operator<(const SkParameters & params) const;
     bool is_valid_arg_to(const SkParameters & params) const;
+    uint32_t generate_crc32() const;
 
 
   // Converter Methods

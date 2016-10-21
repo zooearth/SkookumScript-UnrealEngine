@@ -178,6 +178,7 @@ class SK_API SkMetaClass : public SkClassUnaryBase, public SkInstanceUnreffed
   // Comparison Methods
 
     eAEquate compare(const SkMetaClass & mclass) const;
+    uint32_t generate_crc32() const;
 
   // Methods
 
@@ -199,7 +200,7 @@ class SK_API SkMetaClass : public SkClassUnaryBase, public SkInstanceUnreffed
 
       // Method Member Methods
 
-        virtual void           append_method(SkMethodBase * method_p);
+        virtual void           append_method(SkMethodBase * method_p, bool * has_signature_changed_p = nullptr);
         virtual SkMethodBase * find_method(const ASymbol & method_name, bool * is_class_member_p = nullptr) const;
         virtual SkMethodBase * find_method_inherited(const ASymbol & method_name, bool * is_class_member_p = nullptr) const;
         virtual bool           is_method_inherited_valid(const ASymbol & method_name) const;
@@ -207,7 +208,7 @@ class SK_API SkMetaClass : public SkClassUnaryBase, public SkInstanceUnreffed
 
       // Coroutine Member Methods
 
-        virtual void              append_coroutine(SkCoroutineBase * coroutine_p);
+        virtual void              append_coroutine(SkCoroutineBase * coroutine_p, bool * has_signature_changed_p = nullptr);
         virtual SkCoroutineBase * find_coroutine_inherited(const ASymbol & coroutine_name) const  { return nullptr; }
         virtual bool              is_coroutine_registered(const ASymbol & coroutine_name) const  { return false; }
         virtual bool              is_coroutine_valid(const ASymbol & coroutine_name) const       { return false; }
@@ -546,7 +547,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
       // Instance & Class Methods
 
-        virtual void           append_method(SkMethodBase * method_p);
+        virtual void           append_method(SkMethodBase * method_p, bool * has_signature_changed_p = nullptr);
         virtual SkMethodBase * find_method(const ASymbol & method_name, bool * is_class_member_p = nullptr) const;
         virtual SkMethodBase * find_method_inherited(const ASymbol & method_name, bool * is_class_member_p = nullptr) const;
         SkMethodBase *         find_method_inherited_receiver(const ASymbol & method_name, SkInstance ** receiver_pp, SkInvokedBase * caller_p) const;
@@ -568,7 +569,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
       // Instance Methods
 
-        void                   append_instance_method(SkMethodBase * method_p);
+        void                   append_instance_method(SkMethodBase * method_p, bool * has_signature_changed_p = nullptr);
         SkMethodBase *         get_instance_destructor_inherited() const                     { return m_destructor_p; }
         SkMethodBase *         find_instance_method(const ASymbol & method_name) const        { return m_methods.get(method_name); }
         SkMethodBase *         find_instance_method_inherited(const ASymbol & method_name) const;
@@ -581,7 +582,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
       // Class Methods
 
-        void                   append_class_method(SkMethodBase * method_p);
+        void                   append_class_method(SkMethodBase * method_p, bool * has_signature_changed_p = nullptr);
         SkMethodBase *         find_class_method(const ASymbol & method_name) const                 { return m_class_methods.get(method_name); }
         SkMethodBase *         find_class_method_inherited(const ASymbol & method_name, bool * is_class_member_p = nullptr) const;
         SkMethodBase *         find_class_method_overridden(const ASymbol & method_name) const;
@@ -594,7 +595,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
     // Coroutine Methods
 
-      virtual void         append_coroutine(SkCoroutineBase * coroutine_p);
+      virtual void         append_coroutine(SkCoroutineBase * coroutine_p, bool * has_signature_changed_p = nullptr);
       SkCoroutineBase *    find_coroutine(const ASymbol & coroutine_name) const       { return m_coroutines.get(coroutine_name); }
       SkCoroutineBase *    find_coroutine_inherited(const ASymbol & coroutine_name) const;
       SkCoroutineBase *    find_coroutine_overridden(const ASymbol & coroutine_name) const;
@@ -628,15 +629,17 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
       // Instance Methods
 
-        SkTypedName *             append_instance_data(const ASymbol & name, SkClassDescBase * type_p, eSubclass subclasses = Subclass_recurse);
-        const tSkTypedNameArray & get_instance_data() const        { return m_data; }
-        uint32_t                  get_total_data_count() const     { return m_total_data_count; }
-        void                      remove_instance_data_all();
+        SkTypedName *                 append_instance_data(const ASymbol & name, SkClassDescBase * type_p, eSubclass subclasses = Subclass_recurse);
+        const tSkTypedNameArray &     get_instance_data() const        { return m_data; }
+        uint32_t                      get_total_data_count() const     { return m_total_data_count; }
 
         SkTypedNameRaw *              append_instance_data_raw(const ASymbol & name, SkClassDescBase * type_p, eSubclass subclasses = Subclass_recurse);
         const tSkTypedNameRawArray &  get_instance_data_raw() const { return m_data_raw; }
         tSkTypedNameRawArray &        get_instance_data_raw_for_resolving() { return m_data_raw; }
         uint32_t                      compute_total_raw_data_count() const;
+
+        void                          remove_instance_data_all();
+        uint32_t                      generate_crc32_instance_data() const;
 
         #if (SKOOKUM & SK_COMPILED_IN)
           SkClass * find_instance_data_scope(const ASymbol & name, ePath check_path = Path_super_sub);
@@ -649,6 +652,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
         const tSkTypedNameArray & get_class_data() const             { return m_class_data; }
         uint32_t                  get_total_class_data_count() const { return m_total_class_data_count; }
         void                      remove_class_data_all();
+        uint32_t                  generate_crc32_class_data() const;
 
         const SkInstanceList &    get_class_data_values() const                                             { return m_class_data_values; }
         SkInstance *              get_class_data_value_by_idx(uint32_t data_idx) const                      { return m_class_data_values[data_idx]; }
@@ -880,6 +884,7 @@ class SK_API SkClassUnion : public SkClassDescBase, public ARefCountMix<SkClassU
     bool     operator!=(const SkClassUnion & class_union) const  { return compare(class_union) != AEquate_equal; }
     bool     operator<=(const SkClassUnion & class_union) const  { return compare(class_union) != AEquate_greater; }
     bool     operator>=(const SkClassUnion & class_union) const  { return compare(class_union) != AEquate_less; }
+    uint32_t generate_crc32() const;
 
   // Methods
 

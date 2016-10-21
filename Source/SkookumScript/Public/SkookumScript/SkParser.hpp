@@ -734,7 +734,7 @@ class SK_API SkParser : public AString
       };  // SkParser::Args
 
 
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Keep track of important nesting.
     // - currently tracking loops
     // - used by SkParser::m_nest_stack
@@ -743,7 +743,7 @@ class SK_API SkParser : public AString
       NestInfo(const ASymbol & name) : ANamed(name) {}
       };
 
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Represents parsed list of annotations
     struct Annotations
       {
@@ -844,15 +844,15 @@ class SK_API SkParser : public AString
       eResult parse_name_method(          uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, ASymbol * name_p = nullptr) const;
       eResult parse_name_coroutine(       uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, ASymbol * name_p = nullptr) const;
       eResult parse_whitespace(           uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr) const;
-      eResult parse_ws_any(               uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr) const;
+      eResult parse_ws_any(               uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, bool treat_lf_as_ws = true) const;
       bool    parse_ws_any(               Args & args) const  { args.m_result = parse_ws_any(args.m_start_pos, &args.m_end_pos); return args.m_result == Result_ok; }
       void    parse_ws_end(               Args & args) const;
       eResult parse_ws_required(          uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr) const;
 
     // Preparse Methods - Partially parses code for context for later full parse.
 
-      SkMethodFunc *    preparse_method_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset()) const;
-      SkCoroutineFunc * preparse_coroutine_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset()) const;
+      SkMethodFunc *    preparse_method_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
+      SkCoroutineFunc * preparse_coroutine_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
 
     // Identification Methods  - Quickly identifies/categorizes a section of code without necessarily doing a full analysis.
 

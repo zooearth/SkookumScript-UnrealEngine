@@ -36,6 +36,12 @@ A_INLINE eAEquate SkMetaClass::compare(const SkMetaClass & mclass) const
   }
 
 //---------------------------------------------------------------------------------------
+A_INLINE uint32_t SkMetaClass::generate_crc32() const
+  {
+  return m_class_info_p->generate_crc32();
+  }
+
+//---------------------------------------------------------------------------------------
 // Returns class type
 // Returns:    class type
 // Modifiers:   virtual - overridden from SkClassDescBase
@@ -112,9 +118,9 @@ A_INLINE SkMethodBase * SkMetaClass::find_method_inherited(const ASymbol & metho
 //             method does not.
 // Modifiers:   virtual - overridden from SkClassUnaryBase
 // Author(s):   Conan Reis
-A_INLINE void SkMetaClass::append_method(SkMethodBase * method_p)
+A_INLINE void SkMetaClass::append_method(SkMethodBase * method_p, bool * has_signature_changed_p)
   {
-  m_class_info_p->append_class_method(method_p);
+  m_class_info_p->append_class_method(method_p, has_signature_changed_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -160,7 +166,7 @@ A_INLINE bool SkMetaClass::is_method_inherited_valid(const ASymbol & method_name
 //             method does not.
 // Modifiers:   virtual - overridden from SkClassUnaryBase
 // Author(s):   Conan Reis
-A_INLINE void SkMetaClass::append_coroutine(SkCoroutineBase * coroutine_p)
+A_INLINE void SkMetaClass::append_coroutine(SkCoroutineBase * coroutine_p, bool * has_signature_changed_p)
   {
 
 
@@ -764,10 +770,10 @@ A_INLINE bool SkClass::is_method_inherited_valid(const ASymbol & method_name) co
 //             method does not.
 // Modifiers:   virtual - overridden from SkClassUnaryBase
 // Author(s):   Conan Reis
-A_INLINE void SkClass::append_method(SkMethodBase * method_p)
+A_INLINE void SkClass::append_method(SkMethodBase * method_p, bool * has_signature_changed_p)
   {
   // Note that only instance methods are checked.
-  append_instance_method(method_p);
+  append_instance_method(method_p, has_signature_changed_p);
   }
 
 //---------------------------------------------------------------------------------------

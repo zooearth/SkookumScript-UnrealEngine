@@ -62,8 +62,9 @@ class SK_API SkParameterBase : public ANamed
 
   // Comparison Methods
   
-    virtual bool compare_equal(const SkParameterBase & param) const = 0;
-    virtual bool compare_less(const SkParameterBase & param) const = 0;
+    virtual bool      compare_equal(const SkParameterBase & param) const = 0;
+    virtual bool      compare_less(const SkParameterBase & param) const = 0;
+    virtual uint32_t  generate_crc32() const = 0;
 
   // Converter Methods
 
