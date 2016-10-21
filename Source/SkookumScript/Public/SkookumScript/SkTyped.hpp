@@ -59,8 +59,9 @@ struct SK_API SkTypedName : ANamed
 
   // Comparison Methods
 
-    bool operator==(const SkTypedName & typed) const  { return (m_name == typed.m_name) && (m_type_p->compare(*typed.m_type_p) == AEquate_equal); }
-    bool operator<(const SkTypedName & typed) const   { return (m_name < typed.m_name) || ((m_name == typed.m_name) && (m_type_p->compare(*typed.m_type_p) == AEquate_less)); }
+    bool      operator==(const SkTypedName & typed) const  { return (m_name == typed.m_name) && (m_type_p->compare(*typed.m_type_p) == AEquate_equal); }
+    bool      operator<(const SkTypedName & typed) const   { return (m_name < typed.m_name) || ((m_name == typed.m_name) && (m_type_p->compare(*typed.m_type_p) == AEquate_less)); }
+    uint32_t  generate_crc32() const { return m_type_p->generate_crc32() ^ get_name_id(); }
 
   // Converter Methods
 

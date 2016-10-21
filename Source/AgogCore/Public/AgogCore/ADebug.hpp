@@ -356,6 +356,30 @@ class A_API AErrorOutputBase
 typedef AFunctionArgBase<const AString &> tAPrintFunc;
 typedef AFunctionArgBase<AString *>       tAContextFunc;
 
+//---------------------------------------------------------------------------------------
+// Performance counter that prints time elapsed since construction in its destructor
+#if defined(A_PLAT_PC) && defined(A_EXTRA_CHECK)
+
+  class AScopedDebugPrintPerfCounter
+    {
+    public:
+      AScopedDebugPrintPerfCounter(const char * label_p);
+      ~AScopedDebugPrintPerfCounter();
+
+    protected:
+      const char * m_label_p;
+      uint64_t     m_start_time;
+    };
+
+#else
+
+  class AScopedDebugPrintPerfCounter
+    {
+    public:
+      AScopedDebugPrintPerfCounter(const char *) {}
+    };
+
+#endif
 
 //---------------------------------------------------------------------------------------
 // Author   Conan Reis

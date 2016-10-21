@@ -125,6 +125,7 @@ class SK_API SkClassDescBase
     eAEquate         compare(const SkClassDescBase & type) const;
     static bool      equals(const SkClassDescBase & lhs, const SkClassDescBase & rhs)     { return lhs.compare(rhs) == AEquate_equal; }
     static ptrdiff_t comparison(const SkClassDescBase & lhs, const SkClassDescBase & rhs) { return ptrdiff_t(lhs.compare(rhs)); }
+    uint32_t         generate_crc32() const;
 
   // Methods
 
@@ -215,12 +216,12 @@ class SK_API SkClassUnaryBase : public SkClassDescBase
 
     // Method Member Methods
 
-      virtual void append_method(SkMethodBase * method_p) = 0;
+      virtual void append_method(SkMethodBase * method_p, bool * has_signature_changed_p = nullptr) = 0;
       virtual bool is_method_valid(const ASymbol & method_name) const = 0;
 
     // Coroutine Member Methods
 
-      virtual void append_coroutine(SkCoroutineBase * coroutine_p) = 0;
+      virtual void append_coroutine(SkCoroutineBase * coroutine_p, bool * has_signature_changed_p = nullptr) = 0;
       virtual bool is_coroutine_valid(const ASymbol & coroutine_name) const = 0;
       virtual bool is_coroutine_registered(const ASymbol & coroutine_name) const = 0;
 
