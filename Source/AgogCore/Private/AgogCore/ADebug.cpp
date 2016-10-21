@@ -170,6 +170,30 @@ AErrorOutputBase::~AErrorOutputBase()
   // Does nothing
   }
 
+//=======================================================================================
+// AScopedDebugPrintPerfCounter
+//=======================================================================================
+
+#if defined(A_PLAT_PC) && defined(A_EXTRA_CHECK)
+
+//---------------------------------------------------------------------------------------
+AScopedDebugPrintPerfCounter::AScopedDebugPrintPerfCounter(const char * label_p)
+  : m_label_p(label_p)
+  {
+  static_assert(sizeof(m_start_time) == sizeof(LARGE_INTEGER), "Must match.");
+  ::QueryPerformanceCounter((LARGE_INTEGER *)&m_start_time);
+  }
+
+//---------------------------------------------------------------------------------------
+AScopedDebugPrintPerfCounter::~AScopedDebugPrintPerfCounter()
+  {
+  LARGE_INTEGER stop_time, ticks_per_second;
+  ::QueryPerformanceCounter(&stop_time);
+  ::QueryPerformanceFrequency(&ticks_per_second);
+  ADebug::print(a_str_format("%s = %fms\n", m_label_p, double(stop_time.QuadPart - ((LARGE_INTEGER &)m_start_time).QuadPart) * 1000.0 / double(ticks_per_second.QuadPart)), false);
+  }
+
+#endif
 
 //=======================================================================================
 // ADebug Class Data
