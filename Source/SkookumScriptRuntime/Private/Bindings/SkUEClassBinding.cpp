@@ -197,6 +197,12 @@ bool SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p)
       }
     }
 
+  // If there's nothing to resolve, we're done!
+  if (class_p->get_instance_data_raw().is_empty())
+    {
+    return true;
+    }
+
   // First check if it's a class
   UStruct * ue_struct_or_class_p = get_ue_class_from_sk_class(class_p);
   if (!ue_struct_or_class_p)
@@ -574,7 +580,7 @@ SkInstance * SkUEClassBindingHelper::access_raw_data_list(void * obj_p, tSkRawDa
   uint32_t byte_offset = (raw_data_info >> Raw_data_info_offset_shift) & Raw_data_info_offset_mask;
   SK_ASSERTX(((raw_data_info >> (Raw_data_info_type_shift + Raw_data_type_size_shift)) & Raw_data_type_size_mask) == sizeof(TArray<void *>), "Size of data type and data member must match!");
 
-  TArray<uint8> *   data_p             = (TArray<uint8> *)((uint8_t*)obj_p + byte_offset);
+  HackedTArray *    data_p             = (HackedTArray *)((uint8_t*)obj_p + byte_offset);
   SkClassDescBase * item_type_p        = data_type_p->get_item_type();
   SkClass *         item_class_p       = item_type_p->get_key_class();
   tSkRawDataInfo    item_raw_data_info = ((raw_data_info >> Raw_data_info_elem_type_shift) & Raw_data_info_elem_type_mask) << Raw_data_info_type_shift;
@@ -587,16 +593,12 @@ SkInstance * SkUEClassBindingHelper::access_raw_data_list(void * obj_p, tSkRawDa
     SkInstanceList & list = value_p->as<SkList>();
     APArray<SkInstance> & list_instances = list.get_instances();
     uint32_t num_elements = list_instances.get_length();
-    SK_ASSERTX(uint32_t(data_p->Max()) >= num_elements, "Currently cannot assign to a UE4 array when it does not already have enough memory pre-allocated. Sorry - we'll work on that.");
-    if (uint32_t(data_p->Max()) >= num_elements)
+    data_p->resize_uninitialized(num_elements, item_size);
+    uint8_t * item_array_p = (uint8_t *)data_p->GetData();
+    for (uint32_t i = 0; i < num_elements; ++i)
       {
-      data_p->SetNumUninitialized(num_elements);
-      uint8_t * item_array_p = (uint8_t *)data_p->GetData();
-      for (uint32_t i = 0; i < num_elements; ++i)
-        {
-        item_class_p->assign_raw_data(item_array_p, item_raw_data_info, item_type_p, list_instances[i]);
-        item_array_p += item_size;
-        }
+      item_class_p->assign_raw_data(item_array_p, item_raw_data_info, item_type_p, list_instances[i]);
+      item_array_p += item_size;
       }
     return nullptr;
     }
@@ -844,3 +846,20 @@ SkClass * SkUEClassBindingHelper::add_static_class_mapping(UClass * ue_class_p)
   }
 
 #endif
+
+//=======================================================================================
+// SkUEClassBindingHelper::HackedTArray
+//=======================================================================================
+
+FORCENOINLINE void SkUEClassBindingHelper::HackedTArray::resize_to(int32 new_max, int32 num_bytes_per_element)
+  {
+  if (new_max)
+    {
+    new_max = AllocatorInstance.CalculateSlackReserve(new_max, num_bytes_per_element);
+    }
+  if (new_max != ArrayMax)
+    {
+    ArrayMax = new_max;
+    AllocatorInstance.ResizeAllocation(ArrayNum, ArrayMax, num_bytes_per_element);
+    }
+  }

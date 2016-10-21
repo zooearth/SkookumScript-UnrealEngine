@@ -129,6 +129,7 @@ enum eACharMatch
   ACharMatch_not_token,           // not Punctuation or symbol character
   ACharMatch_not_uppercase,       // not A-Z
   ACharMatch_not_white_space,     // not Horizontal Tab, Line Feed, Vertical Tab, Form Feed, Carriage Return, Space
+  ACharMatch_not_white_space_except_lf, // same as above except Line Feed is found
   ACharMatch__length
   };
 

@@ -69,7 +69,7 @@ class FSkookumScriptGeneratorBase
     //---------------------------------------------------------------------------------------
     // Methods
 
-    static FString        get_or_create_project_file(const FString & ue_project_directory_path, bool * created_p = nullptr);
+    static FString        get_or_create_project_file(const FString & ue_project_directory_path, const TCHAR * project_name_p, bool * created_p = nullptr);
     bool                  compute_scripts_path_depth(FString project_ini_file_path, const FString & overlay_name);
     void                  save_text_file(const FString & file_path, const FString & contents);
     bool                  save_text_file_if_changed(const FString & file_path, const FString & new_file_contents); // Helper to change a file only if needed
@@ -109,6 +109,7 @@ class FSkookumScriptGeneratorBase
     static const FString        ms_reserved_keywords[]; // = Forbidden variable names
     static const FName          ms_meta_data_key_function_category;
     static const FName          ms_meta_data_key_blueprint_type;
+    static const FString        ms_asset_name_key; // Label used to extract asset name from Sk class meta file
     static const FString        ms_package_name_key; // Label used to extract package name from Sk class meta file
     static const FString        ms_package_path_key; // Label used to extract package path from Sk class meta file
     static TCHAR const * const  ms_editable_ini_settings_p; // ini file settings to describe that a project is not editable

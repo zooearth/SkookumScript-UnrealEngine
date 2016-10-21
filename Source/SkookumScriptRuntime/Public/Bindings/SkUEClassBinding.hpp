@@ -132,6 +132,24 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
       uint8 FieldMask;
       };
 
+    // Copy of TArray so we access protected methods
+    struct HackedTArray : TArray<uint8>
+      {
+      public:
+        // Set size and leave array uninitialized
+        FORCEINLINE void resize_uninitialized(int32 num_elements, int32 num_bytes_per_element)
+          {
+          if (num_elements > ArrayMax)
+            {
+            resize_to(num_elements, num_bytes_per_element);
+            }
+          SetNumUninitialized(num_elements);
+          }
+
+      protected:
+        FORCENOINLINE void resize_to(int32 new_max, int32 num_bytes_per_element);
+      };
+
   #if WITH_EDITORONLY_DATA
     static UClass *     add_dynamic_class_mapping(SkClassDescBase * sk_class_desc_p);
     static SkClass *    add_dynamic_class_mapping(UBlueprint * blueprint_p);
