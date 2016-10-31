@@ -151,14 +151,22 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
   FString ini_file_text;
   if (FFileHelper::LoadFileToString(ini_file_text, *project_ini_file_path))
     {
-    FRegexPattern regex(TEXT("Overlay[0-9]+=-?\\*?") + overlay_name.Replace(TEXT("+"), TEXT("\\+")) + TEXT("\\|.*?\\|([0-9]+)"));
+    FRegexPattern regex(TEXT("Overlay[0-9]+=-?\\*?") + overlay_name.Replace(TEXT("+"), TEXT("\\+")) + TEXT("\\|.*?\\|([0-9]+|A)"));
     FRegexMatcher matcher(regex, ini_file_text);
     if (matcher.FindNext())
       {
       int32 begin_idx = matcher.GetCaptureGroupBeginning(1);
       if (begin_idx >= 0)
         {
-        int32 path_depth = FCString::Atoi(&ini_file_text[begin_idx]);
+        const TCHAR * depth_text_p = &ini_file_text[begin_idx];
+
+        if (*depth_text_p == 'A')
+          {
+          m_overlay_path_depth = PathDepth_archived;
+          return true;
+          }
+
+        int32 path_depth = FCString::Atoi(depth_text_p);
         if (path_depth > 0 || (path_depth == 0 && ini_file_text[begin_idx] == '0'))
           {
           m_overlay_path_depth = path_depth;

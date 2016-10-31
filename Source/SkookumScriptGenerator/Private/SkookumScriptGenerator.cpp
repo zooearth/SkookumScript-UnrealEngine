@@ -73,7 +73,7 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
     FString               m_root_directory_path;      // Root of the runtime plugin or project we're generating the code for
     FString               m_project_name;             // Name of this project
     TArray<ModuleInfo>    m_script_supported_modules; // List of module names specified in SkookumScript.ini
-    TSet<FString>         m_skip_classes;             // All classes set to skip in SkookumScript.ini
+    TSet<FName>           m_skip_classes;             // All classes set to skip in SkookumScript.ini
     TArray<FString>       m_additional_includes;      // Workaround - extra header files to include
 
     mutable ModuleInfo *  m_current_module_p;  // Module that is currently processed by UHT
@@ -1140,7 +1140,13 @@ FString FSkookumScriptGenerator::generate_event_binding_code(const FString & cla
     for (TFieldIterator<UProperty> param_it(binding.m_property_p->SignatureFunction); param_it; ++param_it)
       {
       UProperty * param_p = *param_it;
-      FString argument = param_p->HasAnyPropertyFlags(CPF_ConstParm) ? FString::Printf(TEXT("const_cast<%s>(%s)"), *get_cpp_property_type_name(param_p, false, false, true), *param_p->GetName()) : param_p->GetName();
+      bool use_const_cast = false;
+      if (param_p->HasAnyPropertyFlags(CPF_ConstParm))
+        {
+        eSkTypeID type_id = get_skookum_property_type(param_p, true);
+        use_const_cast = (type_id == FSkookumScriptGeneratorBase::SkTypeID_UObject || type_id == FSkookumScriptGeneratorBase::SkTypeID_UObjectWeakPtr);
+        }
+      FString argument = use_const_cast ? FString::Printf(TEXT("const_cast<%s>(%s)"), *get_cpp_property_type_name(param_p, false, false, true), *param_p->GetName()) : param_p->GetName();
       generated_code += FString::Printf(TEXT("        event_p->m_argument_p[SkArg_%d] = %s;\r\n"), ++param_index, *generate_var_to_instance_expression(param_p, argument));
       }
     generated_code += FString::Printf(TEXT("        static_assert(sizeof(event_p->m_argument_p) >= %d * sizeof(event_p->m_argument_p[0]), \"Event arguments must fit in the array!\");\r\n"), param_index);
@@ -1555,7 +1561,7 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
   IFileManager::Get().DeleteDirectory(*directory_to_delete, false, true);
 
   // Create single packed file or folder structure of loose files?
-  if (m_overlay_path_depth == 0)
+  if (m_overlay_path_depth == PathDepth_archived)
     {
     // Packed file, generate it
 
@@ -1661,7 +1667,7 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
       }
 
     // Append terminator
-    script += "$$\n";
+    script += "$$ .\n";
 
     // And write it out
     save_text_file(m_overlay_path / TEXT("!Overlay.sk"), script);
@@ -2046,7 +2052,29 @@ bool FSkookumScriptGenerator::can_export_property(UProperty * property_p, int32 
   {
   // Check if property type is supported
   if (!is_property_type_supported(property_p))
+    {
     return false;
+    }
+
+  // Exclude any structs with types to skip
+  if (UStructProperty * struct_prop_p = Cast<UStructProperty>(property_p))
+    {
+    FName struct_name = struct_prop_p->Struct->GetFName();
+    if (m_targets[ClassScope_engine].m_skip_classes.Contains(struct_name)
+     || m_targets[ClassScope_project].m_skip_classes.Contains(struct_name))
+      {
+      return false;
+      }
+    }
+
+  // Exclude any arrays of unsupported types as well
+  if (UArrayProperty * array_property_p = Cast<UArrayProperty>(property_p))
+    {
+    if (!can_export_property(array_property_p->Inner, include_priority + 1, referenced_flags))
+      {
+      return false;
+      }
+    }
 
   // Property is supported - use the opportunity to make it known to SkookumScript
   on_property_referenced(property_p, include_priority, referenced_flags);
@@ -2400,7 +2428,11 @@ void FSkookumScriptGenerator::GenerationTarget::initialize(const FString & root_
         m_script_supported_modules.Add(ModuleInfo(module_name));
         }
       }
-    m_skip_classes.Append(skip_classes);
+    // Remember skip classes and convert to FName
+    for (int32 i = 0; i < skip_classes.Num(); ++i)
+      {
+      m_skip_classes.Add(FName(*skip_classes[i]));
+      }
     }
 
   m_current_module_p = nullptr;
@@ -2425,14 +2457,14 @@ bool FSkookumScriptGenerator::GenerationTarget::begin_process_module(const FStri
 bool FSkookumScriptGenerator::GenerationTarget::can_export_class(UClass * class_p) const
   {
   return (does_class_have_static_class(class_p) || class_p->HasAnyClassFlags(CLASS_HasInstancedReference)) // Don't export classes that don't export DLL symbols
-       && !m_skip_classes.Contains(class_p->GetName()); // Don't export classes that set to skip in UHT config file
+       && !m_skip_classes.Contains(class_p->GetFName()); // Don't export classes that set to skip in UHT config file
   }
 
 //---------------------------------------------------------------------------------------
 
 bool FSkookumScriptGenerator::GenerationTarget::can_export_struct(UStruct * struct_p) const
   {
-  if (m_skip_classes.Contains(struct_p->GetName())
+  if (m_skip_classes.Contains(struct_p->GetFName())
    || FSkookumScriptGeneratorBase::get_skookum_struct_type(struct_p) != SkTypeID_UStruct) // do not export the special types Vector2, Vector3, Color etc.
     {
     return false;
