@@ -55,7 +55,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
     FString       make_project_editable();
     UBlueprint *  load_blueprint_asset(const FString & class_path, bool * sk_class_deleted_p);
 
-    void generate_class_script_files(UClass * ue_class_p, bool generate_data, bool even_if_not_game_class, bool check_if_reparented);
+    void          generate_class_script_files(UClass * ue_class_p, bool generate_data, bool even_if_not_game_class, bool check_if_reparented);
     void          rename_class_script_files(UClass * ue_class_p, const FString & old_class_name);
     void          rename_class_script_files(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name);
     void          delete_class_script_files(UClass * ue_class_p);
