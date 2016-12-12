@@ -13,11 +13,7 @@
 //
 //=======================================================================================
 
-
-#ifndef __ASTRING_HPP
-#define __ASTRING_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -684,8 +680,3 @@ class A_API AStringBM : public AString
 #ifndef A_INL_IN_CPP
   #include <AgogCore/AString.inl>
 #endif
-
-
-#endif  // __ASTRING_HPP
-
-

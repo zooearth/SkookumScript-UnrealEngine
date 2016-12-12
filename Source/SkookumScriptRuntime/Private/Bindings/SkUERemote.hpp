@@ -13,8 +13,12 @@
 // Includes
 //=======================================================================================
 
-#include <SkookumScript/SkookumRemoteRuntimeBase.hpp>
-#include <Networking.h>
+#include "IPluginManager.h"
+#include "Networking.h"
+#include "ISkookumScriptRuntime.h"
+#include <AgogCore/ADatum.hpp>
+#include <AgogCore/AMath.hpp>
+#include <SkookumScript/SkRemoteRuntimeBase.hpp>
 
 //=======================================================================================
 // Global Structures
@@ -32,7 +36,7 @@ class FSkookumScriptRuntimeGenerator;
   
 //---------------------------------------------------------------------------------------
 // Communication commands that are specific to the SkookumIDE.
-class SkUERemote : public SkookumRemoteRuntimeBase
+class SkUERemote : public SkRemoteRuntimeBase
   {
   public:
 
@@ -67,7 +71,7 @@ class SkUERemote : public SkookumRemoteRuntimeBase
     //---------------------------------------------------------------------------------------
     // Supply information about current project
     // 
-    // See: SkookumRemoteRuntimeBase::cmd_compiled_state()
+    // See: SkRemoteRuntimeBase::cmd_compiled_state()
     virtual void get_project_info(SkProjectInfo * out_project_info_p) override;
 
     //---------------------------------------------------------------------------------------
@@ -82,9 +86,9 @@ class SkUERemote : public SkookumRemoteRuntimeBase
     // appropriate for current platform and project.
     //
     // Notes:
-    //   Should also update SkookumRemoteRuntimeBase derived objects if they aren't updated on
+    //   Should also update SkRemoteRuntimeBase derived objects if they aren't updated on
     //   one or more separate threads. This can be done by calling concurrent process updates
-    //   like message handlers or by calling a custom SkookumRemoteRuntimeBase object's update
+    //   like message handlers or by calling a custom SkRemoteRuntimeBase object's update
     //   method directly.
     virtual void wait_for_update() override;
 

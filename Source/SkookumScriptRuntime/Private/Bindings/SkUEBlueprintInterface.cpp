@@ -7,7 +7,6 @@
 // Author: Markus Breyer
 //=======================================================================================
 
-#include "../SkookumScriptRuntimePrivatePCH.h"
 #include "SkUEBlueprintInterface.hpp"
 
 #include "VectorMath/SkVector3.hpp"
@@ -15,6 +14,13 @@
 #include "VectorMath/SkTransform.hpp"
 #include "Engine/SkUEEntity.hpp"
 #include "Engine/SkUEActor.hpp"
+#include "SkUEUtils.hpp"
+#include <SkookumScript/SkExpressionBase.hpp>
+#include <SkookumScript/SkInvokedCoroutine.hpp>
+#include <SkookumScript/SkParameterBase.hpp>
+#include <SkookumScript/SkBoolean.hpp>
+#include <SkookumScript/SkInteger.hpp>
+#include <SkookumScript/SkReal.hpp>
 
 //---------------------------------------------------------------------------------------
 

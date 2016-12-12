@@ -90,11 +90,7 @@
 //
 //=======================================================================================
 
-
-#ifndef __AIDPTR_HPP
-#define __AIDPTR_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -617,8 +613,3 @@ inline void AIdPtrHolder<_PtrType>::reacquire()
   {
   m_ptr_id = ++AIdPtr<_PtrType>::ms_ptr_id_prev;
   }
-
-
-#endif  // __AIDPTR_HPP
-
-

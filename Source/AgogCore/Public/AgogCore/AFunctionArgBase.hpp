@@ -19,8 +19,8 @@
 #include <AgogCore/AMemory.hpp>
 
 
-#ifndef __SFUNCTIONARGBASE_HPP
-#define __SFUNCTIONARGBASE_HPP
+#ifndef __AFUNCTIONARGBASE_HPP
+#define __AFUNCTIONARGBASE_HPP
 
 
 //=======================================================================================
@@ -194,6 +194,6 @@ AFunctionArgRtnBase<_ArgType, _ReturnType>::~AFunctionArgRtnBase()
   }
 
 
-#endif  // __SFUNCTIONARGBASE_HPP
+#endif  // __AFUNCTIONARGBASE_HPP
 
 

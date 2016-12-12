@@ -9,6 +9,8 @@
 
 #pragma once
 
+class SkUEBindingsInterface;
+
 //---------------------------------------------------------------------------------------
 // 
 class SkUEBindings

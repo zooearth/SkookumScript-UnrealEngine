@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKEXPRESSIONBASE_HPP
-#define __SKEXPRESSIONBASE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -556,7 +553,3 @@ class SkCast : public SkExpressionBase
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkExpressionBase.inl>
 #endif
-
-
-#endif  // __SKEXPRESSIONBASE_HPP
-

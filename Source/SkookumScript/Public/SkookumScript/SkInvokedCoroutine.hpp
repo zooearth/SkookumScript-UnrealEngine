@@ -8,9 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-#ifndef __SKINVOKEDCOROUTINE_HPP
-#define __SKINVOKEDCOROUTINE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -139,7 +137,7 @@ class SK_API SkInvokedCoroutine :
   // Pool Allocation Methods
 
     static SkInstance *                         new_instance(SkInvokedCoroutine * icoroutine_p);
-    static SkInvokedCoroutine *                 pool_new(SkCoroutineBase * coroutine_p);
+    static SkInvokedCoroutine *                 pool_new(const SkCoroutineBase * coroutine_p);
     static void                                 pool_delete(SkInvokedCoroutine * icoroutine_p);
     static AObjReusePool<SkInvokedCoroutine> &  get_pool();
 
@@ -199,6 +197,3 @@ template<> inline void                  SkUserDataBase::set(SkInvokedCoroutine *
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkInvokedCoroutine.inl>
 #endif
-
-
-#endif  // __SKINVOKEDCOROUTINE_HPP

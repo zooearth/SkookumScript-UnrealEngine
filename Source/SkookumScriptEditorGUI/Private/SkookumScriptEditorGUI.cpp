@@ -5,7 +5,7 @@
 // Author: Markus Breyer
 //=======================================================================================
 
-#include "SkookumScriptEditorGUIPrivatePCH.h"
+#include <ISkookumScriptEditorGUI.h>
 #include <ISkookumScriptRuntime.h>
 #include <K2Node_CallFunction.h>
 #include <K2Node_Event.h>
@@ -18,8 +18,10 @@
 #include "BlueprintEditor.h"
 #include "BlueprintEditorModule.h"
 #include "MultiBoxExtender.h"
+#include "SlateStyleRegistry.h"
+#include "Logging/LogMacros.h"
 
-DEFINE_LOG_CATEGORY(LogSkookumScriptEditorGUI);
+DEFINE_LOG_CATEGORY_STATIC(LogSkookumScriptEditorGUI, Log, All);
 
 //---------------------------------------------------------------------------------------
 

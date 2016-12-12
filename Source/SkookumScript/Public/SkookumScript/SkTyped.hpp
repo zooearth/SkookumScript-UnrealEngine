@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKTYPED_HPP
-#define __SKTYPED_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -134,7 +131,3 @@ typedef APSortedLogical<SkTypedNameIndexed, ASymbol> tSkTypedNamesIndexed;
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkTyped.inl>
 #endif
-
-
-#endif  // __SKTYPED_HPP
-

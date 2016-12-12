@@ -5,8 +5,10 @@
 // Author: Markus Breyer
 //=======================================================================================
 
-#include "SkookumScriptEditorGUIPrivatePCH.h"
 #include "SkookumStyles.h"
+#include "Interfaces/IPluginmanager.h"
+#include "SlateGameResources.h"
+#include "SlateStyle.h"
 
 #define IMAGE_BRUSH( RelativePath, ... )  FSlateImageBrush(ms_singleton_p->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
 #define BOX_BRUSH( RelativePath, ... )    FSlateBoxBrush(ms_singleton_p->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)

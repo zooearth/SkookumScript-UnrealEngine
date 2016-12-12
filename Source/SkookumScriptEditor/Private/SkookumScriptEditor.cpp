@@ -5,19 +5,27 @@
 // Author: Markus Breyer
 //=======================================================================================
 
-#include "SkookumScriptEditorPrivatePCH.h"
-#include <ISkookumScriptRuntime.h>
-#include <AssetRegistryModule.h>
-#include <BlueprintActionDatabase.h>
-#include <BlueprintEditorUtils.h>
-#include <K2Node_CallFunction.h>
-#include <K2Node_Event.h>
+#include "ISkookumScriptEditor.h"
+#include "CoreUObject.h"
+#include "ModuleManager.h"
+#include "Engine.h"
+#include "UnrealEd.h"
+#include "SlateBasics.h"
+#include "SlateGameResources.h" 
+#include "IPluginManager.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "ISkookumScriptRuntime.h"
+#include "AssetRegistryModule.h"
+#include "BlueprintActionDatabase.h"
+#include "BlueprintEditorUtils.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_Event.h"
 
 #include "GraphEditor.h"
 
 #include "../../SkookumScriptGenerator/Private/SkookumScriptGeneratorBase.inl"
 
-DEFINE_LOG_CATEGORY(LogSkookumScriptEditor);
+DEFINE_LOG_CATEGORY_STATIC(LogSkookumScriptEditor, Log, All);
 
 //---------------------------------------------------------------------------------------
 
@@ -257,7 +265,7 @@ void FSkookumScriptEditor::on_object_modified(UObject * obj_p)
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p)
     {
-    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
+    get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, false);
     }
   }
 
@@ -280,8 +288,7 @@ void FSkookumScriptEditor::on_asset_post_import(UFactory * factory_p, UObject * 
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p)
     {
-    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
-    get_runtime()->generate_used_class_script_files();
+    get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, false);
     }
   }
 
@@ -302,7 +309,7 @@ void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const
     UBlueprint * blueprint_p = FindObjectChecked<UBlueprint>(ANY_PACKAGE, *asset_data.AssetName.ToString());
     if (blueprint_p)
       {
-      get_runtime()->rename_class_script_files(blueprint_p->GeneratedClass, FPaths::GetBaseFilename(old_object_path));
+      get_runtime()->on_class_renamed(blueprint_p->GeneratedClass, FPaths::GetBaseFilename(old_object_path));
       }
     }
   }
@@ -321,7 +328,7 @@ void FSkookumScriptEditor::on_in_memory_asset_deleted(UObject * obj_p)
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p)
     {
-    get_runtime()->delete_class_script_files(blueprint_p->GeneratedClass);
+    get_runtime()->on_class_deleted(blueprint_p->GeneratedClass);
     }
   }
 
@@ -329,9 +336,6 @@ void FSkookumScriptEditor::on_in_memory_asset_deleted(UObject * obj_p)
 // Called when the map is done loading (load progress reaches 100%)
 void FSkookumScriptEditor::on_map_opened(const FString & file_name, bool as_template)
   {
-  // Generate all script files one more time to be sure
-  get_runtime()->generate_all_class_script_files();
-
   // Let runtime know we are done opening a new map
   get_runtime()->on_editor_map_opened();
   }
@@ -347,7 +351,7 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
     }
 
   // Re-generate script files for this class as things might have changed
-  get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, true);
+  get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, true);
 
   // Check that there's no dangling default constructor
   bool has_skookum_default_constructor = get_runtime()->has_skookum_default_constructor(blueprint_p->GeneratedClass);
@@ -443,8 +447,7 @@ void FSkookumScriptEditor::on_new_asset(UObject * obj_p)
 
     if (blueprint_p->GeneratedClass)
       {
-      get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
-      get_runtime()->generate_used_class_script_files();
+      get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, true);
       }
     }
   }

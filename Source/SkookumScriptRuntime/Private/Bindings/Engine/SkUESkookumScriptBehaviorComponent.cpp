@@ -11,11 +11,11 @@
 // Includes
 //=======================================================================================
 
-#include "../../SkookumScriptRuntimePrivatePCH.h"
 #include "SkookumScriptBehaviorComponent.h"
 #include "SkUESkookumScriptBehaviorComponent.hpp"
 #include "SkUEActor.hpp"
 #include "SkUEName.hpp"
+#include <SkookumScript/SkBoolean.hpp>
 
 //=======================================================================================
 // Method Definitions

@@ -8,11 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __APCOMPACTARRAYBASE_HPP
-#define __APCOMPACTARRAYBASE_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -986,8 +982,3 @@ inline APCompactArrayBase<_ElementType>::APCompactArrayBase(APCompactArrayBase *
   array_p->m_count   = 0u;
   array_p->m_array_p = nullptr;
   }
-
-
-#endif  // __APCOMPACTARRAYBASE_HPP
-
-

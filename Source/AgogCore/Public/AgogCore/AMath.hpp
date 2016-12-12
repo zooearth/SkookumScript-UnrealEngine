@@ -8,11 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AMATH_HPP
-#define __AMATH_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -672,6 +668,3 @@ inline bool a_is_bit_on(
 #ifndef A_INL_IN_CPP
   #include <AgogCore/AMath.inl>
 #endif
-
-
-#endif  // __AMATH_HPP

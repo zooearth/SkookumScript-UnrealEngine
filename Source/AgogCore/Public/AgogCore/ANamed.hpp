@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __ANAMED_HPP
-#define __ANAMED_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -78,6 +75,3 @@ class A_API ANamed
 #ifndef A_INL_IN_CPP
   #include <AgogCore/ANamed.inl>
 #endif
-
-
-#endif  // __ANAMED_HPP

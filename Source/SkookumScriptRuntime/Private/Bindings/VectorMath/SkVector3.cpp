@@ -11,11 +11,12 @@
 // Includes
 //=======================================================================================
 
-#include "../../SkookumScriptRuntimePrivatePCH.h"
 #include "SkVector3.hpp"
 #include "SkRotation.hpp"
 #include "SkTransform.hpp"
 #include "SkRotationAngles.hpp"
+#include <SkookumScript/SkBoolean.hpp>
+#include <SkookumScript/SkReal.hpp>
 
 //=======================================================================================
 // Method Definitions

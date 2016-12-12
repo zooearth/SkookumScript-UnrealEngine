@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <ModuleManager.h>
+#include "ModuleManager.h"
 
 //---------------------------------------------------------------------------------------
 // The public interface to this module
@@ -11,4 +11,3 @@ class ISkookumScriptEditorGUI : public IModuleInterface
 public:
 
 };
-

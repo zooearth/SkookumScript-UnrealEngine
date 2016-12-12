@@ -83,7 +83,7 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
     static SkInstance *   get_actor_component_instance(AActor * actor_p); // Return SkInstance of an actor's SkookumScriptClassDataComponent if present, nullptr otherwise
 
     static tSkRawDataInfo compute_raw_data_info(UProperty * ue_var_p);
-    static bool           resolve_raw_data(SkClass * class_p);
+    static bool           resolve_raw_data_static(SkClass * class_p);
     static void           resolve_raw_data(SkClass * class_p, UStruct * ue_struct_or_class_p);
     static void           resolve_raw_data_struct(SkClass * class_p, const TCHAR * ue_struct_name_p);
 
@@ -463,7 +463,12 @@ inline SkClass * SkUEClassBindingHelper::get_sk_class_from_ue_class(UClass * ue_
 inline UClass * SkUEClassBindingHelper::get_static_ue_class_from_sk_class(SkClassDescBase * sk_class_p)
   {
   UClass ** ue_class_pp = ms_static_class_map_s2u.Find(sk_class_p);
-  return ue_class_pp ? *ue_class_pp : nullptr;
+  if (ue_class_pp) return *ue_class_pp;
+  #if WITH_EDITORONLY_DATA
+    return nullptr; // Can't call add_static_class_mapping() here as class found might be dynamic and go away at any time
+  #else
+    return add_static_class_mapping(sk_class_p);
+  #endif
   }
 
 //---------------------------------------------------------------------------------------

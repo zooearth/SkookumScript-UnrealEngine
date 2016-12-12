@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKINVOKEDBASE_HPP
-#define __SKINVOKEDBASE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -542,5 +539,3 @@ inline _UserType * SkInvokedContextBase::get_user_data() const
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkInvokedBase.inl>
 #endif
-
-#endif  // __SKINVOKEDBASE_HPP
