@@ -6,6 +6,7 @@
 //=======================================================================================
 
 #include "SkookumScriptEditorGUIPrivatePCH.h"
+
 #include "SkookumScriptEditorCommands.h"
 
 PRAGMA_DISABLE_OPTIMIZATION

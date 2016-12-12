@@ -9,9 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AOBJREUSEPOOL_HPP // __AOBJREUSEPOOL_HPP defined later in file
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -458,10 +456,3 @@ void AObjReusePool<_ObjectType>::repool()
   {
   remove_expanded();
   }
-
-
-#define __AOBJREUSEPOOL_HPP
-  
-#endif  // __AOBJREUSEPOOL_HPP
-
-

@@ -13,7 +13,11 @@
 // Includes
 //=======================================================================================
 
+#include "SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkookumScriptListener.h"
+#include <AgogCore/APArray.hpp>
+#include <SkookumScript/SkInstance.hpp>
 
 //=======================================================================================
 // Global Defines / Macros

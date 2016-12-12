@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKMEMBERINFO_HPP
-#define __SKMEMBERINFO_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -136,7 +133,3 @@ struct SK_API SkMemberInfo
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkMemberInfo.inl>
 #endif
-
-
-#endif  // __SKMEMBERINFO_HPP
-

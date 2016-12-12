@@ -13,7 +13,7 @@
 // Includes
 //=======================================================================================
 
-#include <SkookumScript/SkookumScript.hpp>
+#include <SkookumScript/Sk.hpp>
 #include <SkookumScript/SkBrain.hpp>
 #include <SkookumScript/SkClass.hpp>
 #include <SkookumScript/SkDebug.hpp>

@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKDEBUG_HPP
-#define __SKDEBUG_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -24,7 +21,7 @@
 #include <AgogCore/APArray.hpp>
 #include <AgogCore/APSorted.hpp>
 #include <SkookumScript/SkMemberInfo.hpp>
-#include <SkookumScript/SkookumRemoteBase.hpp>
+#include <SkookumScript/SkRemoteBase.hpp>
 #include <SkookumScript/SkParser.hpp>
 
 
@@ -48,6 +45,16 @@
   #define SK_ERROR_INVOKED(_ex_desc)                                A_ERROR((SkDebugInfoSetter(), _ex_desc), AErrId_generic, SkDebug)
   #define SK_ERROR_INFO(_ex_desc, _info)                            A_ERROR((SkDebugInfoSetter(_info), _ex_desc), AErrId_generic, SkDebug)
   #define SK_ERROR_ID(_ex_desc, _err_id, _ExClass)                  A_ERROR(_ex_desc, _err_id, _ExClass)
+
+  // Mad asserts are for extra checking for coders & advanced developers
+  // Any condition asserted by mad asserts MUST NOT BE FATAL and MUST BE 100% RECOVERABLE
+  #ifdef A_MAD_CHECK
+    #define SK_MAD_ASSERTX(_boolean_exp, _error_msg)                A_VERIFY(_boolean_exp, _error_msg, AErrId_generic, ADebug)
+    #define SK_MAD_ERRORX(_ex_desc)                                 A_ERROR(_ex_desc, AErrId_generic, SkDebug)
+  #else
+    #define SK_MAD_ASSERTX(_boolean_exp, _error_msg)                (void(0))
+    #define SK_MAD_ERRORX(_ex_desc)                                 (void(0))
+  #endif
 
   // Store current call so rest of engine can know if in the middle of a script call or not.
   #define SKDEBUG_STORE_CALL(_scope_p)                              SkInvokedContextBase * _old_call_p = SkDebug::ms_current_call_p; SkDebug::ms_current_call_p = _scope_p;
@@ -83,6 +90,9 @@
   #define SK_ERROR_INFO(_ex_desc, _info)                            (void(0))
   #define SK_ERROR_ID(_ex_desc, _err_id, _ExClass)                  (void(0))
 
+  #define SK_MAD_ASSERTX(_boolean_exp, _error_msg)                  (void(0))
+  #define SK_MAD_ERRORX(_ex_desc)                                   (void(0))
+
   #define SKDEBUG_STORE_CALL(_scope_p)                              (void(0))
   #define SKDEBUG_RESTORE_CALL()                                    (void(0))
 
@@ -106,7 +116,7 @@
 //---------------------------------------------------------------------------------------
 // Debug hooks for notifying when scripts start/stop various tasks so that things like
 // tracing, profiling, breakpoints, etc. can be added.
-#if defined(SKDEBUG_HOOKS)  // Normally defined in SkookumScript.hpp
+#if defined(SKDEBUG_HOOKS)  // Normally defined in Sk.hpp
 
   // Called whenever a method is about to be invoked - see SkDebug::append_hook()
   #define SKDEBUG_HOOK_METHOD(_imethod_p)                           SkDebug::hook_method(_imethod_p)
@@ -1168,8 +1178,3 @@ inline void SkDebug::set_hook_expr(
   }
 
 #endif  // SKDEBUG_HOOKS
-
-
-#endif  // __SKDEBUG_HPP
-
-

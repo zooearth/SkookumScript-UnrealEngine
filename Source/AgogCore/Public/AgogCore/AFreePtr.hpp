@@ -8,11 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
 #pragma once
-#ifndef __AFREEPTR_HPP
-#define __AFREEPTR_HPP
-
 
 //=======================================================================================
 // Includes
@@ -142,8 +138,3 @@ inline AFreePtr<_PtrType> & AFreePtr<_PtrType>::operator=(const _PtrType * obj_p
 
   return *this;
   }
-
-
-#endif  // __AFREEPTR_HPP
-
-

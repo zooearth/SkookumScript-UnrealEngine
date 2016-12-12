@@ -9,11 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __ADEBUG_HPP
-#define __ADEBUG_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -236,6 +232,11 @@
   #define A_ASSERT_MEMORY(_boolean_exp, _ExClass)               (void(0))
 #endif
 
+#ifdef A_MAD_CHECK  // Fussy checked build
+  #define A_MAD_ASSERTX(_boolean_exp, _error_msg)              A_VERIFY(_boolean_exp, _error_msg, AErrId_generic, ADebug)
+#else
+  #define A_MAD_ASSERTX(_boolean_exp, _error_msg)              (void(0))
+#endif
 
 //=======================================================================================
 // Global Structures
@@ -426,7 +427,3 @@ class A_API ADebug
     static uint32_t ms_resolve_error_depth;
 
   };  // ADebug
-
-
-#endif  // __ADEBUG_HPP
-

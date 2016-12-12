@@ -9,11 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AVARRAY_HPP
-#define __AVARRAY_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -1887,7 +1883,3 @@ inline AVArrayFree<_ElementType, _KeyType, _CompareClass>::~AVArrayFree()
   {
   this->free_all();
   }
-
-
-#endif  // __AVARRAY_HPP
-

@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include "../SkookumScriptRuntimePrivatePCH.h"
+
+class SkUEBindingsInterface;
+
 //---------------------------------------------------------------------------------------
 // 
 class SkUEBindings

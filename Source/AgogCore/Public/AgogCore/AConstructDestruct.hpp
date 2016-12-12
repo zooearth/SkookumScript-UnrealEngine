@@ -9,10 +9,7 @@
 // Notes:          All of the methods are inline, so there is no cpp file.
 //=======================================================================================
 
-
-#ifndef __SCONSTRUCTDESTRUCT_HPP
-#define __SCONSTRUCTDESTRUCT_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -294,9 +291,3 @@ inline void AConstructDestruct::set_destructor(void (*destructor_p)())
   {
   m_class_destructor_p = destructor_p;
   }
-
-
-#endif  // __SCONSTRUCTDESTRUCT_HPP
-
-
-

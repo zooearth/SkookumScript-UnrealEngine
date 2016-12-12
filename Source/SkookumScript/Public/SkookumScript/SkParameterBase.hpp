@@ -8,17 +8,14 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKPARAMETERBASE_HPP
-#define __SKPARAMETERBASE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
 //=======================================================================================
 
 #include <AgogCore/ANamed.hpp>
-#include <SkookumScript/SkookumScript.hpp>
+#include <SkookumScript/Sk.hpp>
 
 
 //=======================================================================================
@@ -120,7 +117,3 @@ inline SkParameterBase::SkParameterBase(
   ANamed(name)
   {
   }
-
-
-#endif  // __SKPARAMETERBASE_HPP
-
