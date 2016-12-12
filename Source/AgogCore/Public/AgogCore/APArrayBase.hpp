@@ -9,11 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __APARRAYBASE_HPP
-#define __APARRAYBASE_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -987,8 +983,3 @@ inline void APArrayBase<_ElementType>::free_array(_ElementType ** array_pp)
     AgogCore::get_app_info()->free(array_pp);
     }
   }
-
-
-#endif  // __APARRAYBASE_HPP
-
-

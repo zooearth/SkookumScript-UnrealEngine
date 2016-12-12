@@ -13,6 +13,20 @@
 // Includes
 //=======================================================================================
 
+#include "../SkookumScriptRuntimePrivatePCH.h"
+
+#include <AgogCore/AFunctionArg.hpp>
+#include <AgogCore/APArray.hpp>
+#include <AgogCore/ASymbol.hpp>
+#include <SkookumScript/SkInvokableBase.hpp>
+#include <SkookumScript/SkMethod.hpp>
+#include <SkookumScript/SkParameters.hpp>
+
+class SkClass;
+class SkClassDescBase;
+class SkInstance;
+class SkInvokedMethod;
+
 typedef AFunctionArgBase<UClass *> tSkUEOnClassUpdatedFunc;
 
 //---------------------------------------------------------------------------------------

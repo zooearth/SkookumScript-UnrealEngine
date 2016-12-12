@@ -9,10 +9,7 @@
 // Notes:          See the ASymbol class for more info.
 //=======================================================================================
 
-
-#ifndef __ASYMBOL_HPP
-#define __ASYMBOL_HPP
-             
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -53,8 +50,7 @@
 
 //---------------------------------------------------------------------------------------
 // If 'A_SYMBOLTABLE_CLASSES' is defined, ASymbolTable and associated classes are defined.
-// [Even if the Agog mechanism for a symbol/string database is not used some Agog code -
-// like SkCompiler - uses ASymbolTable.
+// [Even if the Agog mechanism for a symbol/string database is not used some Agog code]
 //
 //   Default:  if 'A_SYMBOL_STR_DB_AGOG' is defined, 'A_SYMBOLTABLE_CLASSES' is defined.
 //   Always enabled:  Regardless of what else is defined just define 'A_SYMBOLTABLE_CLASSES' 
@@ -294,7 +290,8 @@ class A_API ASymbol
 
   // Converter Methods
 
-	void as_binary(void ** binary_pp) const;
+  void            as_binary(void ** binary_pp) const;
+  static uint32_t as_binary_length() { return 4u; }
 
     #if defined(A_SYMBOL_STR_DB)
 
@@ -378,9 +375,3 @@ class A_API ASymbol
 #ifndef A_INL_IN_CPP
   #include <AgogCore/ASymbol.inl>
 #endif
-
-
-#endif  // __ASYMBOL_HPP
-
-
-

@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "Misc/CoreMisc.h"
+
 //---------------------------------------------------------------------------------------
 // This class provides functionality for processing UE4 runtime type information
 // and for generating Sk script files

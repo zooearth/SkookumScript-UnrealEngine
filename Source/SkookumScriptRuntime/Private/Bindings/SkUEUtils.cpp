@@ -12,6 +12,7 @@
 // Includes
 //=======================================================================================
 
-#include "SkookumScriptRuntimePrivatePCH.h"
+#include "../SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkUEUtils.hpp"
 

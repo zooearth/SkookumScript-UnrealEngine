@@ -8,11 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AVCOMPACTARRAYBASE_HPP
-#define __AVCOMPACTARRAYBASE_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -1094,7 +1090,3 @@ inline void AVCompactArrayBase<_ElementType>::free_array(_ElementType * array_p)
 #ifdef __clang__
   #pragma clang diagnostic pop
 #endif
-
-#endif  // __AVCOMPACTARRAYBASE_HPP
-
-

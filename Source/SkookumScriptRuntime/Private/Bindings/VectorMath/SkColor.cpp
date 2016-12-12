@@ -13,7 +13,10 @@
 //=======================================================================================
 
 #include "../../SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkColor.hpp"
+#include <SkookumScript/SkBoolean.hpp>
+#include <SkookumScript/SkReal.hpp>
 
 //=======================================================================================
 // Method Definitions

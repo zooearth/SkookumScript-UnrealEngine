@@ -9,10 +9,7 @@
 // Notes:          Simple region structure.
 //=======================================================================================
 
-
-#ifndef __AREGION_HPP
-#define __AREGION_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -131,8 +128,3 @@ inline bool ARegion::is_hit(const ARegion & region) const
     ((m_y + m_height) >= region.m_y) && 
     ((region.m_y + region.m_height) >= m_y)); 
   }
-
-
-#endif // __AREGION_HPP
-
-

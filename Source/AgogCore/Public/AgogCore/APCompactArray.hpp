@@ -9,11 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __APCOMPACTARRAY_HPP
-#define __APCOMPACTARRAY_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -2194,8 +2190,3 @@ inline APCompactArrayFree<_ElementType, _KeyType, _CompareClass>::~APCompactArra
   {
   this->free_all();
   }
-
-
-
-#endif  // __APCOMPACTARRAY_HPP
-

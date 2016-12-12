@@ -13,7 +13,7 @@
 // Includes
 //=======================================================================================
 
-#include <SkookumScript/SkookumScript.hpp>
+#include <SkookumScript/Sk.hpp>
 #include <AgogCore/ASymbol.hpp>
 
 //=======================================================================================

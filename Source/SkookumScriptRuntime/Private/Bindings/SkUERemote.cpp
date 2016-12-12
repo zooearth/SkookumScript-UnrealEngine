@@ -13,6 +13,7 @@
 //=======================================================================================
 
 #include "../SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkUERemote.hpp"
 
 #ifdef SKOOKUM_REMOTE_UNREAL
@@ -20,8 +21,11 @@
 #include "SkUERuntime.hpp"
 #include "Bindings/SkUEBlueprintInterface.hpp"
 #include "../SkookumScriptRuntimeGenerator.h"
-#include <AssertionMacros.h>
-#include <Runtime/Launch/Resources/Version.h>
+#include "AssertionMacros.h"
+#include "Runtime/Launch/Resources/Version.h"
+#include "Misc/AssertionMacros.h"
+#include "Kismet/GameplayStatics.h"
+#include "Bindings/SkUEUtils.hpp"
 //#include <ws2tcpip.h>
 #include <AgogCore/AMethodArg.hpp>
 
@@ -276,7 +280,7 @@ void SkUERemote::set_mode(eSkLocale mode)
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Start new mode
 
-    SkookumRemoteBase::set_mode(mode);
+    SkRemoteBase::set_mode(mode);
 
     // $Revisit - CReis Update debug UI of SkookumIDE connection state
 
@@ -377,7 +381,7 @@ void SkUERemote::on_cmd_make_editable()
   if (error_msg.IsEmpty())
     {
     get_project_info(&project_info);
-    SkookumRuntimeBase::ms_singleton_p->on_binary_hierarchy_path_changed();
+    SkRuntimeBase::ms_singleton_p->on_binary_hierarchy_path_changed();
     }
 
   // Send result back
@@ -388,7 +392,7 @@ void SkUERemote::on_cmd_make_editable()
 void SkUERemote::on_cmd_freshen_compiled_reply(eCompiledState state)
   {
   // Call base class
-  SkookumRemoteRuntimeBase::on_cmd_freshen_compiled_reply(state);
+  SkRemoteRuntimeBase::on_cmd_freshen_compiled_reply(state);
   }
 
 //---------------------------------------------------------------------------------------
@@ -430,7 +434,33 @@ bool SkUERemote::spawn_remote_ide()
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Look for SkookumIDE in game/project plug-in folder first.
     FString plugin_root_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir());
-    FString ide_path(plugin_root_path / TEXT("SkookumIDE/SkookumIDE") /*TEXT(SK_BITS_ID)*/ TEXT(".exe"));
+    FString ide_path(plugin_root_path / TEXT("SkookumIDE/SkookumIDE.exe"));
+    // Use path of new Slate IDE if present
+    FString slate_ide_path(plugin_root_path / TEXT("SkookumIDE/Engine/Binaries/Win64/SkookumIDE.exe"));
+    if (FPaths::FileExists(slate_ide_path))
+      {
+      ide_path = slate_ide_path;
+      }
+    #if (SKOOKUM & SK_DEBUG)
+      // If IDE exists in both plugin and as a debug build, load the IDE with the newer path
+      FString debug_slate_ide_path(FPaths::EngineDir() / TEXT("Binaries/Win64/SkookumIDE-Win64-Debug.exe"));
+      if (FPaths::FileExists(debug_slate_ide_path))
+        {
+        if (FPaths::FileExists(slate_ide_path))
+          {
+          FDateTime time_stamp, debug_time_stamp;
+          IFileManager::Get().GetTimeStampPair(*slate_ide_path, *debug_slate_ide_path, time_stamp, debug_time_stamp);
+          if (debug_time_stamp > time_stamp)
+            {
+            ide_path = debug_slate_ide_path;
+            }
+          }
+        else
+          {
+          ide_path = debug_slate_ide_path;
+          }
+        }
+    #endif
 
     if (!FPaths::FileExists(ide_path))
       {
@@ -481,8 +511,8 @@ void SkUERemote::get_project_info(SkProjectInfo * out_project_info_p)
   #if WITH_EDITORONLY_DATA
     if (m_runtime_generator_p)
       {
-      out_project_info_p->m_project_path         = FStringToAString(m_runtime_generator_p->get_project_path());
-      out_project_info_p->m_default_project_path = FStringToAString(m_runtime_generator_p->get_default_project_path());
+      out_project_info_p->m_project_path         = FStringToAString(m_runtime_generator_p->get_project_file_path());
+      out_project_info_p->m_default_project_path = FStringToAString(m_runtime_generator_p->get_default_project_file_path());
       }
     else
   #endif

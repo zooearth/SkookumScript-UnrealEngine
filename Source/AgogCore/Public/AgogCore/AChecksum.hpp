@@ -44,10 +44,7 @@
 //
 //=======================================================================================
 
-
-#ifndef __ACHECKSUM_HPP
-#define __ACHECKSUM_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -78,8 +75,3 @@ class A_API AChecksum
     static uint32_t generate_crc32_cstr_upper(const char * cstr_p, uint32_t length = ALength_calculate, uint32_t prev_crc = 0);
 
   };
-
-
-#endif // __ACHECKSUM_HPP
-
-

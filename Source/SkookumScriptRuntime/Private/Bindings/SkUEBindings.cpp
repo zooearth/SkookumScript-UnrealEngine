@@ -13,7 +13,6 @@
 //=======================================================================================
 
 #include "../SkookumScriptRuntimePrivatePCH.h"
-
 #include "SkUEBindings.hpp"
 
 #include "VectorMath/SkVector2.hpp"

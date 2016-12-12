@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKCLASS_HPP
-#define __SKCLASS_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -47,6 +44,55 @@ typedef APArrayLogical<SkTypedName, ASymbol>         tSkTypedNameArray;
 typedef APArrayLogical<SkTypedNameRaw, ASymbol>      tSkTypedNameRawArray;
 //typedef APSortedLogical<SkTypedNameIndexed, ASymbol> tSkTypedNamesIndexed;
 typedef APArrayLogical<SkInvokableBase, ASymbol>     tSkVTable; // Virtual method table
+
+//---------------------------------------------------------------------------------------
+// Record of a routine that was live updated
+// Keeps the previous expression tree around so invoked expressions can be patched up
+struct SkRoutineUpdateRecord
+  {
+  SK_NEW_OPERATORS(SkRoutineUpdateRecord);
+
+  SkInvokableBase *     m_routine_p;
+  SkInvokableBase *     m_previous_routine_p; // If it was deleted, this is the old routine
+  ARefPtr<SkParameters> m_previous_params_p;
+  uint16_t              m_previous_invoked_data_array_size;
+  uint32_t              m_previous_annotation_flags;
+  SkExpressionBase *    m_previous_custom_expr_p;
+
+  SkRoutineUpdateRecord() 
+    : m_routine_p(nullptr)
+    , m_previous_routine_p(nullptr)
+    , m_previous_invoked_data_array_size(0)
+    , m_previous_annotation_flags(0)
+    , m_previous_custom_expr_p(nullptr) 
+    {}
+
+  ~SkRoutineUpdateRecord();
+
+  };
+
+//---------------------------------------------------------------------------------------
+// Record of a class that was live updated
+struct SkClassUpdateRecord : public ANamed
+  {
+  SK_NEW_OPERATORS(SkClassUpdateRecord);
+
+  APArrayFree<SkRoutineUpdateRecord>  m_updated_routines;
+
+  SkClassUpdateRecord(const ASymbol & class_name) : ANamed(class_name) {}
+  ~SkClassUpdateRecord() {}
+  };
+                                                                
+//---------------------------------------------------------------------------------------
+// Record of a program that was live updated
+struct SkProgramUpdateRecord
+  {
+  SK_NEW_OPERATORS(SkProgramUpdateRecord);
+
+  APSortedLogicalFree<SkClassUpdateRecord, ASymbol>  m_updated_classes;
+  
+  SkClassUpdateRecord * get_or_create_class_update_record(const ASymbol & class_name);  
+  };
 
 //---------------------------------------------------------------------------------------
 // Helper struct when finding inaccessible raw members
@@ -274,12 +320,12 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
   // Accesses protected elements
   friend class SkBrain;
   friend class SkClassUnion;
-  friend class SkCompiler;
   friend class SkContextClassBase;
   friend class SkInvokableClass;
   friend class SkMetaClass;
   friend class SkParser;
   friend class SkTypedClass;
+  friend class SkCompiler; // HACK while it exists!
 
   public:
 
@@ -398,14 +444,31 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
     // Public Class Data
 
     #if (SKOOKUM & SK_DEBUG)
-      // Reparse Member Info - placed here rather than in SkCompiler to ensure that it is
+      // Reparse Member Info - placed here to ensure that it is
       // available for as many build configurations as possible.
 
-      static bool ms_use_reparse_info;
+      static struct ReparseInfo
+        {
+        bool m_is_active;
 
-      static APSorted<SkMethodBase, SkQualifier, SkQualifierCompareName>    ms_reparse_methods;
-      static APSorted<SkMethodBase, SkQualifier, SkQualifierCompareName>    ms_reparse_class_methods;
-      static APSorted<SkCoroutineBase, SkQualifier, SkQualifierCompareName> ms_reparse_coroutines;
+        tSkTypedNameArray     m_data;
+        tSkTypedNameArray     m_class_data;
+        tSkTypedNameRawArray  m_data_raw;
+
+        APSorted<SkMethodBase, SkQualifier, SkQualifierCompareName>    m_methods;
+        APSorted<SkMethodBase, SkQualifier, SkQualifierCompareName>    m_class_methods;
+        APSorted<SkCoroutineBase, SkQualifier, SkQualifierCompareName> m_coroutines;
+
+        ReparseInfo() : m_is_active(false) {}
+        ~ReparseInfo() { free_all_compact(); }
+
+        void begin();
+        void end();
+        void free_all();
+        void free_all_compact();
+
+        } ms_reparse_info;
+
     #endif
 
     // Initialization
@@ -474,8 +537,8 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
     #endif
 
     #if (SKOOKUM & SK_COMPILED_OUT)
-      virtual void     as_binary(void ** binary_pp) const;
-      virtual uint32_t as_binary_length() const;
+      virtual void     as_binary(void ** binary_pp, bool include_routines = true) const;
+      virtual uint32_t as_binary_length(bool include_routines = true) const;
       void             as_binary_recurse(void ** binary_pp, bool skip_demand_loaded) const;
       uint32_t         as_binary_recurse_length(bool skip_demand_loaded) const;
       void             as_binary_group(void ** binary_pp, bool skip_demand_loaded) const;
@@ -487,14 +550,18 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
 
     #if (SKOOKUM & SK_COMPILED_IN)
-      virtual void     assign_binary(const void ** binary_pp, bool append_super_members = true);
+      void             assign_binary(const void ** binary_pp, bool append_super_members = true, bool include_routines = true);
       static SkClass * from_binary_ref(const void ** binary_pp);
       static void      from_binary_group(const void ** binary_pp);
+      void             append_instance_method(const void ** binary_pp, SkRoutineUpdateRecord * update_record_p = nullptr);
+      void             append_class_method(const void ** binary_pp, SkRoutineUpdateRecord * update_record_p = nullptr);
+      void             append_coroutine(const void ** binary_pp, SkRoutineUpdateRecord * update_record_p = nullptr);
     #endif
 
     #if (SKOOKUM & SK_DEBUG)
-      void         ensure_loaded_debug();
-      virtual void reparse_prep();
+      void        ensure_loaded_debug();
+      void        reparse_begin(bool include_routines);
+      void        reparse_end();
 
       uint32_t        count_expressions_recurse(eAHierarchy hierarchy = AHierarchy__all);
       eAIterateResult iterate_expressions(SkApplyExpressionBase * apply_expr_p);
@@ -518,7 +585,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
     // Hierarchy Methods
 
       void                       append_subclass(SkClass * subclass_p);
-      void                       build_vtables_recurse();
+      void                       build_vtables_recurse(bool force_new);
       SkClass *                  find_common_class(const SkClass & cls) const;
       virtual SkClassUnaryBase * find_common_type(const SkClassDescBase & cls) const;
       uint32_t                   get_class_recurse_count(bool skip_demand_loaded) const;
@@ -696,7 +763,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
     void         recurse_replace_vtable_entry_c(int16_t vtable_index, SkInvokableBase * old_entry_p, SkInvokableBase * new_entry_p);
     void         demand_unload_recurse();
     void         set_destructor(SkMethodBase * destructor_p);
-    void         build_vtables();
+    void         build_vtables(bool force_new);
 
   // Internal Class Methods
 
@@ -978,7 +1045,3 @@ template<> inline void          SkUserDataBase::set(SkMetaClass       * const & 
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkClass.inl>
 #endif
-
-
-#endif  // __SKCLASS_HPP
-

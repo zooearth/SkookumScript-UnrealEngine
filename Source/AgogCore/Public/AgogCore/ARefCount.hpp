@@ -8,11 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
 #pragma once
-#ifndef __AREFCOUNT_HPP
-#define __AREFCOUNT_HPP
-
 
 //=======================================================================================
 // Includes
@@ -319,8 +315,3 @@ inline ARefPtr<_PtrType> & ARefPtr<_PtrType>::operator=(const _PtrType * obj_p)
 
   return *this;
   }
-
-
-#endif  // __AREFCOUNT_HPP
-
-

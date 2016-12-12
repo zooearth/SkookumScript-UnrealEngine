@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKPARSER_HPP
-#define __SKPARSER_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -103,7 +100,7 @@ loop             = 'loop' [ws instance-name] ws code-block
 loop-exit        = 'exit' [ws instance-name]
 sync-block       = 'sync' ws code-block
 race-block       = 'race' ws code-block
-branch-block     = 'branch' ws code-block
+branch-block     = 'branch' ws expression
 divert-block     = 'divert' ws code-block
 class-cast       = expression ws '<>' [class-desc]
 class-conversion = expression ws '>>' [convert-name]
@@ -297,8 +294,6 @@ class SkMethodToOperator
 // Author(s)  Conan Reis
 class SK_API SkParser : public AString
   {
-  friend class SkCompiler;
-
   public:
 
   #if (SKOOKUM & SK_CODE_IN)
@@ -343,7 +338,7 @@ class SK_API SkParser : public AString
       // Warnings
       Result_warn__start,                    // Start of Warnings
       Result_warn_ident_too_long = Result_warn__start,  // Identifier name is longer than the maximum of 255 characters.
-      Result_warn_scripts_disabled,          // Indicates that the SkookumScript::Flag_evaluate is not set - used with invoke_script()
+      Result_warn_scripts_disabled,          // Indicates that SkookumScript is not in evalutaion/simulation mode - used with invoke_script()
       Result_warn_empty_script_block,        // The evaluated script block has no statements - used with invoke_script()
       Result_warn_expr_no_effect,            // The expression has no side effects so it does not seem useful as a statement on its own.
       Result_warn_expr_sub_effect,           // The expression has only sub-expressions with side effects - it does not seem useful as a statement on its own.
@@ -426,6 +421,7 @@ class SK_API SkParser : public AString
       // Found a known lexical or syntactical element where it was not expected
       Result_err_unexpected_bind_expr,        // A variable rebind to an instance may only be applied to an identifier
       Result_err_unexpected_bind_expr_raw,    // Trying to bind to a raw data member
+      Result_err_unexpected_bind_expr_captured, // Trying to bind to a captured variable
       Result_err_unexpected_branch_expr,      // A concurrent branch only makes sense when used on an expression that is not immediate and may take more than one frame to execute such as a coroutine call.
       Result_err_unexpected_cdtor,            // While parsing for a 'create temporary variable statement', a constructor or a destructor call was found instead.
       Result_err_unexpected_char,             // Expected a particular character or type of character, but did not receive it.
@@ -492,6 +488,7 @@ class SK_API SkParser : public AString
       Result_err_context_deferred,            // Only immediate statements were found where deferred statements (such as coroutines) are expected.
       Result_err_context_concurrent_redundant,  // A concurrent block (sync or race) should have at least two deferred expressions or running concurrently is redundant.
       Result_err_context_side_effect,         // An expression has a side effect when none is allowed
+      Result_err_context_last_no_side_effect, // The last expression in a code block has no side effect when one is required
       Result_err_context_raw_access,          // An expression has raw access when that's not supported
 
       // Type errors
@@ -1093,7 +1090,3 @@ class SK_API SkParser : public AString
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkParser.inl>
 #endif
-
-
-#endif  // __SKPARSER_HPP
-

@@ -10,10 +10,7 @@
 //              co-ordinates are common across platforms.
 //=======================================================================================
 
-
-#ifndef __AVEC2I_HPP
-#define __AVEC2I_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -113,8 +110,3 @@ inline f32 a_dist_sqr(const AVec2i & va, const AVec2i & vb)
 
   return f32((dx * dx) + (dy * dy));
   }
-
-
-#endif // __AVEC2I_HPP
-
-

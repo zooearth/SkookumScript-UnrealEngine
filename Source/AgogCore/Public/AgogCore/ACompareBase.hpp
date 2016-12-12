@@ -9,10 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __ACOMPAREBASE_HPP
-#define __ACOMPAREBASE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -197,8 +194,3 @@ ACompareBase<_ElementType> * ACmpLogical<_ElementType>::copy_new() const
   {
   return new ACmpLogical;
   }
-
-
-#endif  // __ACOMPAREBASE_HPP
-
-

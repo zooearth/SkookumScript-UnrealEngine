@@ -8,9 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-#ifndef __SKOBJECTBASE_HPP
-#define __SKOBJECTBASE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -18,7 +16,7 @@
 
 #include <AgogCore/AIdPtr.hpp>
 #include <AgogCore/ANamed.hpp>
-#include <SkookumScript/SkookumScript.hpp>
+#include <SkookumScript/Sk.hpp>
 
 
 //=======================================================================================
@@ -125,7 +123,3 @@ class SK_API SkObjectBase
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkObjectBase.inl>
 #endif
-
-
-#endif  // __SKOBJECTBASE_HPP
-
