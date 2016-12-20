@@ -345,5 +345,3 @@ actors
 
 Enemy.instances_first._chase(player_pawn)
 Pawn.instances
-
-2 * 3 + 4
