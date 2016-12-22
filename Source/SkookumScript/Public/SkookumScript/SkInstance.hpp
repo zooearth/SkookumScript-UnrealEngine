@@ -402,7 +402,7 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
     SkInstance(SkClass * class_p);
     SkInstance(SkClass * class_p, const tUserData & user_data);
 
-    SkInstance ** get_pool_unused_next() { return (SkInstance **)&m_user_data.m_data.m_ptr; } // Area in this class where to store the pointer to the next unused object when not in use
+    SkInstance ** get_pool_unused_next() { return (SkInstance **)&m_user_data.m_data.m_uintptr; } // Area in this class where to store the pointer to the next unused object when not in use
 
   // Data Members
 
