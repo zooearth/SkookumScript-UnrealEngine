@@ -685,6 +685,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       virtual SkTypedName *     append_data_member(const ASymbol & name, SkClassDescBase * type_p);
       virtual SkTypedNameRaw *  append_data_member_raw(const ASymbol & name, SkClassDescBase * type_p);
       virtual SkTypedName *     get_data_type(const ASymbol & data_name, eSkScope * scope_p = nullptr, uint32_t * data_idx_p = nullptr, SkClass ** data_owner_class_pp = nullptr) const;
+      SkTypedName *             get_instance_data_type(uint32_t data_idx, SkClass ** data_owner_class_pp = nullptr) const;
       SkTypedName *             get_instance_data_type(const ASymbol & data_name, uint32_t * data_idx_p = nullptr, SkClass ** data_owner_class_pp = nullptr) const;
       SkTypedNameRaw *          get_instance_data_type_raw(const ASymbol & data_name, uint32_t * data_idx_p = nullptr, SkClass ** data_owner_class_pp = nullptr) const;
       SkTypedName *             get_class_data_type(const ASymbol & data_name, uint32_t * data_idx_p = nullptr, SkClass ** data_owner_class_pp = nullptr) const;

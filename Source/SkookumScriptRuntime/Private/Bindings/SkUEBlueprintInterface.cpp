@@ -180,6 +180,15 @@ void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, 
   if (method_p->get_scope() != class_scope_p)
     {
     method_p = static_cast<SkMethodBase *>(class_scope_p->get_invokable_from_vtable(this_p ? SkScope_instance : SkScope_class, method_p->get_vtable_index()));
+  #if SKOOKUM & SK_DEBUG
+    // If not found, might be due to recent live update and the vtable not being updated yet - try finding it by name
+    if (method_p == nullptr || method_p->get_name() != function_entry.m_sk_invokable_p->get_name())
+      {
+      method_p = this_p 
+        ? class_scope_p->find_instance_method_inherited(function_entry.m_sk_invokable_p->get_name()) 
+        : class_scope_p->find_class_method_inherited(function_entry.m_sk_invokable_p->get_name());
+      }
+  #endif
     }
   SkInvokedMethod imethod(nullptr, this_p, method_p, a_stack_allocate(method_p->get_invoked_data_array_size(), SkInstance*));
 
@@ -247,11 +256,18 @@ void SkUEBlueprintInterface::exec_coroutine(FFrame & stack, void * const result_
   SkInstance * this_p = SkUEEntity::new_instance((UObject *)this);
 
   // Create invoked coroutine
-  SkCoroutine * coro_p = static_cast<SkCoroutine *>(function_entry.m_sk_invokable_p);
+  SkCoroutineBase * coro_p = static_cast<SkCoroutineBase *>(function_entry.m_sk_invokable_p);
   SkClass * class_scope_p = this_p->get_class();
   if (coro_p->get_scope() != class_scope_p)
     {
     coro_p = static_cast<SkCoroutine *>(class_scope_p->get_invokable_from_vtable_i(coro_p->get_vtable_index()));
+  #if SKOOKUM & SK_DEBUG
+    // If not found, might be due to recent live update and the vtable not being updated yet - try finding it by name
+    if (coro_p == nullptr || coro_p->get_name() != function_entry.m_sk_invokable_p->get_name())
+      {
+      coro_p = class_scope_p->find_coroutine_inherited(function_entry.m_sk_invokable_p->get_name());
+      }
+  #endif
     }
   SkInvokedCoroutine * icoroutine_p = SkInvokedCoroutine::pool_new(coro_p);
 
