@@ -26,7 +26,7 @@ A_INLINE SkDataInstance::SkDataInstance()
   {
   // Mark this instance as a data instance - allows for sanity checking down the road
   #if (SKOOKUM & SK_DEBUG)
-    m_user_data.m_data.m_uintptr = ms_magic_marker;
+    m_user_data.m_data.m_ptr[1] = ms_magic_marker;
   #endif
   }
 
@@ -44,7 +44,7 @@ A_INLINE SkDataInstance::SkDataInstance(
 
   // Mark this instance as a data instance - allows for sanity checking down the road
   #if (SKOOKUM & SK_DEBUG)
-    m_user_data.m_data.m_uintptr = ms_magic_marker;
+    m_user_data.m_data.m_ptr[1] = ms_magic_marker;
   #endif
   }
 
@@ -53,7 +53,7 @@ A_INLINE SkDataInstance::SkDataInstance(
 A_INLINE SkInstance * SkDataInstance::get_data_by_idx(uint32_t data_idx) const
   {
   #if (SKOOKUM & SK_DEBUG)
-    if (m_user_data.m_data.m_uintptr != ms_magic_marker)
+    if (m_user_data.m_data.m_ptr[1] != ms_magic_marker)
       {
       return on_magic_marker_mismatch(data_idx);
       }
@@ -67,7 +67,7 @@ A_INLINE SkInstance * SkDataInstance::get_data_by_idx(uint32_t data_idx) const
 A_INLINE void SkDataInstance::set_data_by_idx(uint32_t data_idx, SkInstance * obj_p)
   {
   #if (SKOOKUM & SK_DEBUG)
-    if (m_user_data.m_data.m_uintptr != ms_magic_marker)
+    if (m_user_data.m_data.m_ptr[1] != ms_magic_marker)
       {
       on_magic_marker_mismatch(data_idx);
       return;
@@ -115,7 +115,7 @@ A_INLINE SkDataInstance * SkDataInstance::new_instance(SkClass * class_p)
 
   // Mark this instance as a data instance - allows for sanity checking down the road
   #if (SKOOKUM & SK_DEBUG)
-    instance_p->m_user_data.m_data.m_uintptr = ms_magic_marker;
+    instance_p->m_user_data.m_data.m_ptr[1] = ms_magic_marker;
   #endif
 
   return instance_p;
