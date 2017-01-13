@@ -109,16 +109,16 @@ void FSkookumScriptEditor::StartupModule()
   if (!IsRunningCommandlet())
     {
     // Hook up delegates
-    m_on_asset_loaded_handle = FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FSkookumScriptEditor::on_asset_loaded);
-    m_on_object_modified_handle = FCoreUObjectDelegates::OnObjectModified.AddRaw(this, &FSkookumScriptEditor::on_object_modified);
-    m_on_map_opened_handle = FEditorDelegates::OnMapOpened.AddRaw(this, &FSkookumScriptEditor::on_map_opened);
-    m_on_new_asset_created_handle = FEditorDelegates::OnNewAssetCreated.AddRaw(this, &FSkookumScriptEditor::on_new_asset_created);
-    m_on_assets_deleted_handle = FEditorDelegates::OnAssetsDeleted.AddRaw(this, &FSkookumScriptEditor::on_assets_deleted);
-    m_on_asset_post_import_handle = FEditorDelegates::OnAssetPostImport.AddRaw(this, &FSkookumScriptEditor::on_asset_post_import);
+    m_on_asset_loaded_handle          = FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FSkookumScriptEditor::on_asset_loaded);
+    m_on_object_modified_handle       = FCoreUObjectDelegates::OnObjectModified.AddRaw(this, &FSkookumScriptEditor::on_object_modified);
+    m_on_map_opened_handle            = FEditorDelegates::OnMapOpened.AddRaw(this, &FSkookumScriptEditor::on_map_opened);
+    m_on_new_asset_created_handle     = FEditorDelegates::OnNewAssetCreated.AddRaw(this, &FSkookumScriptEditor::on_new_asset_created);
+    m_on_assets_deleted_handle        = FEditorDelegates::OnAssetsDeleted.AddRaw(this, &FSkookumScriptEditor::on_assets_deleted);
+    m_on_asset_post_import_handle     = FEditorDelegates::OnAssetPostImport.AddRaw(this, &FSkookumScriptEditor::on_asset_post_import);
 
     FAssetRegistryModule & asset_registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(AssetRegistryConstants::ModuleName);
-    m_on_asset_added_handle = asset_registry.Get().OnAssetAdded().AddRaw(this, &FSkookumScriptEditor::on_asset_added);
-    m_on_asset_renamed_handle = asset_registry.Get().OnAssetRenamed().AddRaw(this, &FSkookumScriptEditor::on_asset_renamed);
+    m_on_asset_added_handle             = asset_registry.Get().OnAssetAdded().AddRaw(this, &FSkookumScriptEditor::on_asset_added);
+    m_on_asset_renamed_handle           = asset_registry.Get().OnAssetRenamed().AddRaw(this, &FSkookumScriptEditor::on_asset_renamed);
     m_on_in_memory_asset_created_handle = asset_registry.Get().OnInMemoryAssetCreated().AddRaw(this, &FSkookumScriptEditor::on_in_memory_asset_created);
     m_on_in_memory_asset_deleted_handle = asset_registry.Get().OnInMemoryAssetDeleted().AddRaw(this, &FSkookumScriptEditor::on_in_memory_asset_deleted);
 
@@ -338,6 +338,9 @@ void FSkookumScriptEditor::on_map_opened(const FString & file_name, bool as_temp
   {
   // Let runtime know we are done opening a new map
   get_runtime()->on_editor_map_opened();
+
+  // Also try recompiling blueprints with errors one more time at this point
+  recompile_blueprints_with_errors();
   }
 
 //---------------------------------------------------------------------------------------
@@ -392,7 +395,7 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
           if (function_node_p)
             {
             UFunction * function_p = function_node_p->GetTargetFunction();
-            if (get_runtime()->is_skookum_blueprint_function(function_p))
+            if (function_p && get_runtime()->is_skookum_blueprint_function(function_p))
               {
               if (function_p->GetName().EndsWith(TEXT("@ !"), ESearchCase::CaseSensitive))
                 {

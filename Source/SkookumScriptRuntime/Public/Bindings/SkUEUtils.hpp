@@ -13,6 +13,9 @@
 // Includes
 //=======================================================================================
 
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+
 #include <AgogCore/AString.hpp>
 #include <AgogCore/ASymbol.hpp>
 

@@ -900,15 +900,15 @@ class SK_API SkParser : public AString
       // associated code block.
       ParamFlag_auto_type        = 1 << 0,
 
-      // Ensure that no result class is present and use the "None" class.
+      // Ensure no result class is present and use `InvokedCoroutine` as result class.
       // [May not use with ParamFlag_result_bool.]
-      ParamFlag_result_omit      = 1 << 1,
+      ParamFlag_coroutine        = 1 << 1,
 
-      //  Query/predicate method - ensure that result class is Boolean or infer Boolean if
-      //  omitted. [May not use with ParamFlag_result_omit.]
+      //  Query/predicate method - ensure that result class is `Boolean` or infer `Boolean` if
+      //  omitted. [May not use with ParamFlag_coroutine.]
       ParamFlag_result_bool      = 1 << 2,
 
-      ParamFlag__mask_result = ParamFlag_result_omit | ParamFlag_result_bool,
+      ParamFlag__mask_result = ParamFlag_coroutine | ParamFlag_result_bool,
       ParamFlag__none        = 0,
       ParamFlag__default     = ParamFlag__none,
       };

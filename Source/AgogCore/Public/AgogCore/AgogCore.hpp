@@ -37,7 +37,7 @@
 // Global Macros / Defines
 //=======================================================================================
 
-#define A_COPYRIGHT_TEXT  "Copyright (c) 2001-2016 Agog Labs Inc."
+#define A_COPYRIGHT_TEXT  "Copyright (c) 2001-2017 Agog Labs Inc."
 
 //---------------------------------------------------------------------------------------
 // DLL API

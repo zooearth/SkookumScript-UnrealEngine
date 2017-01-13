@@ -18,10 +18,12 @@
 #include "GameFramework/Controller.h"
 #include "Components/PrimitiveComponent.h"
 #include "UnrealMath.h"          // Vector math functions.
+
 #include <AgogCore/AIdPtr.hpp>
 #include <AgogCore/AList.hpp>
 #include <AgogCore/AObjReusePool.hpp>
 #include <SkookumScript/SkUserData.hpp>
+
 #include "SkookumScriptListener.generated.h"
 
 //=======================================================================================

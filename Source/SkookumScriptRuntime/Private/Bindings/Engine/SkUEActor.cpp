@@ -16,8 +16,9 @@
 #include "SkUEEntity.hpp"
 #include "../SkUERuntime.hpp"
 #include "../SkUEUtils.hpp"
-#include <SkookumScript/SkList.hpp>
 #include "UObjectHash.h"
+
+#include <SkookumScript/SkList.hpp>
 
 //=======================================================================================
 // Method Definitions

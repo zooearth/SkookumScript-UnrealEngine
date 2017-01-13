@@ -14,7 +14,9 @@
 //=======================================================================================
 
 #include "Components/ActorComponent.h"
+
 #include <AgogCore/AIdPtr.hpp>
+
 #include "SkookumScriptMindComponent.generated.h"
 
 //=======================================================================================

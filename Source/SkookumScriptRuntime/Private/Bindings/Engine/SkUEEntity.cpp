@@ -16,11 +16,13 @@
 #include "SkUEEntityClass.hpp"
 #include "SkUEName.hpp"
 #include "../SkUEUtils.hpp"
+#include <SkUEEntityClass.generated.hpp>
+
+#include "Engine/World.h"
+
 #include <SkookumScript/SkBoolean.hpp>
 #include <SkookumScript/SkInteger.hpp>
 #include <SkookumScript/SkInvokedCoroutine.hpp>
-#include <SkUEEntityClass.generated.hpp>
-#include "Engine/World.h"
 
 //---------------------------------------------------------------------------------------
 
