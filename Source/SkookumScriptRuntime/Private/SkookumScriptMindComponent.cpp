@@ -13,6 +13,10 @@
 //=======================================================================================
 
 #include "SkookumScriptMindComponent.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Runtime/Launch/Resources/Version.h" // TEMP HACK for ENGINE_MINOR_VERSION
+
 #include <AgogCore/AString.hpp>
 #include <SkookumScript/SkBrain.hpp>
 #include <SkookumScript/SkClass.hpp>
@@ -35,7 +39,9 @@ USkookumScriptMindComponent::USkookumScriptMindComponent(const FObjectInitialize
   bTickInEditor = false;
   bAutoActivate = true;
   bWantsInitializeComponent = true;
-  bWantsBeginPlay = true;
+  #if ENGINE_MINOR_VERSION < 14
+    bWantsBeginPlay = true;
+  #endif
   }
 
 //---------------------------------------------------------------------------------------

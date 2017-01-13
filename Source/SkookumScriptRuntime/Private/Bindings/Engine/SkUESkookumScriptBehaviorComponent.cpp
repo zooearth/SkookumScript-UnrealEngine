@@ -15,6 +15,7 @@
 #include "SkUESkookumScriptBehaviorComponent.hpp"
 #include "SkUEActor.hpp"
 #include "SkUEName.hpp"
+
 #include <SkookumScript/SkBoolean.hpp>
 
 //=======================================================================================

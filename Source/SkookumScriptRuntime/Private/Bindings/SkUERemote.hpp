@@ -13,9 +13,11 @@
 // Includes
 //=======================================================================================
 
+#include "ISkookumScriptRuntime.h"
+
 #include "IPluginManager.h"
 #include "Networking.h"
-#include "ISkookumScriptRuntime.h"
+
 #include <AgogCore/ADatum.hpp>
 #include <AgogCore/AMath.hpp>
 #include <SkookumScript/SkRemoteRuntimeBase.hpp>

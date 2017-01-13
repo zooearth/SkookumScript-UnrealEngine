@@ -19,12 +19,13 @@
 #include "SkUERuntime.hpp"
 #include "Bindings/SkUEBlueprintInterface.hpp"
 #include "../SkookumScriptRuntimeGenerator.h"
+#include "Bindings/SkUEUtils.hpp"
+
 #include "AssertionMacros.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "Logging/LogMacros.h"
 #include "Kismet/GameplayStatics.h"
-#include "Bindings/SkUEUtils.hpp"
-//#include <ws2tcpip.h>
+
 #include <AgogCore/AMethodArg.hpp>
 
 //=======================================================================================
@@ -402,7 +403,7 @@ void SkUERemote::on_class_updated(SkClass * class_p)
   #else
     tSkUEOnClassUpdatedFunc * on_class_updated_f = nullptr;
   #endif
-  SkUEBlueprintInterface::get()->reexpose_class(class_p, on_class_updated_f);
+  SkUEBlueprintInterface::get()->reexpose_class(class_p, on_class_updated_f, true);
   }
 
 //---------------------------------------------------------------------------------------
@@ -435,27 +436,35 @@ bool SkUERemote::spawn_remote_ide()
     FString ide_path(plugin_root_path / TEXT("SkookumIDE/SkookumIDE.exe"));
     // Use path of new Slate IDE if present
     FString slate_ide_path(plugin_root_path / TEXT("SkookumIDE/Engine/Binaries/Win64/SkookumIDE.exe"));
+    FString launch_params;
+    bool    use_slate_ide = false;
+
     if (FPaths::FileExists(slate_ide_path))
       {
       ide_path = slate_ide_path;
+      use_slate_ide = true;
       }
     #if (SKOOKUM & SK_DEBUG)
       // If IDE exists in both plugin and as a debug build, load the IDE with the newer path
       FString debug_slate_ide_path(FPaths::EngineDir() / TEXT("Binaries/Win64/SkookumIDE-Win64-Debug.exe"));
+
       if (FPaths::FileExists(debug_slate_ide_path))
         {
         if (FPaths::FileExists(slate_ide_path))
           {
           FDateTime time_stamp, debug_time_stamp;
           IFileManager::Get().GetTimeStampPair(*slate_ide_path, *debug_slate_ide_path, time_stamp, debug_time_stamp);
+
           if (debug_time_stamp > time_stamp)
             {
             ide_path = debug_slate_ide_path;
+            use_slate_ide = true;
             }
           }
         else
           {
           ide_path = debug_slate_ide_path;
+          use_slate_ide = true;
           }
         }
     #endif
@@ -476,11 +485,39 @@ bool SkUERemote::spawn_remote_ide()
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Found IDE app - now try to run it.
-  
+
+    if (use_slate_ide)
+      {
+      // Specify starting project
+      FString project_path;
+
+      #if WITH_EDITORONLY_DATA
+      if (m_runtime_generator_p)
+        {
+        project_path = m_runtime_generator_p->get_project_file_path();
+        }
+      else
+      #endif
+        {
+        // Is there an Sk project file in the usual location?
+        FString project_ini(FPaths::GameDir() / TEXT("Scripts") / TEXT("Skookum-project.ini"));
+
+        if (FPaths::FileExists(project_ini))
+          {
+          project_path = FPaths::ConvertRelativePathToFull(project_ini);
+          }
+        }
+
+      if (!project_path.IsEmpty())
+        {
+        launch_params = FString::Printf(TEXT("-p \"%s\""), *project_path);
+        }
+      }
+
     // Path seems to need to be made fully qualified in order to work
     FPaths::MakePathRelativeTo(ide_path, TEXT("/"));
 
-    FPlatformProcess::LaunchFileInDefaultExternalApplication(*ide_path);
+    FPlatformProcess::LaunchFileInDefaultExternalApplication(*ide_path, *launch_params);
 
     return true;
 

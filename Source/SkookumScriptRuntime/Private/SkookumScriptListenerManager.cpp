@@ -13,6 +13,7 @@
 
 #include "SkookumScriptListenerManager.hpp"
 #include "Bindings/SkUERuntime.hpp"
+
 #include <SkookumScript/SkDebug.hpp>
 
 //---------------------------------------------------------------------------------------

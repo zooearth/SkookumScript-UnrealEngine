@@ -14,10 +14,11 @@
 // Includes
 //=======================================================================================
 
-#include <SkookumScript/SkInstance.hpp>
 #include "Components/ActorComponent.h"
-#include "SkookumScriptClassDataComponent.generated.h"
 
+#include <SkookumScript/SkInstance.hpp>
+
+#include "SkookumScriptClassDataComponent.generated.h"
 
 //=======================================================================================
 // Global Defines / Macros

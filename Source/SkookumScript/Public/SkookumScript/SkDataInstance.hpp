@@ -77,7 +77,8 @@ class SK_API SkDataInstance : public SkInstance
 
   #if (SKOOKUM & SK_DEBUG)
     // This magic number is stored in the user data to allow sanity checking code to verify we are dealing in fact with a data instance
-    static const uintptr_t ms_magic_marker;
+    // It's not really a pointer, thus no _p postfix
+    static void * const ms_magic_marker;
 
     // Called when a mismatch is detected - alerts the user and returns nil
     SkInstance * on_magic_marker_mismatch(uint32_t data_idx) const;

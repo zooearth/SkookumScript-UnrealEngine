@@ -8,7 +8,6 @@
 //=======================================================================================
 
 #include "ISkookumScriptRuntime.h"
-
 #include "Bindings/SkUEBindings.hpp"
 #include "Bindings/SkUEClassBinding.hpp"
 #include "Bindings/SkUERuntime.hpp"
@@ -17,15 +16,17 @@
 #include "Bindings/SkUESymbol.hpp"
 #include "Bindings/SkUEUtils.hpp"
 
-#include "Runtime/Launch/Resources/Version.h"
-#include "Engine/World.h"
-#include "Stats.h"
-
 #include "SkookumScriptRuntimeGenerator.h"
 #include "SkookumScriptBehaviorComponent.h"
 #include "SkookumScriptClassDataComponent.h"
 #include "SkookumScriptMindComponent.h"
 
+#include "Runtime/Launch/Resources/Version.h"
+#include "Engine/Engine.h"
+#include "Engine/World.h"
+#include "Stats.h"
+
+#include <AgogCore/AMethodArg.hpp>
 #include <SkookumScript/SkSymbolDefs.hpp>
 
 #if defined(A_PLAT_PC)
@@ -140,7 +141,8 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
     #ifdef SKOOKUM_REMOTE_UNREAL
       void        tick_remote();
     #endif
-
+      
+    void          on_post_engine_init();
     void          on_world_init_pre(UWorld * world_p, const UWorld::InitializationValues init_vals);
     void          on_world_init_post(UWorld * world_p, const UWorld::InitializationValues init_vals);
     void          on_world_cleanup(UWorld * world_p, bool session_ended_b, bool cleanup_resources_b);
@@ -167,6 +169,7 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
     uint32                  m_num_game_worlds;
 
+    FDelegateHandle         m_on_post_engine_init_handle;
     FDelegateHandle         m_on_world_init_pre_handle;
     FDelegateHandle         m_on_world_init_post_handle;
     FDelegateHandle         m_on_world_cleanup_handle;
@@ -475,23 +478,17 @@ void FSkookumScriptRuntime::StartupModule()
 
   // Note that FWorldDelegates::OnPostWorldCreation has world_p->WorldType set to None
   // Note that FWorldDelegates::OnPreWorldFinishDestroy has world_p->GetName() set to "None"
-
-  m_on_world_init_pre_handle  = FWorldDelegates::OnPreWorldInitialization.AddRaw(this, &FSkookumScriptRuntime::on_world_init_pre);
-  m_on_world_init_post_handle = FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FSkookumScriptRuntime::on_world_init_post);
-  m_on_world_cleanup_handle   = FWorldDelegates::OnWorldCleanup.AddRaw(this, &FSkookumScriptRuntime::on_world_cleanup);
+  m_on_post_engine_init_handle  = UEngine::OnPostEngineInit.AddRaw(this, &FSkookumScriptRuntime::on_post_engine_init);
+  m_on_world_init_pre_handle    = FWorldDelegates::OnPreWorldInitialization.AddRaw(this, &FSkookumScriptRuntime::on_world_init_pre);
+  m_on_world_init_post_handle   = FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FSkookumScriptRuntime::on_world_init_post);
+  m_on_world_cleanup_handle     = FWorldDelegates::OnWorldCleanup.AddRaw(this, &FSkookumScriptRuntime::on_world_cleanup);
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Start up SkookumScript
   // Originally, the compiled binaries were loaded with a delay when in UE4Editor to provide the user with a smoother startup sequence
   // However this caused issues with the proper initialization of Skookum Blueprint nodes
   // So to avoid glitches, SkookumScript is always initialized right away right here
-  //#if WITH_EDITORONLY_DATA
-  //  if (!GIsEditor)
-  //#endif
-      {
-      // Initialize right away
-      ensure_runtime_initialized();
-      }
+  ensure_runtime_initialized();
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Send off connect request to IDE
@@ -512,6 +509,21 @@ void FSkookumScriptRuntime::PostLoadCallback()
   A_DPRINT(A_SOURCE_STR " SkookumScript - loaded.\n");
   }
 */
+
+//---------------------------------------------------------------------------------------
+void FSkookumScriptRuntime::on_post_engine_init()
+  {
+  #if !WITH_EDITOR
+    // If WITH_EDITOR is enabled, reexpose_all_to_blueprints() happens in on_editor_map_opened()
+    if (m_runtime.is_compiled_scripts_loaded())
+      {
+      // Expose to blueprints once more
+      // So exposed Sk routines can be attached to more derived static classes if applicable
+      // We do this here as the engine needs to be present for the graph nodes to be properly rebuilt
+      m_runtime.reexpose_all_to_blueprints(true);
+      }
+  #endif
+  }
 
 //---------------------------------------------------------------------------------------
 void FSkookumScriptRuntime::on_world_init_pre(UWorld * world_p, const UWorld::InitializationValues init_vals)
@@ -654,6 +666,7 @@ void FSkookumScriptRuntime::ShutdownModule()
   #endif
 
   // Clear out our registered delegates
+  UEngine::OnPostEngineInit.Remove(m_on_post_engine_init_handle);
   FWorldDelegates::OnPreWorldInitialization.Remove(m_on_world_init_pre_handle);
   FWorldDelegates::OnPostWorldInitialization.Remove(m_on_world_init_post_handle);
   FWorldDelegates::OnWorldCleanup.Remove(m_on_world_cleanup_handle);
@@ -679,6 +692,11 @@ void FSkookumScriptRuntime::set_project_generated_bindings(SkUEBindingsInterface
       ensure_runtime_initialized();
       }
     }
+
+  // Make sure the SkookumScriptEditor module is loaded at this point as it might need to update blueprint classes and recompile blueprints with errors
+  #if WITH_EDITORONLY_DATA
+    FModuleManager::Get().LoadModuleChecked<IModuleInterface>("SkookumScriptEditor");
+  #endif
 
   // Now that binaries are loaded, point to the bindings to use
   m_runtime.set_project_generated_bindings(project_generated_bindings_p);
@@ -952,6 +970,14 @@ void FSkookumScriptRuntime::on_editor_map_opened()
 
   // When editor is present, initialize Sk here
   ensure_runtime_initialized();
+
+  if (m_runtime.is_compiled_scripts_loaded())
+    {
+    // Expose to blueprints once more
+    // So exposed Sk routines can be attached to more derived static classes if applicable
+    // We do this here as the engine needs to be present for the graph nodes to be properly rebuilt
+    m_runtime.reexpose_all_to_blueprints(true);
+    }
   }
 
 //---------------------------------------------------------------------------------------

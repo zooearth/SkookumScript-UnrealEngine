@@ -13,8 +13,8 @@
 // Includes
 //=======================================================================================
 
+#include "Math/UnrealMath.h" // Vector math functions
 #include <SkookumScript/SkClassBinding.hpp>
-#include <UnrealMath.h> // Vector math functions
 
 //---------------------------------------------------------------------------------------
 // SkookumScript transform (position + rotation + scale) class

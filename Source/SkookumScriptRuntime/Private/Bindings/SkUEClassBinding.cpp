@@ -15,15 +15,17 @@
 #include "SkookumScriptClassDataComponent.h"
 #include "Engine/SkUEEntity.hpp"
 #include "VectorMath/SkColor.hpp"
+#include <SkUEWorld.generated.hpp>
+#include "../SkookumScriptRuntimeGenerator.h"
+
+#include "UObject/Package.h"
+
 #include <AgogCore/AMath.hpp>
 #include <SkookumScript/SkBoolean.hpp>
 #include <SkookumScript/SkEnum.hpp>
 #include <SkookumScript/SkInteger.hpp>
 #include <SkookumScript/SkList.hpp>
 
-#include "../SkookumScriptRuntimeGenerator.h"
-
-#include <SkUEWorld.generated.hpp>
 
 //---------------------------------------------------------------------------------------
 
@@ -698,6 +700,7 @@ void SkUEClassBindingHelper::register_static_enum(UEnum * ue_enum_p)
 
 void SkUEClassBindingHelper::add_static_class_mapping(SkClass * sk_class_p, UClass * ue_class_p)
   {
+  SK_ASSERTX(sk_class_p && ue_class_p, a_str_format("Tried to add static class mapping between `%s` and `%S` one of which is null.", sk_class_p ? sk_class_p->get_name_cstr() : "(null)", ue_class_p ? *ue_class_p->GetName() : TEXT("(null)")));
   ms_static_class_map_u2s.Add(ue_class_p, sk_class_p);
   ms_static_class_map_s2u.Add(sk_class_p, ue_class_p);
   }
@@ -706,6 +709,7 @@ void SkUEClassBindingHelper::add_static_class_mapping(SkClass * sk_class_p, UCla
 
 void SkUEClassBindingHelper::add_static_struct_mapping(SkClass * sk_class_p, UStruct * ue_struct_p)
   {
+  SK_ASSERTX(sk_class_p && ue_struct_p, a_str_format("Tried to add static class mapping between `%s` and `%S` one of which is null.", sk_class_p ? sk_class_p->get_name_cstr() : "(null)", ue_struct_p ? *ue_struct_p->GetName() : TEXT("(null)")));
   ms_static_struct_map_u2s.Add(ue_struct_p, sk_class_p);
   ms_static_struct_map_s2u.Add(sk_class_p, ue_struct_p);
   }
@@ -714,6 +718,7 @@ void SkUEClassBindingHelper::add_static_struct_mapping(SkClass * sk_class_p, USt
 
 void SkUEClassBindingHelper::add_static_enum_mapping(SkClass * sk_class_p, UEnum * ue_enum_p)
   {
+  SK_ASSERTX(sk_class_p && ue_enum_p, a_str_format("Tried to add static class mapping between `%s` and `%S` one of which is null.", sk_class_p ? sk_class_p->get_name_cstr() : "(null)", ue_enum_p ? *ue_enum_p->GetName() : TEXT("(null)")));
   ms_static_enum_map_u2s.Add(ue_enum_p, sk_class_p);
   }
 
@@ -739,6 +744,7 @@ UClass * SkUEClassBindingHelper::add_dynamic_class_mapping(SkClassDescBase * sk_
   UBlueprint * blueprint_p = FindObject<UBlueprint>(ANY_PACKAGE, *class_name);
   if (!blueprint_p)
     {
+  #if 0 // Demand-loading of Blueprint assets is asking for trouble - disabled
     // If we still can't find the blueprint, try to load it
     if (ms_runtime_generator_p)
       {
@@ -751,6 +757,9 @@ UClass * SkUEClassBindingHelper::add_dynamic_class_mapping(SkClassDescBase * sk_
         }
       }
     if (!blueprint_p) return nullptr;
+  #else
+    return nullptr;
+  #endif
     }
 
   // Add to map of known class equivalences
@@ -779,7 +788,8 @@ SkClass * SkUEClassBindingHelper::add_dynamic_class_mapping(UBlueprint * bluepri
   return sk_class_p;
   }
 
-#else // !WITH_EDITORONLY_DATA = cooked data build
+#endif
+
 //---------------------------------------------------------------------------------------
 
 UClass * SkUEClassBindingHelper::add_static_class_mapping(SkClassDescBase * sk_class_desc_p)
@@ -787,13 +797,25 @@ UClass * SkUEClassBindingHelper::add_static_class_mapping(SkClassDescBase * sk_c
   // Get fully derived SkClass
   SkClass * sk_class_p = sk_class_desc_p->get_key_class();
 
-  // Look it up and remember it
+  // Look up the plain class name first (i.e. a C++ class)
   FString class_name(sk_class_p->get_name_cstr());
-  UClass * ue_class_p = FindObject<UClass>(ANY_PACKAGE, *(class_name + TEXT("_C")));
+  UClass * ue_class_p = FindObject<UClass>(ANY_PACKAGE, *class_name);
   if (ue_class_p)
     {
     add_static_class_mapping(sk_class_p, ue_class_p);
+    return ue_class_p;
     }
+
+  // In cooked builds, also look up class name + "_C"
+  // We don't do this in editor builds as these classes are dynamically generated and might get deleted at any time
+  // there we use dynamic mapping of Blueprints instead
+  #if !WITH_EDITORONLY_DATA
+    ue_class_p = FindObject<UClass>(ANY_PACKAGE, *(class_name + TEXT("_C")));
+    if (ue_class_p)
+      {
+      add_static_class_mapping(sk_class_p, ue_class_p);
+      }
+  #endif
 
   return ue_class_p;
   }
@@ -802,28 +824,49 @@ UClass * SkUEClassBindingHelper::add_static_class_mapping(SkClassDescBase * sk_c
 
 SkClass * SkUEClassBindingHelper::add_static_class_mapping(UClass * ue_class_p)
   {
-  // Look up SkClass by blueprint name
-  const FString & ue_class_name = ue_class_p->GetName(); 
+  // Look up SkClass by class name
+  const FString & ue_class_name = ue_class_p->GetName();
   int32 ue_class_name_len = ue_class_name.Len();
-  if (ue_class_name_len < 3) return nullptr;
-
-  // When we get to this function, we are looking for a class name that has "_C" appended at the end
-  // So we subtract two from the length to truncate those two characters
-  // We don't check here if the last two characters actually _are_ "_C" because it does not matter
-  // since in that case it would be an error anyway
-  AString class_name(*ue_class_name, ue_class_name_len - 2);
-  SkClass * sk_class_p = SkBrain::get_class(ASymbol::create(class_name, ATerm_short));
-
-  // If found, add to map of known class equivalences
-  if (sk_class_p)
+  AString class_name(*ue_class_name, ue_class_name_len);
+  ASymbol class_symbol = ASymbol::create_existing(class_name);
+  if (!class_symbol.is_null())
     {
-    add_static_class_mapping(sk_class_p, ue_class_p);
+    SkClass * sk_class_p = SkBrain::get_class(class_symbol);
+    if (sk_class_p)
+      {
+      // Add to map of known class equivalences
+      add_static_class_mapping(sk_class_p, ue_class_p);
+      return sk_class_p;
+      }
     }
 
-  return sk_class_p;
-  }
+  // In cooked builds, also look up class name - "_C"
+  // We don't do this in editor builds as these classes are dynamically generated and might get deleted at any time
+  // there we use dynamic mapping of Blueprints instead
+  #if !WITH_EDITORONLY_DATA
 
-#endif
+    // When we get to this function, we are looking for a class name that has "_C" appended at the end
+    // So we subtract two from the length to truncate those two characters
+    // We don't check here if the last two characters actually _are_ "_C" because it does not matter
+    // since in that case it would be an error anyway
+    if (ue_class_name_len < 3) return nullptr;
+    class_name.set_length(ue_class_name_len - 2);
+    class_symbol = ASymbol::create_existing(class_name);
+    if (!class_symbol.is_null())
+      {
+      SkClass * sk_class_p = SkBrain::get_class(ASymbol::create_existing(class_name));
+      if (sk_class_p)
+        {
+        // Add to map of known class equivalences
+        add_static_class_mapping(sk_class_p, ue_class_p);
+        return sk_class_p;
+        }
+      }
+
+  #endif
+
+  return nullptr;
+  }
 
 //=======================================================================================
 // SkUEClassBindingHelper::HackedTArray

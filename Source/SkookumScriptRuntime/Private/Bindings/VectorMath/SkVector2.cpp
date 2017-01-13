@@ -12,6 +12,7 @@
 //=======================================================================================
 
 #include "SkVector2.hpp"
+
 #include <SkookumScript/SkBoolean.hpp>
 #include <SkookumScript/SkReal.hpp>
 

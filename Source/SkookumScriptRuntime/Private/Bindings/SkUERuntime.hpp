@@ -13,11 +13,12 @@
 // Includes
 //=======================================================================================
 
-#include <SkookumScript/SkRuntimeBase.hpp>
 #include "../SkookumScriptListenerManager.hpp"
 #include "SkUEBlueprintInterface.hpp"
 
 #include "Platform.h"  // Set up base types, etc for the platform
+
+#include <SkookumScript/SkRuntimeBase.hpp>
 
 //---------------------------------------------------------------------------------------
 
@@ -55,6 +56,8 @@ class SkUERuntime : public SkRuntimeBase
       bool load_and_bind_compiled_scripts(bool ensure_atomics = true, SkClass ** ignore_classes_pp = nullptr, uint32_t ignore_count = 0u);
       bool load_compiled_scripts();
       void bind_compiled_scripts(bool ensure_atomics = true, SkClass ** ignore_classes_pp = nullptr, uint32_t ignore_count = 0u);
+
+      void reexpose_all_to_blueprints(bool is_final);
 
     // Overridden from SkRuntimeBase
 
@@ -94,7 +97,6 @@ class SkUERuntime : public SkRuntimeBase
 
     // Data Members
 
-      bool                m_is_static_ue_types_registered;
       bool                m_is_initialized;
       bool                m_is_compiled_scripts_loaded; // If compiled binaries have ever been loaded
       bool                m_is_compiled_scripts_bound;  // If on_bind_routines() has been called at least once

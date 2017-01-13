@@ -14,13 +14,13 @@
 //=======================================================================================
 
 #include "SkookumScriptBehaviorComponent.h"
-
-#include "VectorField/VectorField.h" // HACK to fix broken dependency on UVectorField 
-
-#include <SkUEEEndPlayReason.generated.hpp>
-
 #include "Bindings/Engine/SkUESkookumScriptBehaviorComponent.hpp"
 
+#include "VectorField/VectorField.h" // HACK to fix broken dependency on UVectorField 
+#include <SkUEEEndPlayReason.generated.hpp>
+#include "Engine/World.h"
+#include "GameFramework/Actor.h"
+#include "Runtime/Launch/Resources/Version.h" // TEMP HACK for ENGINE_MINOR_VERSION
 
 //=======================================================================================
 // Class Data
@@ -65,7 +65,9 @@ USkookumScriptBehaviorComponent::USkookumScriptBehaviorComponent(const FObjectIn
   bTickInEditor = false;
   bAutoActivate = true;
   bWantsInitializeComponent = true;
-  bWantsBeginPlay = true;
+  #if ENGINE_MINOR_VERSION < 14
+    bWantsBeginPlay = true;
+  #endif
   }
 
 //---------------------------------------------------------------------------------------

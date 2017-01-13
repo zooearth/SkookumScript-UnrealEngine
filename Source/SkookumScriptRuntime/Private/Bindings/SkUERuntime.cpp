@@ -17,12 +17,11 @@
 #include "SkUEBindings.hpp"
 #include "SkUEClassBinding.hpp"
 
-#include <AgogCore/AMethodArg.hpp>
-#include <SkookumScript/SkClass.hpp>
-
 #include "GenericPlatformProcess.h"
 #include <chrono>
 
+#include <AgogCore/AMethodArg.hpp>
+#include <SkookumScript/SkClass.hpp>
 
 //=======================================================================================
 // Local Global Structures
@@ -94,8 +93,7 @@ namespace
 //---------------------------------------------------------------------------------------
 
 SkUERuntime::SkUERuntime() 
-  : m_is_static_ue_types_registered(false)
-  , m_is_initialized(false)
+  : m_is_initialized(false)
   , m_is_compiled_scripts_loaded(false)
   , m_is_compiled_scripts_bound(false)
   , m_have_game_module(false)
@@ -164,7 +162,6 @@ void SkUERuntime::shutdown()
 
   // Keep track just in case
   m_is_compiled_scripts_loaded = false;
-  m_is_static_ue_types_registered = false;
   m_is_compiled_scripts_bound = false;
 
   // Gets rid of registered bind functions
@@ -183,11 +180,7 @@ void SkUERuntime::shutdown()
 
 void SkUERuntime::ensure_static_ue_types_registered()
   {
-  if (!m_is_static_ue_types_registered)
-    {
-    SkUEBindings::register_static_ue_types(m_project_generated_bindings_p);
-    m_is_static_ue_types_registered = true;
-    }
+  SkUEBindings::ensure_static_ue_types_registered(m_project_generated_bindings_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -204,20 +197,12 @@ void SkUERuntime::on_bind_routines()
     SkUEClassBindingHelper::reset_dynamic_class_mappings(); // Start over fresh
   #endif
 
-  ensure_static_ue_types_registered();                                                            // HACK                                                                                               // Initialize custom UE4 classes
-  SkUEBindings::register_all_bindings(m_project_generated_bindings_p);
+  ensure_static_ue_types_registered();
+  SkUEBindings::finish_register_bindings(m_project_generated_bindings_p);
   USkookumScriptBehaviorComponent::initialize();
   
   // We bound all routines at least once
   m_is_compiled_scripts_bound = true;
-
-  #if WITH_EDITOR
-    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
-    tSkUEOnClassUpdatedFunc * on_class_updated_f = &editor_on_class_updated_f;
-  #else
-    tSkUEOnClassUpdatedFunc * on_class_updated_f = nullptr;
-  #endif
-  m_blueprint_interface.reexpose_all(on_class_updated_f); // Hook up Blueprint functions and events for static classes
   }
 
 //---------------------------------------------------------------------------------------
@@ -240,6 +225,19 @@ void SkUERuntime::set_project_generated_bindings(SkUEBindingsInterface * project
     // Now that bindings are known, bind the atomics
     bind_compiled_scripts();
     }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUERuntime::reexpose_all_to_blueprints(bool is_final)
+  {
+  #if WITH_EDITOR
+    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
+    tSkUEOnClassUpdatedFunc * on_class_updated_f = &editor_on_class_updated_f;
+  #else
+    tSkUEOnClassUpdatedFunc * on_class_updated_f = nullptr;
+  #endif
+  m_blueprint_interface.reexpose_all(on_class_updated_f, is_final); // Hook up Blueprint functions and events for static classes
   }
 
 //---------------------------------------------------------------------------------------
@@ -322,8 +320,16 @@ bool SkUERuntime::load_compiled_scripts()
 
   // After fresh loading of binaries, there are no bindings
   m_is_compiled_scripts_loaded = true;
-  m_is_static_ue_types_registered = false;
   m_is_compiled_scripts_bound = false;
+
+  // After loading, hook up a few things right away
+  ensure_static_ue_types_registered();
+  SkUEBindings::begin_register_bindings();
+  // In commandlet mode, expose here, even if types cannot be fully resolved, to avoid compile errors
+  if (IsRunningCommandlet())
+    {
+    reexpose_all_to_blueprints(false);
+    }
 
   return true;
   }
