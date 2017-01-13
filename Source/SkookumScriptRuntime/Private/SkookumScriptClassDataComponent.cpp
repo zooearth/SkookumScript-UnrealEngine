@@ -18,6 +18,9 @@
 #include "SkookumScriptClassDataComponent.h"
 #include "Bindings/Engine/SkUEActor.hpp"
 
+#include "Engine/World.h"
+#include "Runtime/Launch/Resources/Version.h" // TEMP HACK for ENGINE_MINOR_VERSION
+
 //=======================================================================================
 // Class Data
 //=======================================================================================
@@ -35,7 +38,9 @@ USkookumScriptClassDataComponent::USkookumScriptClassDataComponent(const FObject
   bTickInEditor = false;
   bAutoActivate = true;
   bWantsInitializeComponent = true;
-  bWantsBeginPlay = true;
+  #if ENGINE_MINOR_VERSION < 14
+    bWantsBeginPlay = true;
+  #endif
   }
 
 //---------------------------------------------------------------------------------------

@@ -50,6 +50,7 @@ struct SkUserData : private SkUserDataBase
   // placeholder union to reserve appropriate space
   union
     {
+    SkBooleanType   m_boolean;
     SkIntegerType   m_integer;
     SkRealType      m_real;
     SkEnumType      m_enum;

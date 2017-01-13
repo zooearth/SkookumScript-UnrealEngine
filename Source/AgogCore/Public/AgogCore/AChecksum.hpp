@@ -64,7 +64,7 @@ class A_API AChecksum
 
   // Class Methods
     
-    static uint32_t generate_crc32(const void * data_p, uint32_t data_length, uint32_t prev_crc = 0);
+    static uint32_t generate_crc32(const void * data_p, uint32_t data_num_bytes, uint32_t prev_crc = 0);
     static uint32_t generate_crc32(const AString & str, uint32_t prev_crc = 0);
     static uint32_t generate_crc32_cstr(const char * cstr_p, uint32_t length = ALength_calculate, uint32_t prev_crc = 0);
     static uint32_t generate_crc32_uint8(uint8_t data, uint32_t prev_crc = 0)    { return generate_crc32(&data, sizeof(data), prev_crc); }
@@ -73,5 +73,9 @@ class A_API AChecksum
 
     static uint32_t generate_crc32_upper(const AString & str, uint32_t prev_crc = 0);
     static uint32_t generate_crc32_cstr_upper(const char * cstr_p, uint32_t length = ALength_calculate, uint32_t prev_crc = 0);
+
+    static uint64_t generate_crc64(const void * data_p, uint32_t data_num_bytes, uint64_t prev_crc = 0);
+    static uint64_t generate_crc64(const AString & str, uint64_t prev_crc = 0);
+    static uint64_t generate_crc64_cstr(const char * cstr_p, uint32_t length = ALength_calculate, uint64_t prev_crc = 0);
 
   };

@@ -173,6 +173,7 @@ class SK_API SkBrain
     static void deinitialize();
     static void compact();
 
+    static void register_builtin_bindings(); // Call if builtin bindings need to be registered prior to initialize_post_load begin called
 
     #if (SKOOKUM & SK_DEBUG)
 
@@ -197,6 +198,8 @@ class SK_API SkBrain
   // Class Data Members
 
     static tSkClasses ms_classes;
+
+    static bool ms_builtin_bindings_registered;
 
   };  // SkBrain
 

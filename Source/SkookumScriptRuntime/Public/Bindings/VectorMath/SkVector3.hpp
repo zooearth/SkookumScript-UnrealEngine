@@ -14,7 +14,7 @@
 //=======================================================================================
 
 #include "../SkUEClassBinding.hpp"
-#include <UnrealMath.h> // Vector math functions
+#include "Math/UnrealMath.h" // Vector math functions
 
 //---------------------------------------------------------------------------------------
 // SkookumScript 3D vector class

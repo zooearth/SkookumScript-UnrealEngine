@@ -16,10 +16,8 @@
 
 #include "SkookumScriptListener.h"
 #include "SkookumScriptListenerManager.hpp"
-
 #include "Bindings/VectorMath/SkVector3.hpp"
 #include "Bindings/Engine/SkUEName.hpp"
-
 #include <SkUEEntity.generated.hpp>
 
 #include <SkookumScript/SkBoolean.hpp>

@@ -16,8 +16,9 @@
 
 #include <AgogCore/AIdPtr.hpp>
 #include <AgogCore/ANamed.hpp>
+#include <AgogCore/APArray.hpp>
+#include <AgogCore/APSorted.hpp>
 #include <SkookumScript/Sk.hpp>
-
 
 //=======================================================================================
 // Global Structures
@@ -29,15 +30,6 @@ class  SkInvokedContextBase;
 
 template<class _ObjectType> class AObjBlock;
 template<class _ObjectType> class AObjReusePool;
-
-#ifdef A_PLAT_PC
-  template<class _ElementType, class _KeyType = _ElementType> class APArrayLogical;
-  template<class _ElementType, class _KeyType = _ElementType> class APSortedLogical;
-#else
-  #include <AgogCore/APArray.hpp>
-  #include <AgogCore/APSorted.hpp>
-#endif
-
 
 //---------------------------------------------------------------------------------------
 // Used by SkObjectBase::get_obj_type() which returns uint32_t rather than eSkObjectType so
