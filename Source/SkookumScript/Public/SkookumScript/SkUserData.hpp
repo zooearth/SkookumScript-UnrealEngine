@@ -9,8 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-#ifndef __SKUSERDATA_HPP
-#define __SKUSERDATA_HPP
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -19,6 +18,7 @@
 #include <AgogCore/ARefCount.hpp>
 #include <AgogCore/AString.hpp>
 #include <AgogCore/ADebug.hpp>
+#include <SkookumScript/Sk.hpp>
 
 //=======================================================================================
 //
@@ -50,6 +50,7 @@ struct SkUserData : private SkUserDataBase
   // placeholder union to reserve appropriate space
   union
     {
+    SkBooleanType   m_boolean;
     SkIntegerType   m_integer;
     SkRealType      m_real;
     SkEnumType      m_enum;
@@ -96,6 +97,3 @@ inline _UserType * SkUserData<_SizeInPtrs>::as() const
   A_ASSERTX((void*)data_p != (void*)this || sizeof(_UserType) <= sizeof(*this), "_UserType does not fit into this instance of SkUserData.");
   return data_p;
   }
-
-#endif  // __SKUSERDATA_HPP
-

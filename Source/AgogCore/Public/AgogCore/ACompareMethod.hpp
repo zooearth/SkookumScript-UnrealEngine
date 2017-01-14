@@ -9,10 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __ACOMPAREMETHOD_HPP
-#define __ACOMPAREMETHOD_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -229,8 +226,3 @@ ACompareBase<_ElementType> * ACompareMethod<_OwnerType, _ElementType>::copy_new(
 
   return func_p;
   } 
-
-
-#endif  // __ACOMPAREMETHOD_HPP
-
-

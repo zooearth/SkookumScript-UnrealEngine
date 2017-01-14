@@ -5,19 +5,27 @@
 // Author: Markus Breyer
 //=======================================================================================
 
-#include "SkookumScriptEditorPrivatePCH.h"
-#include <ISkookumScriptRuntime.h>
-#include <AssetRegistryModule.h>
-#include <BlueprintActionDatabase.h>
-#include <BlueprintEditorUtils.h>
-#include <K2Node_CallFunction.h>
-#include <K2Node_Event.h>
+#include "ISkookumScriptEditor.h"
+#include "CoreUObject.h"
+#include "ModuleManager.h"
+#include "Engine.h"
+#include "UnrealEd.h"
+#include "SlateBasics.h"
+#include "SlateGameResources.h" 
+#include "IPluginManager.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "ISkookumScriptRuntime.h"
+#include "AssetRegistryModule.h"
+#include "BlueprintActionDatabase.h"
+#include "BlueprintEditorUtils.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_Event.h"
 
 #include "GraphEditor.h"
 
 #include "../../SkookumScriptGenerator/Private/SkookumScriptGeneratorBase.inl"
 
-DEFINE_LOG_CATEGORY(LogSkookumScriptEditor);
+DEFINE_LOG_CATEGORY_STATIC(LogSkookumScriptEditor, Log, All);
 
 //---------------------------------------------------------------------------------------
 
@@ -101,16 +109,16 @@ void FSkookumScriptEditor::StartupModule()
   if (!IsRunningCommandlet())
     {
     // Hook up delegates
-    m_on_asset_loaded_handle = FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FSkookumScriptEditor::on_asset_loaded);
-    m_on_object_modified_handle = FCoreUObjectDelegates::OnObjectModified.AddRaw(this, &FSkookumScriptEditor::on_object_modified);
-    m_on_map_opened_handle = FEditorDelegates::OnMapOpened.AddRaw(this, &FSkookumScriptEditor::on_map_opened);
-    m_on_new_asset_created_handle = FEditorDelegates::OnNewAssetCreated.AddRaw(this, &FSkookumScriptEditor::on_new_asset_created);
-    m_on_assets_deleted_handle = FEditorDelegates::OnAssetsDeleted.AddRaw(this, &FSkookumScriptEditor::on_assets_deleted);
-    m_on_asset_post_import_handle = FEditorDelegates::OnAssetPostImport.AddRaw(this, &FSkookumScriptEditor::on_asset_post_import);
+    m_on_asset_loaded_handle          = FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FSkookumScriptEditor::on_asset_loaded);
+    m_on_object_modified_handle       = FCoreUObjectDelegates::OnObjectModified.AddRaw(this, &FSkookumScriptEditor::on_object_modified);
+    m_on_map_opened_handle            = FEditorDelegates::OnMapOpened.AddRaw(this, &FSkookumScriptEditor::on_map_opened);
+    m_on_new_asset_created_handle     = FEditorDelegates::OnNewAssetCreated.AddRaw(this, &FSkookumScriptEditor::on_new_asset_created);
+    m_on_assets_deleted_handle        = FEditorDelegates::OnAssetsDeleted.AddRaw(this, &FSkookumScriptEditor::on_assets_deleted);
+    m_on_asset_post_import_handle     = FEditorDelegates::OnAssetPostImport.AddRaw(this, &FSkookumScriptEditor::on_asset_post_import);
 
     FAssetRegistryModule & asset_registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(AssetRegistryConstants::ModuleName);
-    m_on_asset_added_handle = asset_registry.Get().OnAssetAdded().AddRaw(this, &FSkookumScriptEditor::on_asset_added);
-    m_on_asset_renamed_handle = asset_registry.Get().OnAssetRenamed().AddRaw(this, &FSkookumScriptEditor::on_asset_renamed);
+    m_on_asset_added_handle             = asset_registry.Get().OnAssetAdded().AddRaw(this, &FSkookumScriptEditor::on_asset_added);
+    m_on_asset_renamed_handle           = asset_registry.Get().OnAssetRenamed().AddRaw(this, &FSkookumScriptEditor::on_asset_renamed);
     m_on_in_memory_asset_created_handle = asset_registry.Get().OnInMemoryAssetCreated().AddRaw(this, &FSkookumScriptEditor::on_in_memory_asset_created);
     m_on_in_memory_asset_deleted_handle = asset_registry.Get().OnInMemoryAssetDeleted().AddRaw(this, &FSkookumScriptEditor::on_in_memory_asset_deleted);
 
@@ -257,7 +265,7 @@ void FSkookumScriptEditor::on_object_modified(UObject * obj_p)
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p)
     {
-    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
+    get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, false);
     }
   }
 
@@ -280,8 +288,7 @@ void FSkookumScriptEditor::on_asset_post_import(UFactory * factory_p, UObject * 
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p)
     {
-    get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
-    get_runtime()->generate_used_class_script_files();
+    get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, false);
     }
   }
 
@@ -302,7 +309,7 @@ void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const
     UBlueprint * blueprint_p = FindObjectChecked<UBlueprint>(ANY_PACKAGE, *asset_data.AssetName.ToString());
     if (blueprint_p)
       {
-      get_runtime()->rename_class_script_files(blueprint_p->GeneratedClass, FPaths::GetBaseFilename(old_object_path));
+      get_runtime()->on_class_renamed(blueprint_p->GeneratedClass, FPaths::GetBaseFilename(old_object_path));
       }
     }
   }
@@ -321,7 +328,7 @@ void FSkookumScriptEditor::on_in_memory_asset_deleted(UObject * obj_p)
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p)
     {
-    get_runtime()->delete_class_script_files(blueprint_p->GeneratedClass);
+    get_runtime()->on_class_deleted(blueprint_p->GeneratedClass);
     }
   }
 
@@ -329,11 +336,11 @@ void FSkookumScriptEditor::on_in_memory_asset_deleted(UObject * obj_p)
 // Called when the map is done loading (load progress reaches 100%)
 void FSkookumScriptEditor::on_map_opened(const FString & file_name, bool as_template)
   {
-  // Generate all script files one more time to be sure
-  get_runtime()->generate_all_class_script_files();
-
   // Let runtime know we are done opening a new map
   get_runtime()->on_editor_map_opened();
+
+  // Also try recompiling blueprints with errors one more time at this point
+  recompile_blueprints_with_errors();
   }
 
 //---------------------------------------------------------------------------------------
@@ -347,7 +354,7 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
     }
 
   // Re-generate script files for this class as things might have changed
-  get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, true);
+  get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, true);
 
   // Check that there's no dangling default constructor
   bool has_skookum_default_constructor = get_runtime()->has_skookum_default_constructor(blueprint_p->GeneratedClass);
@@ -388,7 +395,7 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
           if (function_node_p)
             {
             UFunction * function_p = function_node_p->GetTargetFunction();
-            if (get_runtime()->is_skookum_blueprint_function(function_p))
+            if (function_p && get_runtime()->is_skookum_blueprint_function(function_p))
               {
               if (function_p->GetName().EndsWith(TEXT("@ !"), ESearchCase::CaseSensitive))
                 {
@@ -443,8 +450,7 @@ void FSkookumScriptEditor::on_new_asset(UObject * obj_p)
 
     if (blueprint_p->GeneratedClass)
       {
-      get_runtime()->generate_class_script_files(blueprint_p->GeneratedClass, true, false);
-      get_runtime()->generate_used_class_script_files();
+      get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, true);
       }
     }
   }

@@ -12,9 +12,12 @@
 //=======================================================================================
 
 #include "../../SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkTransform.hpp"
 #include "SkVector3.hpp"
 #include "SkRotation.hpp"
+
+#include "UObject/Package.h"
 
 //=======================================================================================
 // Method Definitions

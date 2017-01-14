@@ -38,6 +38,7 @@
 #include <AgogCore/APCompactArray.hpp>
 
 #if defined(A_PLAT_PC) && defined(A_EXTRA_CHECK)
+  #define WIN32_LEAN_AND_MEAN // Keep this define out of public header files
   #include <windows.h> // OutputDebugStringA
 #endif
 
@@ -246,7 +247,7 @@ namespace AgogCore
   // Get app interface pointer
   AAppInfoCore * get_app_info()
     {
-    #ifdef A_EXTRA_CHECK
+    #ifdef A_MAD_CHECK
       if (!s_app_info_p) A_BREAK(); // AgogCore app interface not set! AgogCore::initialize() must be called by the enclosing app before this point in code is reached.
     #endif
     return s_app_info_p;

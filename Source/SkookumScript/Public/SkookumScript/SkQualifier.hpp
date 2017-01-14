@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKQUALIFIER_HPP
-#define __SKQUALIFIER_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -125,7 +122,3 @@ class SK_API SkQualifierCompareName
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkQualifier.inl>
 #endif
-
-
-#endif  // __SKQUALIFIER_HPP
-

@@ -8,10 +8,7 @@
 // Author(s): Conan Reis
 //=======================================================================================
 
-
-#ifndef __SKMIND_HPP
-#define __SKMIND_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -242,6 +239,3 @@ class SK_API SkMind : public SkClassBindingAbstract<SkMind>, public SkDataInstan
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkMind.inl>
 #endif
-
-
-#endif  // __SKMIND_HPP

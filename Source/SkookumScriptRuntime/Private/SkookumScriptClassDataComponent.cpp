@@ -14,8 +14,12 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkookumScriptClassDataComponent.h"
 #include "Bindings/Engine/SkUEActor.hpp"
+
+#include "Engine/World.h"
+#include "Runtime/Launch/Resources/Version.h" // TEMP HACK for ENGINE_MINOR_VERSION
 
 //=======================================================================================
 // Class Data
@@ -34,7 +38,9 @@ USkookumScriptClassDataComponent::USkookumScriptClassDataComponent(const FObject
   bTickInEditor = false;
   bAutoActivate = true;
   bWantsInitializeComponent = true;
-  bWantsBeginPlay = true;
+  #if ENGINE_MINOR_VERSION < 14
+    bWantsBeginPlay = true;
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
@@ -125,7 +131,8 @@ void USkookumScriptClassDataComponent::InitializeComponent()
   // Create SkookumScript instance, but only if we are located inside the game world
   if (GetOwner()->GetWorld()->IsGameWorld())
     {
-    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when InitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when InitializeComponent() is invoked.");
+
     create_sk_instance();
     m_actor_instance_p->get_class()->resolve_raw_data();
     m_actor_instance_p->call_default_constructor();
@@ -154,7 +161,8 @@ void USkookumScriptClassDataComponent::UninitializeComponent()
   // Delete SkookumScript instance if present
   if (m_actor_instance_p)
     {
-    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when UninitializeComponent() is invoked.");
+
     delete_sk_instance();
     }
 

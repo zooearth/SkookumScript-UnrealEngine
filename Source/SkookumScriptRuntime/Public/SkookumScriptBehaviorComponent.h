@@ -14,12 +14,12 @@
 // Includes
 //=======================================================================================
 
-// Required when including this file from an external module
+#include "Components/ActorComponent.h"
+
 #include <AgogCore/AIdPtr.hpp>
 #include <AgogCore/ASymbol.hpp>
 #include <SkookumScript/SkInstance.hpp>
 
-#include "Components/ActorComponent.h"
 #include "SkookumScriptBehaviorComponent.generated.h"
 
 //=======================================================================================

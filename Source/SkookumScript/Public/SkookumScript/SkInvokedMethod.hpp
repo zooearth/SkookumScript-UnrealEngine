@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKINVOKEDMETHOD_HPP
-#define __SKINVOKEDMETHOD_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -156,7 +153,4 @@ template<> inline void               SkUserDataBase::set(SkInvokedMethod * const
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkInvokedMethod.inl>
 #endif
-
-
-#endif  // __SKINVOKEDMETHOD_HPP
 

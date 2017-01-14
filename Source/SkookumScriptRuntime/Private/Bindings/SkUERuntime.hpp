@@ -13,15 +13,19 @@
 // Includes
 //=======================================================================================
 
-#include <SkookumScript/SkookumRuntimeBase.hpp>
+#include "../SkookumScriptRuntimePrivatePCH.h"
+
 #include "../SkookumScriptListenerManager.hpp"
 #include "SkUEBlueprintInterface.hpp"
 
 #include "Platform.h"  // Set up base types, etc for the platform
 
+#include <SkookumScript/SkRuntimeBase.hpp>
+
 //---------------------------------------------------------------------------------------
 
 class ISkookumScriptRuntimeEditorInterface;
+class SkUEBindingsInterface;
 
 //=======================================================================================
 // Global Structures
@@ -30,11 +34,11 @@ class ISkookumScriptRuntimeEditorInterface;
 //---------------------------------------------------------------------------------------
 // SkookumScript Runtime Hooks for Unreal
 // - Input/Output Init/Update/Deinit Manager
-class SkUERuntime : public SkookumRuntimeBase
+class SkUERuntime : public SkRuntimeBase
   {
   public:
 
-    static SkUERuntime * get_singleton() { return static_cast<SkUERuntime *>(SkookumRuntimeBase::ms_singleton_p); }
+    static SkUERuntime * get_singleton() { return static_cast<SkUERuntime *>(SkRuntimeBase::ms_singleton_p); }
 
   // Methods
 
@@ -55,7 +59,9 @@ class SkUERuntime : public SkookumRuntimeBase
       bool load_compiled_scripts();
       void bind_compiled_scripts(bool ensure_atomics = true, SkClass ** ignore_classes_pp = nullptr, uint32_t ignore_count = 0u);
 
-    // Overridden from SkookumRuntimeBase
+      void reexpose_all_to_blueprints(bool is_final);
+
+    // Overridden from SkRuntimeBase
 
       // Binary Serialization / Loading Overrides
 
@@ -72,13 +78,14 @@ class SkUERuntime : public SkookumRuntimeBase
       // Flow Methods
 
         virtual void on_bind_routines() override;
-        virtual void on_pre_deinitialize_session() override;
+        virtual void on_pre_deinitialize_sim() override;
 
       // Accessors
 
-        bool                                   is_initialized() const            { return m_is_initialized; }
-        bool                                   is_compiled_scripts_bound() const { return m_is_compiled_scripts_bound; }
-        bool                                   have_game_module() const          { return m_have_game_module; }
+        bool                                   is_initialized() const             { return m_is_initialized; }
+        bool                                   is_compiled_scripts_bound() const  { return m_is_compiled_scripts_bound; }
+        bool                                   is_compiled_scripts_loaded() const { return m_is_compiled_scripts_loaded; }
+        bool                                   have_game_module() const           { return m_have_game_module; }
 
         SkookumScriptListenerManager *         get_listener_manager()          { return &m_listener_manager; }
         SkUEBlueprintInterface *               get_blueprint_interface()       { return &m_blueprint_interface; }
@@ -92,9 +99,9 @@ class SkUERuntime : public SkookumRuntimeBase
 
     // Data Members
 
-      bool                m_is_static_ue_types_registered;
       bool                m_is_initialized;
-      bool                m_is_compiled_scripts_bound; // If on_bind_routines() has been called at least once
+      bool                m_is_compiled_scripts_loaded; // If compiled binaries have ever been loaded
+      bool                m_is_compiled_scripts_bound;  // If on_bind_routines() has been called at least once
       bool                m_have_game_module; // If set_project_generated_bindings() was called at least once
 
       mutable bool        m_compiled_file_b;

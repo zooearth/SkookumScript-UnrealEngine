@@ -9,10 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKCOROUTINECALL_HPP
-#define __SKCOROUTINECALL_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -72,7 +69,3 @@ class SK_API SkCoroutineCall : public SkInvokeBase
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkCoroutineCall.inl>
 #endif
-
-
-#endif  // __SKCOROUTINECALL_HPP
-

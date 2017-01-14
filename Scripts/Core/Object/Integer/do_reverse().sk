@@ -1,5 +1,6 @@
 //---------------------------------------------------------------------------------------
-// Calls supplied immediate closure code n times in reverse order where n is this Integer.
+// Loops/iterates calling supplied immediate closure code n times in reverse order where
+// n is this Integer.
 // The index value is passed as an argument and is exclusive: n-1..0
 //
 // # Examples:
@@ -11,14 +12,14 @@
 //   0
 //
 // # Notes:     Use _*() versions for durational iteration.
-// # See:       do(), do_by(), to(), _do()
+// # See:       do(), do_by(), to(), to_pre(), _do()
 // # Author(s): Conan Reis
 //---------------------------------------------------------------------------------------
 
 ((Integer idx) code)
 
   [
-  !idx:  this.Integer
+  !idx:  this!
   !zero: 0
   
   loop

@@ -9,11 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __APSIZEDARRAYBASE_HPP
-#define __APSIZEDARRAYBASE_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -1126,8 +1122,3 @@ inline APSizedArrayBase<_ElementType>::APSizedArrayBase(APSizedArrayBase * array
   array_p->m_size    = 0u;
   array_p->m_array_p = nullptr;
   }
-
-
-#endif  // __APSIZEDARRAYBASE_HPP
-
-

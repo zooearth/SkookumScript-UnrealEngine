@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKTYPEDCONTEXT_HPP
-#define __SKTYPEDCONTEXT_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -197,6 +194,7 @@ struct SK_API SkTypeContext
       SkClassDescBase * get_variable_type(const ASymbol & var_name, bool skip_current_scope_b = false, uint32_t * data_idx_p = nullptr, bool * is_return_arg_p = nullptr) const;
       bool              is_previous_variable(const ASymbol & var_name) const;
       bool              is_variable(const ASymbol & var_name) const;
+      bool              is_captured_variable(const ASymbol & var_name) const;
 
   protected:
 
@@ -214,7 +212,3 @@ struct SK_API SkTypeContext
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkTypedContext.inl>
 #endif
-
-
-#endif  // __SKTYPEDCONTEXT_HPP
-

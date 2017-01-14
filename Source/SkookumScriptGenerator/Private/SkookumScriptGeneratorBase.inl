@@ -78,6 +78,7 @@ const FString FSkookumScriptGeneratorBase::ms_reserved_keywords[] =
 
 const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_function_category(TEXT("Category"));
 const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_blueprint_type(TEXT("BlueprintType"));
+const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_display_name(TEXT("DisplayName"));
 const FString       FSkookumScriptGeneratorBase::ms_asset_name_key(TEXT("// UE4 Asset Name: "));
 const FString       FSkookumScriptGeneratorBase::ms_package_name_key(TEXT("// UE4 Package Name: \""));
 const FString       FSkookumScriptGeneratorBase::ms_package_path_key(TEXT("// UE4 Package Path: \""));
@@ -108,7 +109,7 @@ FString FSkookumScriptGeneratorBase::get_or_create_project_file(const FString & 
       // $Revisit MBreyer - read ini file from default_project_path and patch it up to carry over customizations
       FString proj_ini = FString::Printf(TEXT("[Project]\r\nProjectName=%s\r\nStrictParse=true\r\nUseBuiltinActor=false\r\nCustomActorClass=Actor\r\nStartupMind=Master\r\n%s"), project_name_p, ms_editable_ini_settings_p);
       proj_ini += TEXT("[Output]\r\nCompileManifest=false\r\nCompileTo=../Content/SkookumScript/Classes.sk-bin\r\n");
-      proj_ini += TEXT("[Script Overlays]\r\nOverlay1=*Core|Core\r\nOverlay2=-*Core-Sandbox|Core-Sandbox\r\nOverlay3=*VectorMath|VectorMath\r\nOverlay4=*Engine-Generated|Engine-Generated|1\r\nOverlay5=*Engine|Engine\r\nOverlay6=*");
+      proj_ini += TEXT("[Script Overlays]\r\nOverlay1=*Core|Core\r\nOverlay2=-*Core-Sandbox|Core-Sandbox\r\nOverlay3=*VectorMath|VectorMath\r\nOverlay4=*Engine-Generated|Engine-Generated|A\r\nOverlay5=*Engine|Engine\r\nOverlay6=*");
       proj_ini += ms_overlay_name_bp_p;
       proj_ini += TEXT("|");
       proj_ini += ms_overlay_name_bp_p;
@@ -793,6 +794,13 @@ FString FSkookumScriptGeneratorBase::get_comment_block(UField * field_p)
       (get_enum(field_p) ? TEXT("enum") :
       TEXT("field")))));
     comment_block += FString::Printf(TEXT("//\n// UE4 name of this %s: %s\n"), *this_kind, *field_p->GetName());
+
+    // Add display name of this object
+    if (field_p->HasMetaData(ms_meta_data_key_display_name))
+      {
+      FString display_name = field_p->GetMetaData(ms_meta_data_key_display_name);
+      comment_block += FString::Printf(TEXT("// Blueprint display name: %s\n"), *display_name);
+      }
 
     // Add Blueprint category
     if (field_p->HasMetaData(ms_meta_data_key_function_category))

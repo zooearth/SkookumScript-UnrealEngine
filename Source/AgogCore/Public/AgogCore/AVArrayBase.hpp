@@ -9,11 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AVARRAYBASE_HPP
-#define __AVARRAYBASE_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -922,7 +918,3 @@ void AVArrayBase<_ElementType>::copy_elems(_ElementType * dest_p, const _Element
     *dest_p = *source_p;
     }
   }
-
-#endif  // __AVARRAYBASE_HPP
-
-

@@ -9,10 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AMETHOD_HPP
-#define __AMETHOD_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -220,9 +217,3 @@ AFunctionBase * AMethod<_OwnerType>::copy_new() const
 
   return func_p;
   } 
-
-
-#endif  // __AMETHOD_HPP
-
-
-
