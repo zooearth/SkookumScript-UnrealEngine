@@ -13,9 +13,10 @@
 // Includes
 //=======================================================================================
 
+#include "SkookumScriptBehaviorComponent.h"
+
 #include <SkookumScript/SkClassBindingBase.hpp>
 #include <SkookumScript/SkString.hpp>
-#include "SkookumScriptBehaviorComponent.h"
 
 //---------------------------------------------------------------------------------------
 
@@ -83,7 +84,7 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
     static SkInstance *   get_actor_component_instance(AActor * actor_p); // Return SkInstance of an actor's SkookumScriptClassDataComponent if present, nullptr otherwise
 
     static tSkRawDataInfo compute_raw_data_info(UProperty * ue_var_p);
-    static bool           resolve_raw_data(SkClass * class_p);
+    static bool           resolve_raw_data_static(SkClass * class_p);
     static void           resolve_raw_data(SkClass * class_p, UStruct * ue_struct_or_class_p);
     static void           resolve_raw_data_struct(SkClass * class_p, const TCHAR * ue_struct_name_p);
 
@@ -153,10 +154,9 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
   #if WITH_EDITORONLY_DATA
     static UClass *     add_dynamic_class_mapping(SkClassDescBase * sk_class_desc_p);
     static SkClass *    add_dynamic_class_mapping(UBlueprint * blueprint_p);
-  #else
+  #endif
     static UClass *     add_static_class_mapping(SkClassDescBase * sk_class_desc_p);
     static SkClass *    add_static_class_mapping(UClass * ue_class_p);
-  #endif
 
     static TMap<UClass*, SkClass*>                            ms_static_class_map_u2s; // Maps UClasses to their respective SkClasses
     static TMap<SkClassDescBase*, UClass*>                    ms_static_class_map_s2u; // Maps SkClasses to their respective UClasses
@@ -252,17 +252,6 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
           return instance_p;
           }
         }
-
-      // If we get here, there is no SkookumScriptClassDataComponent or SkookumScriptBehaviorComponent, i.e. we must not have data members
-      // So if we do anyway, we are in trouble!
-      // Recover by crawling up the class hierarchy until we find a parent class without data members
-      // This will cause a more graceful failure later on if downcasting is attempted
-      #if defined(SK_RUNTIME_RECOVER)
-        while (sk_class_p->get_total_data_count() > 0)
-          {
-          sk_class_p = sk_class_p->get_superclass();
-          }
-      #endif
 
       SkInstance * instance_p = SkInstance::new_instance(sk_class_p);
       static_cast<tBindingBase *>(instance_p)->construct(obj_p);
@@ -452,10 +441,10 @@ inline SkClass * SkUEClassBindingHelper::get_sk_class_from_ue_class(UClass * ue_
     sk_class_pp = ms_dynamic_class_map_u2s.Find(blueprint_p);
     if (sk_class_pp) return *sk_class_pp;
     // (Yet) unknown, try to look it up by name and add to map
-    return add_dynamic_class_mapping(blueprint_p);
-  #else
-    return add_static_class_mapping(ue_class_p);
+    SkClass * sk_class_p = add_dynamic_class_mapping(blueprint_p);
+    if (sk_class_p) return sk_class_p;
   #endif
+  return add_static_class_mapping(ue_class_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -463,7 +452,8 @@ inline SkClass * SkUEClassBindingHelper::get_sk_class_from_ue_class(UClass * ue_
 inline UClass * SkUEClassBindingHelper::get_static_ue_class_from_sk_class(SkClassDescBase * sk_class_p)
   {
   UClass ** ue_class_pp = ms_static_class_map_s2u.Find(sk_class_p);
-  return ue_class_pp ? *ue_class_pp : nullptr;
+  if (ue_class_pp) return *ue_class_pp;
+  return add_static_class_mapping(sk_class_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -519,13 +509,13 @@ inline UClass * SkUEClassBindingHelper::get_ue_class_from_sk_class(SkClassDescBa
     if (blueprint_pp)
       {
       UBlueprint * blueprint_p = blueprint_pp->Get();
-      if (blueprint_p) return blueprint_p->GeneratedClass;
+      if (blueprint_p) return blueprint_p->GeneratedClass; // Note: GeneratedClass might be null here
       }
     // (Yet) unknown (or blueprint was rebuilt/reloaded), try to look it up by name and add to map
-    return add_dynamic_class_mapping(sk_class_p);
-  #else
-    return add_static_class_mapping(sk_class_p);
+    UClass * ue_class_p = add_dynamic_class_mapping(sk_class_p);
+    if (ue_class_p) return ue_class_p;
   #endif
+  return add_static_class_mapping(sk_class_p);
   }
 
 //---------------------------------------------------------------------------------------

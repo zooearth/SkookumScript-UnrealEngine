@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKLITERALCLOSURE_HPP
-#define __SKLITERALCLOSURE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -287,6 +284,4 @@ class SK_API SkLiteralClosure : public SkExpressionBase
 // Inline Methods
 //=======================================================================================
 
-
-#endif  // __SKLITERALCLOSURE_HPP
 

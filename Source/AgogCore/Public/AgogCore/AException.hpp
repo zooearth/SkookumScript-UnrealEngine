@@ -10,10 +10,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AEXCEPTION_HPP
-#define __AEXCEPTION_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -150,8 +147,3 @@ inline AEx<_ExClass>::AEx(const AEx<_ExClass> & source) :
   AException(source)
   {
   }
-
-
-#endif // __AEXCEPTION_HPP
-
-

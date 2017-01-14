@@ -102,7 +102,7 @@ A_INLINE const SkCoroutineBase & SkInvokedCoroutine::get_coroutine() const
 // #Modifiers static
 // #See Also  pool_delete(), alternate pool_new()
 // #Author(s) Conan Reis
-A_INLINE SkInvokedCoroutine * SkInvokedCoroutine::pool_new(SkCoroutineBase * coroutine_p)
+A_INLINE SkInvokedCoroutine * SkInvokedCoroutine::pool_new(const SkCoroutineBase * coroutine_p)
   {
   SkInvokedCoroutine * icoroutine_p = get_pool().allocate();
 

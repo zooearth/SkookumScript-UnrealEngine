@@ -536,7 +536,7 @@ A_INLINE const ASymbol & SkClass::get_key_class_name() const
 // #Author(s) Conan Reis
 A_INLINE SkClassDescBase * SkClass::get_item_type() const
   {
-  return (this == SkBrain::ms_list_class_p)
+  return is_class(*SkBrain::ms_list_class_p)
     ? SkBrain::ms_object_class_p
     : nullptr;
   }

@@ -9,10 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AMETHODARG_HPP
-#define __AMETHODARG_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -432,9 +429,3 @@ AFunctionArgRtnBase<_ArgType, _ReturnType> * AMethodArgRtn<_OwnerType, _ArgType,
 
   return method_p;
   } 
-
-
-#endif  // __AMETHODARG_HPP
-
-
-

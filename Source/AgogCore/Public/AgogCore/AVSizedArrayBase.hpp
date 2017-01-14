@@ -9,11 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AVSIZEDARRAYBASE_HPP
-#define __AVSIZEDARRAYBASE_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -960,8 +956,3 @@ inline AVSizedArrayBase<_ElementType>::AVSizedArrayBase(AVSizedArrayBase * array
   array_p->m_size = 0u;
   array_p->m_array_p = nullptr;
   }
-
-
-#endif  // __AVSIZEDARRAYBASE_HPP
-
-

@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKNAMED_HPP
-#define __SKNAMED_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -21,7 +18,7 @@
 #include <AgogCore/AIdPtr.hpp>
 #include <AgogCore/ABinaryParse.hpp>
 #include <AgogCore/AVCompactSorted.hpp>
-#include <SkookumScript/SkookumScript.hpp>
+#include <SkookumScript/Sk.hpp>
 
 //=======================================================================================
 // Global Structures
@@ -243,7 +240,3 @@ inline void SkNamedIndexed::assign_binary(const void ** binary_pp)
   }
 
 #endif // (SKOOKUM & SK_COMPILED_IN)
-
-
-#endif  // __SKNAMED_HPP
-

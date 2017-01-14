@@ -39,7 +39,7 @@ Defines:
     8  - [SK_COMPILED_IN]  Include ability to read in SkookumScript compiled binary code and convert it to internal data structures.
     16 - [SK_COMPILED_OUT] Include ability to generate SkookumScript compiled binary code from internal data structures.
 
-  The SS_* flags are defined in SkookumScript.hpp
+  The SS_* flags are defined in Sk.hpp
 
   Here are some common configuration values for the SKOOKUM define:
 

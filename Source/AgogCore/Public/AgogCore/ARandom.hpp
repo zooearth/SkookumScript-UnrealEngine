@@ -9,10 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __ARANDOM_HPP
-#define __ARANDOM_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -149,9 +146,3 @@ class A_API ARandom
 #ifndef A_INL_IN_CPP
   #include <AgogCore/ARandom.inl>
 #endif
-
-
-#endif  // __ARANDOM_HPP
-
-
-

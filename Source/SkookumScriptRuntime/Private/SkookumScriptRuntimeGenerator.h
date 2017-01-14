@@ -48,8 +48,8 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
                   FSkookumScriptRuntimeGenerator(ISkookumScriptRuntimeInterface * runtime_interface_p);
                   ~FSkookumScriptRuntimeGenerator();
 
-    FString       get_project_path();
-    FString       get_default_project_path();
+    FString       get_project_file_path();
+    FString       get_default_project_file_path();
     int32         get_overlay_path_depth() const;
     void          generate_all_class_script_files();
     FString       make_project_editable();
@@ -70,6 +70,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
   protected:
 
     void          initialize_paths();
+    void          set_overlay_path();
 
     // Types
 
@@ -79,8 +80,8 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
 
     ISkookumScriptRuntimeInterface * m_runtime_interface_p;
 
-    FString       m_project_path;
-    FString       m_default_project_path;
+    FString       m_project_file_path;
+    FString       m_default_project_file_path;
 
     FString       m_package_name_key;
     FString       m_package_path_key;

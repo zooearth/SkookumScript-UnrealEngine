@@ -8,11 +8,7 @@
 // Notes:          See the AList class comments for more information.
 //=======================================================================================
 
-
-#ifndef __ALIST_HPP
-#define __ALIST_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -1397,8 +1393,3 @@ inline void AListNode<_ElementType, _NodeIdType>::remove()
 
   m_next_p = m_prev_p = this;
   }
-
-
-#endif  // __ALIST_HPP
-
-

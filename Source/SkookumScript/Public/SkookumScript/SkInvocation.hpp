@@ -9,10 +9,7 @@
 // Author(s):   Conan Reis
 //=======================================================================================
 
-
-#ifndef __SKINVOCATION_HPP
-#define __SKINVOCATION_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -544,7 +541,4 @@ class SK_API SkCopyInvoke : public SkExpressionBase
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkInvocation.inl>
 #endif
-
-
-#endif  // __SKINVOCATION_HPP
 

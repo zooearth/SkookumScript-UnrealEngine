@@ -8,17 +8,14 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKCLASSDESCBASE_HPP
-#define __SKCLASSDESCBASE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
 //=======================================================================================
 
 #include <AgogCore/AMemory.hpp>
-#include <SkookumScript/SkookumScript.hpp>
+#include <SkookumScript/Sk.hpp>
 
 
 //=======================================================================================
@@ -240,7 +237,3 @@ class SK_API SkClassUnaryBase : public SkClassDescBase
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkClassDescBase.inl>
 #endif
-
-
-#endif  // __SKCLASSDESCBASE_HPP
-

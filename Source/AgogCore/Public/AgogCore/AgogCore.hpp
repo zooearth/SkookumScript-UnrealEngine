@@ -11,10 +11,7 @@
 //              IMPORTANT:  Aspects of this file may be platform specific
 //=======================================================================================
 
-#ifndef __AGOGCORE_HPP
-#define __AGOGCORE_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes  (Additional include bottom of file)
@@ -40,7 +37,7 @@
 // Global Macros / Defines
 //=======================================================================================
 
-#define A_COPYRIGHT_TEXT  "Copyright (c) 2001-2016 Agog Labs Inc."
+#define A_COPYRIGHT_TEXT  "Copyright (c) 2001-2017 Agog Labs Inc."
 
 //---------------------------------------------------------------------------------------
 // DLL API
@@ -162,6 +159,7 @@
     // DLL linkage specification
     #define A_DLLIMPORT __declspec(dllimport)
     #define A_DLLEXPORT __declspec(dllexport)
+    #define A_FORCEINLINE __forceinline
 
   #endif  // _MSC_VER
 
@@ -193,6 +191,7 @@
   // DLL linkage specification
   #define A_DLLIMPORT
   #define A_DLLEXPORT
+  #define A_FORCEINLINE inline
 
 #endif
 
@@ -223,6 +222,7 @@
   // DLL linkage specification
   #define A_DLLIMPORT
   #define A_DLLEXPORT
+  #define A_FORCEINLINE inline
 
 #endif
 
@@ -252,6 +252,7 @@
   // DLL linkage specification
   #define A_DLLIMPORT
   #define A_DLLEXPORT
+  #define A_FORCEINLINE __forceinline
 
 #endif
 
@@ -272,6 +273,7 @@
   // DLL linkage specification
   #define A_DLLIMPORT
   #define A_DLLEXPORT
+  #define A_FORCEINLINE __forceinline
 
 #endif
 
@@ -312,6 +314,7 @@
   // DLL linkage specification
   #define A_DLLIMPORT
   #define A_DLLEXPORT
+  #define A_FORCEINLINE inline __attribute__ ((always_inline))
 
 #endif
 
@@ -351,6 +354,7 @@
   // DLL linkage specification
   #define A_DLLIMPORT
   #define A_DLLEXPORT
+  #define A_FORCEINLINE inline __attribute__ ((always_inline))
 
 #endif
 
@@ -385,6 +389,7 @@
   // DLL linkage specification
   #define A_DLLIMPORT
   #define A_DLLEXPORT
+  #define A_FORCEINLINE inline __attribute__ ((always_inline))
 
 #endif
 
@@ -420,6 +425,7 @@
   // DLL linkage specification
   #define A_DLLEXPORT __attribute__((visibility("default")))
   #define A_DLLIMPORT __attribute__((visibility("default")))
+  #define A_FORCEINLINE inline __attribute__ ((always_inline))
 
 #endif
 
@@ -461,6 +467,7 @@
   // DLL linkage specification
   #define A_DLLEXPORT __attribute__((visibility("default")))
   #define A_DLLIMPORT __attribute__((visibility("default")))
+  #define A_FORCEINLINE inline __attribute__ ((always_inline))
 
 #endif
 
@@ -479,6 +486,7 @@
   // DLL linkage specification
   #define A_DLLIMPORT
   #define A_DLLEXPORT
+  #define A_FORCEINLINE inline
 
 #endif
 
@@ -982,13 +990,23 @@ inline void * operator new[](size_t size, const char * desc_cstr_p)
 //---------------------------------------------------------------------------------------
 inline void operator delete(void * buffer_p, const char * desc_cstr_p)
   {
-  AgogCore::get_app_info()->free(buffer_p);
+  AAppInfoCore * app_info_p = AgogCore::get_app_info();
+  // To minimize users' inconvenience, we allow memory to leak unless A_FUSSY_CHECK is set (see AgogCore::get_app_info())
+  if (app_info_p)
+    {
+    app_info_p->free(buffer_p);
+    }
   }
 
 //---------------------------------------------------------------------------------------
 inline void operator delete[](void * buffer_p, const char * desc_cstr_p)
   {
-  AgogCore::get_app_info()->free(buffer_p);
+  AAppInfoCore * app_info_p = AgogCore::get_app_info();
+  // To minimize users' inconvenience, we allow memory to leak unless A_FUSSY_CHECK is set (see AgogCore::get_app_info())
+  if (app_info_p)
+    {
+    app_info_p->free(buffer_p);
+    }
   }
 
 // Define placement new
@@ -1040,7 +1058,4 @@ inline void operator delete(void *, void *)
 //=======================================================================================
 
 #include <AgogCore/ADebug.hpp>  // For all debugging related stuff.
-
-#endif  // __AGOGCORE_HPP
-
 

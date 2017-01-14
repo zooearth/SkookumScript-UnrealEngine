@@ -13,6 +13,24 @@
 // Includes
 //=======================================================================================
 
+#include "../SkookumScriptRuntimePrivatePCH.h"
+
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/Class.h"
+
+#include <AgogCore/AFunctionArg.hpp>
+#include <AgogCore/APArray.hpp>
+#include <AgogCore/ASymbol.hpp>
+#include <SkookumScript/SkInvokableBase.hpp>
+#include <SkookumScript/SkMethod.hpp>
+#include <SkookumScript/SkParameters.hpp>
+
+class SkClass;
+class SkClassDescBase;
+class SkInstance;
+class SkInvokedMethod;
+struct FFrame;
+
 typedef AFunctionArgBase<UClass *> tSkUEOnClassUpdatedFunc;
 
 //---------------------------------------------------------------------------------------
@@ -26,9 +44,9 @@ class SkUEBlueprintInterface
     static SkUEBlueprintInterface * get() { return ms_singleton_p; }
 
     void      clear();
-    UClass *  reexpose_class(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f);
-    void      reexpose_class_recursively(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f);
-    void      reexpose_all(tSkUEOnClassUpdatedFunc * on_class_updated_f); // Gather methods from SkookumScript
+    UClass *  reexpose_class(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final);
+    void      reexpose_class_recursively(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final);
+    void      reexpose_all(tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final); // Gather methods from SkookumScript
 
     bool      is_skookum_blueprint_function(UFunction * function_p) const;
     bool      is_skookum_blueprint_event(UFunction * function_p) const;
@@ -146,15 +164,15 @@ class SkUEBlueprintInterface
 
     static void         mthd_trigger_event(SkInvokedMethod * scope_p, SkInstance ** result_pp);
 
-    void                reexpose_class(SkClass * sk_class_p, UClass * ue_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f);
+    bool                reexpose_class(SkClass * sk_class_p, UClass * ue_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final);
     bool                try_update_binding_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, int32_t * out_binding_index_p);
-    int32_t             try_add_binding_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p);
-    int32_t             add_function_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p);
-    int32_t             add_event_entry(UClass * ue_class_p, SkMethodBase * sk_method_p);
+    int32_t             try_add_binding_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, bool is_final);
+    int32_t             add_function_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, bool is_final);
+    int32_t             add_event_entry(UClass * ue_class_p, SkMethodBase * sk_method_p, bool is_final);
     int32_t             store_binding_entry(BindingEntry * binding_entry_p, int32_t binding_index_to_use);
     void                delete_binding_entry(uint32_t binding_index);
-    UFunction *         build_ue_function(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, eBindingType binding_type, ParamInfo * out_param_info_array_p);
-    UProperty *         build_ue_param(UFunction * ue_function_p, SkClassDescBase * sk_parameter_class_p, const FName & param_name, ParamInfo * out_param_info_p);
+    UFunction *         build_ue_function(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, eBindingType binding_type, ParamInfo * out_param_info_array_p, bool is_final);
+    UProperty *         build_ue_param(UFunction * ue_function_p, SkClassDescBase * sk_parameter_class_p, const FName & param_name, ParamInfo * out_param_info_p, bool is_final);
     void                bind_event_method(SkMethodBase * sk_method_p);
     
     template<class _TypedName>

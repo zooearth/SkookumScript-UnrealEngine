@@ -9,10 +9,7 @@
 // Author(s):  Conan Reis
 //=======================================================================================
 
-
-#ifndef __ADATUM_HPP
-#define __ADATUM_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -136,8 +133,3 @@ class A_API ADatum
 #ifndef A_INL_IN_CPP
   #include <AgogCore/ADatum.inl>
 #endif
-
-
-#endif  // __ADATUM_HPP
-
-

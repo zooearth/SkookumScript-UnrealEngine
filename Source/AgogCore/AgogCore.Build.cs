@@ -10,12 +10,30 @@ public class AgogCore : ModuleRules
   public AgogCore(TargetInfo Target)
   {
     // Check if Sk source code is present (Pro-RT license) 
-    var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "..", "SkookumScript", "Private", "SkookumScript", "SkookumScript.cpp"));
+    var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "..", "SkookumScript", "Private", "SkookumScript", "Sk.cpp"));
     // Allow packaging script to force a lib build by creating a temp file (Agog Labs internal)
     bFullSource = bFullSource && !File.Exists(Path.Combine(ModuleDirectory, "..", "SkookumScript", "force-lib-build.txt"));
 
     // If full source is present, build module from source, otherwise link with binary library
     Type = bFullSource ? ModuleType.CPlusPlus : ModuleType.External;
+
+    // Enable fussy level of checking (Agog Labs internal)
+    var bMadCheck = File.Exists(Path.Combine(ModuleDirectory, "enable-mad-check.txt"));
+    if (bMadCheck)
+    {
+      Definitions.Add("A_MAD_CHECK");
+    }
+
+    // Add user define if exists (Agog Labs internal)
+    var userDefineFilePath = Path.Combine(ModuleDirectory, "mad-define.txt");
+    if (File.Exists(userDefineFilePath))
+    {
+      var userDefine = File.ReadAllText(userDefineFilePath).Trim();
+      if (userDefine.Length > 0)
+      {
+        Definitions.Add(userDefine);
+      }
+    }
 
     var bPlatformAllowed = false;
 
@@ -36,7 +54,6 @@ public class AgogCore : ModuleRules
         platPathSuffixes.Add(Path.Combine(platformName, WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 ? "VS2015" : "VS2013"));
         libNameExt = ".lib";
         libNamePrefix = "";
-        Definitions.Add("WIN32_LEAN_AND_MEAN");
         break;
       case UnrealTargetPlatform.Mac:
         bPlatformAllowed = true;
