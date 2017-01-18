@@ -8,6 +8,7 @@
 #pragma once
 
 #include "Commands.h"
+#include "EditorStyleSet.h"
 
 class FSkookumScriptEditorCommands : public TCommands<FSkookumScriptEditorCommands>
   {

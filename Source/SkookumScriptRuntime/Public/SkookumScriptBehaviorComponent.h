@@ -32,7 +32,7 @@
 
 //---------------------------------------------------------------------------------------
 // Allows you to create a custom SkookumScript component by deriving from the SkookumScriptBehaviorComponent class. Dynamically attach and detach to/from any actor as you like via script.
-UCLASS(classGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent))
+UCLASS(ClassGroup=Scripting, editinlinenew, BlueprintType, meta=(BlueprintSpawnableComponent), hideCategories=(Object, ActorComponent))
 class SKOOKUMSCRIPTRUNTIME_API USkookumScriptBehaviorComponent : public UActorComponent
   {
 
