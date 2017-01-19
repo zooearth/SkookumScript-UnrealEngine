@@ -16,9 +16,11 @@
 #include "SkookumScriptBehaviorComponent.h"
 
 #include "Engine/Blueprint.h"
+#include "GameFramework/Actor.h"
 
 #include <SkookumScript/SkClassBindingBase.hpp>
 #include <SkookumScript/SkString.hpp>
+#include <SkookumScript/SkList.hpp>
 
 //---------------------------------------------------------------------------------------
 
