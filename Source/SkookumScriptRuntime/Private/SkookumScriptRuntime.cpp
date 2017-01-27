@@ -691,12 +691,12 @@ void FSkookumScriptRuntime::set_project_generated_bindings(SkUEBindingsInterface
       // No, this is the first time bindings are set
       ensure_runtime_initialized();
       }
-    }
 
-  // Make sure the SkookumScriptEditor module is loaded at this point as it might need to update blueprint classes and recompile blueprints with errors
-  #if WITH_EDITORONLY_DATA
-    FModuleManager::Get().LoadModuleChecked<IModuleInterface>("SkookumScriptEditor");
-  #endif
+    // Make sure the SkookumScriptEditor module is loaded at this point as it might need to update blueprint classes and recompile blueprints with errors
+    #if WITH_EDITORONLY_DATA
+      FModuleManager::Get().LoadModuleChecked<IModuleInterface>("SkookumScriptEditor");
+    #endif
+    }
 
   // Now that binaries are loaded, point to the bindings to use
   m_runtime.set_project_generated_bindings(project_generated_bindings_p);
