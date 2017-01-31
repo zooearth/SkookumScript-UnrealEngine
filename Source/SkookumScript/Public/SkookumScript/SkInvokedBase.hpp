@@ -39,7 +39,6 @@ enum eSkMember;
 
 class SkInvokedCoroutine;  // For circular reference
 
-
 // Used when specifying an argument by index - a simple integer could be used, but these
 // give a bit more context
 enum eSkArgNum
@@ -138,8 +137,6 @@ class SK_API SkInvokedBase :
       virtual SkExpressionBase * get_caller_expr() const = 0;
       virtual SkDebugInfo        get_debug_info() const = 0;
       virtual bool               is_in_use() const        { return is_valid_id(); }
-
-      AString list_callstack_debug(uint32_t stack_flags = SkInvokeInfo__callstack_def) const;
 
     #endif
 
@@ -295,7 +292,6 @@ class SK_API SkInvokedContextBase : public SkInvokedBase
 
 
   // Common Methods
-
     
     SkInvokedContextBase(SkInvokedBase * caller_p = nullptr, SkObjectBase * scope_p = nullptr) : SkInvokedBase(caller_p, scope_p) {}
     ~SkInvokedContextBase();

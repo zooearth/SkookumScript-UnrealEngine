@@ -7,7 +7,7 @@ namespace UnrealBuildTool.Rules
     public SkookumScriptEditorGUI(TargetInfo Target)
     {
       // NOTE: SkookumScriptEditorGUI does not use the AgogCore or SkookumScript libraries
-      
+
       PublicIncludePaths.AddRange(
         new string[] {					
           //"Programs/UnrealHeaderTool/Public",
