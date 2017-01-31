@@ -3,7 +3,7 @@
   
   "FriendlyName" : "SkookumScript",
   "Version" : 1,
-  "VersionName" : "3.0.3838",
+  "VersionName" : "3.0.3916",
   "CreatedBy" : "Agog Labs Inc.",
   "CreatedByURL" : "http://SkookumScript.com",
   "DocsURL" : "http://skookumscript.com/docs/integrations/ue4plugin/",
@@ -11,7 +11,6 @@
   "Description" : "The powerful text-based gameplay scripting language with full IDE. Use as a turbo-charged command console on *any* project, or author your entire gameplay!",
   "Category" : "Scripting",
   "EnabledByDefault" : true,
-  "MarketplaceURL" : "com.epicgames.launcher://ue/marketplace/content/38694f554c2c4b9f84c585256d509481",
   "CanContainContent" : false,
   "IsBetaVersion" : true,
   "Installed" : true,
@@ -27,6 +26,18 @@
       "Name": "SkookumScriptRuntime",
       "Type": "Runtime",
       "LoadingPhase": "PreLoadingScreen",
+      "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "IOS", "TVOS" ]
+    },
+    {
+      "Name": "AgogCore",
+      "Type": "Runtime",
+      "LoadingPhase": "None",
+      "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "IOS", "TVOS" ]
+    },
+    {
+      "Name": "SkookumScript",
+      "Type": "Runtime",
+      "LoadingPhase": "None",
       "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "IOS", "TVOS" ]
     },
     {

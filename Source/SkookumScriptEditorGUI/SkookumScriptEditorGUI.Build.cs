@@ -7,7 +7,10 @@ namespace UnrealBuildTool.Rules
     public SkookumScriptEditorGUI(TargetInfo Target)
     {
       // NOTE: SkookumScriptEditorGUI does not use the AgogCore or SkookumScript libraries
-      
+
+      // Tell build system we're not using PCHs
+      PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+
       PublicIncludePaths.AddRange(
         new string[] {					
           //"Programs/UnrealHeaderTool/Public",

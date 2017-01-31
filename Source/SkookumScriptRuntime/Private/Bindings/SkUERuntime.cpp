@@ -126,6 +126,7 @@ void SkUERuntime::startup()
 
   SkBrain::register_bind_atomics_func(SkRuntimeBase::bind_routines);
   SkClass::register_raw_resolve_func(SkUEClassBindingHelper::resolve_raw_data_static);
+  SkookumScript::register_on_initialization_level_changed_func(SkRuntimeBase::initialization_level_changed);
 
   m_is_initialized = true;
   }
@@ -206,9 +207,20 @@ void SkUERuntime::on_bind_routines()
   }
 
 //---------------------------------------------------------------------------------------
-// Override to run cleanup code before SkookumScript deinitializes its session
-void SkUERuntime::on_pre_deinitialize_sim()
+
+void SkUERuntime::on_initialization_level_changed(SkookumScript::eInitializationLevel from_level, SkookumScript::eInitializationLevel to_level)
   {
+  // Invalidate all invokable pointers if a program was just deleted
+  if (from_level == SkookumScript::InitializationLevel_program && to_level < from_level)
+    {
+    m_blueprint_interface.clear_all_sk_invokables();
+    }
+  
+  // Re-resolve invokable pointers if a program has just been loaded
+  if (to_level == SkookumScript::InitializationLevel_program && from_level < to_level)
+    {
+    m_blueprint_interface.rebind_all_sk_invokables();
+    }
   }
 
 //---------------------------------------------------------------------------------------

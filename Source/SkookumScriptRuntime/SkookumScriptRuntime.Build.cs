@@ -15,6 +15,9 @@ namespace UnrealBuildTool.Rules
       // Set to true when actively working on this plugin, false otherwise
       bFasterWithoutUnity = false;
 
+      // Tell build system we're not using PCHs
+      PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+
       // Add public include paths required here ...
       PublicIncludePaths.Add("SkookumScriptRuntime/Public/Bindings");
       //PublicIncludePaths.AddRange(
@@ -68,8 +71,9 @@ namespace UnrealBuildTool.Rules
       string iniFilePath = Path.Combine(PluginOrProjectRootDirectory, "Config/SkookumScript.ini");
       if (File.Exists(iniFilePath))
       {
-        ConfigCacheIni ini = new ConfigCacheIni(new FileReference(iniFilePath));
-        ini.GetArray("CommonSettings", "ScriptSupportedModules", out moduleList);
+        ConfigFile iniFile = new ConfigFile(new FileReference(iniFilePath), ConfigLineAction.Add);
+        var skookumConfig = new ConfigHierarchy(new ConfigFile[] { iniFile });
+        skookumConfig.GetArray("CommonSettings", "ScriptSupportedModules", out moduleList);
       }
 
       // Add additional modules needed for SkookumScript to function

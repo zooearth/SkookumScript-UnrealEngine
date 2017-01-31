@@ -31,7 +31,7 @@ namespace SkUEActor_Impl
   static UClass * get_actor_array(TArray<UObject*> * object_array_p, SkClass * class_p)
     {
     UClass * uclass_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(class_p);
-    SK_ASSERTX(uclass_p, a_cstr_format("Class '%s' not found. All actor classes must be present.", class_p->get_name_cstr_dbg()));
+    SK_ASSERTX(uclass_p, a_cstr_format("Class '%s' not found. All actor classes must be present. Maybe it is the class of a Blueprint that is not loaded yet?", class_p->get_name_cstr_dbg()));
     if (uclass_p)
       {
       object_array_p->Reserve(1024);

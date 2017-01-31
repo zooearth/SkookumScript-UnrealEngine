@@ -40,6 +40,7 @@ namespace SkUEEntity_Impl
     SkInstance * receiver_p = static_cast<SkInstance *>(scope_p->m_scope_p.get_obj());
 
     UClass * ue_class_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(receiver_p->get_class());
+    SK_ASSERTX(ue_class_p, a_cstr_format("The UE4 equivalent of class type '%s' is not known to SkookumScript. Maybe it is the class of a Blueprint that is not loaded yet?", receiver_p->get_class()->get_name_cstr_dbg()));
     scope_p->get_this()->construct<SkUEEntity>(NewObject<UObject>(outer_p, ue_class_p, name, EObjectFlags(flags)));
     }
 
@@ -163,7 +164,7 @@ namespace SkUEEntity_Impl
       // Determine class
       SkClass * class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
       UClass * uclass_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(class_p);
-      SK_ASSERTX(uclass_p, a_cstr_format("The UE4 equivalent of class type '%s' is not known to SkookumScript.", class_p->get_name_cstr_dbg()));
+      SK_ASSERTX(uclass_p, a_cstr_format("The UE4 equivalent of class type '%s' is not known to SkookumScript. Maybe it is the class of a Blueprint that is not loaded yet?", class_p->get_name_cstr_dbg()));
       *result_pp = uclass_p ? SkUEEntityClass::new_instance(uclass_p) : SkBrain::ms_nil_p;
       }
     }
@@ -177,7 +178,7 @@ namespace SkUEEntity_Impl
       // Determine class of object to load
       SkClass * class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
       UClass * uclass_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(class_p);
-      SK_ASSERTX(uclass_p, a_cstr_format("Cannot load entity '%s' as the UE4 equivalent of class type '%s' is not known to SkookumScript.", scope_p->get_arg<SkString>(SkArg_1).as_cstr(), class_p->get_name_cstr_dbg()));
+      SK_ASSERTX(uclass_p, a_cstr_format("Cannot load entity '%s' as the UE4 equivalent of class type '%s' is not known to SkookumScript. Maybe it is the class of a Blueprint that is not loaded yet?", scope_p->get_arg<SkString>(SkArg_1).as_cstr(), class_p->get_name_cstr_dbg()));
 
       // Load object
       UObject * obj_p = nullptr;
@@ -199,7 +200,7 @@ namespace SkUEEntity_Impl
       // Determine class of object to get
       SkClass * class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
       UClass * uclass_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(class_p);
-      SK_ASSERTX(uclass_p, a_cstr_format("Cannot get default instance of class '%s' as the UE4 equivalent of this class is not known to SkookumScript.", class_p->get_name_cstr_dbg()));
+      SK_ASSERTX(uclass_p, a_cstr_format("Cannot get default instance of class '%s' as the UE4 equivalent of this class is not known to SkookumScript. Maybe it is the class of a Blueprint that is not loaded yet?", class_p->get_name_cstr_dbg()));
 
       // Get default object
       UObject * obj_p = nullptr;
