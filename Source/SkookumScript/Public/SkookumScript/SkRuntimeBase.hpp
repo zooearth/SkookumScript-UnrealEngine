@@ -95,7 +95,7 @@ class SK_API SkRuntimeBase
       virtual void  load_compiled_class_group(SkClass * class_p);
       void          load_compiled_class_group_all();
       virtual void  on_bind_routines();
-      virtual void  on_pre_deinitialize_sim();
+      virtual void  on_initialization_level_changed(SkookumScript::eInitializationLevel from_level, SkookumScript::eInitializationLevel to_level);
 
     // Flow Methods
 
@@ -111,4 +111,5 @@ class SK_API SkRuntimeBase
     // Internal class methods
 
       static void bind_routines();
+      static void initialization_level_changed(SkookumScript::eInitializationLevel from_level, SkookumScript::eInitializationLevel to_level);
   };

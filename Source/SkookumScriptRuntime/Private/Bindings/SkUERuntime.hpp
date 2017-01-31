@@ -76,7 +76,7 @@ class SkUERuntime : public SkRuntimeBase
       // Flow Methods
 
         virtual void on_bind_routines() override;
-        virtual void on_pre_deinitialize_sim() override;
+        virtual void on_initialization_level_changed(SkookumScript::eInitializationLevel from_level, SkookumScript::eInitializationLevel to_level);
 
       // Accessors
 

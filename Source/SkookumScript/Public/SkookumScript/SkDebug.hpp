@@ -646,11 +646,62 @@ typedef APSortedLogical<SkBreakPoint, SkMemberExpression> tSkBreakPoints;
 
 #endif  // (SKOOKUM & SK_DEBUG)
 
+//---------------------------------------------------------------------------------------
+// Stores a SkookumScript callstack for printing and debugging
+struct SkCallStack
+  {
+
+  SkCallStack() {}
+
+  // Conversion Methods
+
+  #if (SKOOKUM & SK_DEBUG)
+
+  #if (SKOOKUM & SK_COMPILED_IN)
+          SkCallStack(const void ** binary_pp) { assign_binary(binary_pp); }
+    void  assign_binary(const void ** binary_pp);
+  #endif
+
+  #if (SKOOKUM & SK_COMPILED_OUT)
+    void     as_binary(void ** binary_pp) const;
+    uint32_t as_binary_length() const;  
+  #endif
+
+  #endif
+
+  // Data
+
+  struct Entry
+    {
+    Entry(const AString & invoke_string, uint32_t source_idx) : m_invoke_string(invoke_string), m_source_idx(source_idx) {}
+
+    #if (SKOOKUM & SK_DEBUG)
+
+    #if (SKOOKUM & SK_COMPILED_IN)             
+               Entry(const void ** binary_pp) { assign_binary(binary_pp); }
+      void     assign_binary(const void ** binary_pp);
+    #endif
+
+    #if (SKOOKUM & SK_COMPILED_OUT)
+      void     as_binary(void ** binary_pp) const;
+      uint32_t as_binary_length() const;
+    #endif
+
+    #endif
+
+    AString   m_invoke_string;
+    uint32_t  m_source_idx;
+    };
+
+  // The stack of callers ordered from inner to outer
+  APArrayFree<Entry>  m_stack;
+  };
+
+//---------------------------------------------------------------------------------------
 
 typedef void (* tSkMethodHook)(SkInvokedMethod * imethod_p);
 typedef void (* tSkCoroutineHook)(SkInvokedCoroutine * icoro_p);
 typedef void (* tSkScriptSystemHook)(const ASymbol & origin_id);
-
 
 //---------------------------------------------------------------------------------------
 // Notes      SkookumScript Debug
@@ -881,11 +932,11 @@ class SK_API SkDebug
 
     // Debug Output
 
-      static void    info();
-      static void    callstack(SkInvokedBase * invoked_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
-      static void    callstack_string(AString * str_p, SkInvokedBase * invoked_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
-      static AString context_string(const AString & description, SkObjectBase * call_scope_p, SkObjectBase * alt_scope_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
-      static void    locals_string(AString * str_p, SkInvokedBase * caller_p, SkInvokedBase * invoked_p = nullptr, uint32_t flags = SkInvokeInfo__locals_def);
+      static void    print_info();
+      static void    print_callstack(SkInvokedBase * invoked_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
+      static void    append_callstack_string(AString * str_p, SkInvokedBase * invoked_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
+      static void    append_locals_string(AString * str_p, SkInvokedBase * caller_p, SkInvokedBase * invoked_p = nullptr, uint32_t flags = SkInvokeInfo__locals_def);
+      static AString get_context_string(const AString & description, SkObjectBase * call_scope_p, SkObjectBase * alt_scope_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
       static void    print(const AString & str, eSkLocale locale = SkLocale_all, uint32_t type = SkDPrintType_system);
       static bool    print_ide(const AString & str, eSkLocale locale = SkLocale_all, uint32_t type = SkDPrintType_system);
       static void    print_ide_all(const AString & str)                { print_ide(str); }
@@ -920,10 +971,13 @@ class SK_API SkDebug
       #endif
 
       #if (SKOOKUM & SK_DEBUG)
+  
         static eState               get_execution_state()                       { return ms_exec_state; }
         static SkMemberExpression & get_next_expression()                       { return ms_next_expr; }
         static SkInvokedBase *      get_next_invokable();
         static uint32_t             get_preferences()                           { return ms_pref_flags; }
+
+        static SkCallStack *        get_callstack(const SkInvokedBase * caller_p, uint32_t stack_flags = SkInvokeInfo__callstack_def);
 
         static void break_expression(SkObjectBase * scope_p, SkInvokedBase * caller_p, SkExpressionBase * expr_p);
         static void break_invokable(SkInvokedBase * invoked_p);
