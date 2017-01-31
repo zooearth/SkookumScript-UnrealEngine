@@ -327,13 +327,15 @@ class SK_API SkookumScript
     static void deinitialize_program();
     static void deinitialize();
 
-    static SkMind *             get_master_mind()                 { return ms_master_mind_p; }
-    static SkInstance *         get_master_mind_or_meta_class();
+    static void register_on_initialization_level_changed_func(void (*on_initialization_level_changed_f)(eInitializationLevel, eInitializationLevel));
 
     static eInitializationLevel get_initialization_level()        { return ms_initialization_level; }
     static void                 enable_flag(eFlag flag, bool enable_b = true);
     static bool                 is_flag_set(eFlag flag);
     static bool                 is_flags_set(uint32_t flag);
+
+    static SkMind *             get_master_mind() { return ms_master_mind_p; }
+    static SkInstance *         get_master_mind_or_meta_class();
 
     static SkProgramUpdateRecord * get_program_update_record()    { return ms_program_update_record_p; }
 
@@ -368,6 +370,8 @@ class SK_API SkookumScript
     static void pools_reserve();
     static void pools_empty();
 
+    static void set_initialization_level(eInitializationLevel new_level);
+
   // Class Data Members
 
     static SkAppInfo * ms_app_info_p;
@@ -379,6 +383,7 @@ class SK_API SkookumScript
     static eInitializationLevel ms_initialization_level;
     static uint32_t             ms_flags;
 
+    static void (* ms_on_initialization_level_changed_f)(eInitializationLevel, eInitializationLevel);
     static void (* ms_on_update_request_f)(bool update_req_b);
     static void (* ms_update_time_f)();
     static void (* ms_on_script_linear_bytes_f)(uint32_t bytes_needed);

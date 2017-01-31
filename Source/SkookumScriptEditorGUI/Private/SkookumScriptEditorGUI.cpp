@@ -7,11 +7,8 @@
 
 #include "SkookumScriptEditorGUIPrivatePCH.h"
 
-#include <ISkookumScriptEditorGUI.h>
-#include <ISkookumScriptRuntime.h>
-#include <K2Node_CallFunction.h>
-#include <K2Node_Event.h>
-
+#include "ISkookumScriptEditorGUI.h"
+#include "ISkookumScriptRuntime.h"
 
 #include "SkookumScriptEditorCommands.h"
 #include "SkookumStyles.h"
@@ -19,9 +16,12 @@
 #include "GraphEditor.h"
 #include "BlueprintEditor.h"
 #include "BlueprintEditorModule.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_Event.h"
 #include "MultiBoxExtender.h"
 #include "SlateStyleRegistry.h"
 #include "Misc/AssertionMacros.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSkookumScriptEditorGUI, Log, All);
 

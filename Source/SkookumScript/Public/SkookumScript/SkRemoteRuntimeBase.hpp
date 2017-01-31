@@ -125,7 +125,7 @@ class SK_API SkRemoteRuntimeBase : public SkRemoteBase
 
     virtual bool on_cmd_recv(eCommand cmd, const uint8_t * data_p, uint32_t data_length) override;
 
-    virtual void on_breakpoint_hit(const SkBreakPoint & bp);
+    virtual void on_breakpoint_hit(const SkBreakPoint & bp, SkObjectBase * scope_p, SkInvokedBase * caller_p);
     virtual void on_break_expression(const SkMemberExpression & expr_info);
 
     virtual void on_connect_change(eConnectState old_state) override;
