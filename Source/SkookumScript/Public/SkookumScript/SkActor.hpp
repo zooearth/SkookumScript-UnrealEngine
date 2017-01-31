@@ -9,10 +9,7 @@
 // Author(s): Conan Reis
 //=======================================================================================
 
-
-#ifndef __SKACTOR_HPP
-#define __SKACTOR_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -91,6 +88,3 @@ class SK_API SkActor :
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkActor.inl>
 #endif
-
-
-#endif  // __SKACTOR_HPP

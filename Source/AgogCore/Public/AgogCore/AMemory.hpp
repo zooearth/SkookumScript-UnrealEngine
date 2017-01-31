@@ -8,9 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AMEMORY_HPP
-#define __AMEMORY_HPP
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -207,5 +205,3 @@ inline void AMemory::delete_array(_ObjectType * array_p, size_t num_objects)
   // Release memory
   AgogCore::get_app_info()->free(array_p);
   }
-
-#endif  // __AMEMORY_HPP

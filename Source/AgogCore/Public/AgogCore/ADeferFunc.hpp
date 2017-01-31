@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __ADEFERFUNC_HPP
-#define __ADEFERFUNC_HPP
-
+#pragma once 
 
 //=======================================================================================
 // Includes
@@ -97,8 +94,3 @@ inline void ADeferFunc::post_method(
   {
   post_func_obj(new AMethod<_OwnerType>(owner_p, method_m));
   }
-
-
-#endif // __ADEFERFUNC_HPP
-
-

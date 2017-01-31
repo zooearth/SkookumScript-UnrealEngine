@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKPARAMETERS_HPP
-#define __SKPARAMETERS_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -181,7 +178,3 @@ class SK_API SkParameters : public ARefCountMix<SkParameters>
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkParameters.inl>
 #endif
-
-
-#endif  // __SKPARAMETERS_HPP
-

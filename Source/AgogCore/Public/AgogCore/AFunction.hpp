@@ -9,10 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AFUNCTION_HPP
-#define __AFUNCTION_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -46,6 +43,12 @@ class A_API AFunction : public AFunctionBase
     AFunction(const AFunction & func);
     AFunction & operator=(const AFunction & func);
     
+    // Create/allocate a lambda-based function object with no arguments
+    // Example AFunction::new_lambda([frank](){ int bob = frank; ADebug::print("Hello"); })
+    // Note that this does not actually create an AFunction object but rather an AFunctionLambda object
+    template<typename _FunctorType>
+    static AFunctionBase * new_lambda(_FunctorType&& lambda_functor);
+
     AFUNC_COPY_NEW_DEF(AFunctionBase)  // Adds copy_new()
 
   // Accessor Methods
@@ -64,6 +67,22 @@ class A_API AFunction : public AFunctionBase
 
   };  // AFunction
 
+//---------------------------------------------------------------------------------------
+// Function object based on lambda expression
+// Use AFunction::new_lambda() to create one
+template<typename _FunctorType>
+class AFunctionLambda : public AFunctionBase
+  {
+  public:
+
+    AFunctionLambda(_FunctorType && lambda_functor) : m_functor(lambda_functor) {}
+
+    virtual void invoke() override { m_functor(); }
+    virtual AFunctionBase * copy_new() const { return new AFunctionLambda(*this); }
+
+  protected:
+    _FunctorType  m_functor;
+  };
 
 //=======================================================================================
 // Inline Functions
@@ -111,6 +130,14 @@ inline AFunction & AFunction::operator=(const AFunction & func)
   return *this;
   }
 
+//---------------------------------------------------------------------------------------
+// Create/allocate a lambda-based function object with no arguments
+// Example AFunction::new_lambda([frank](){ int bob = frank; ADebug::print("Hello"); })
+template<typename _FunctorType>
+AFunctionBase * AFunction::new_lambda(_FunctorType&& lambda_functor)
+  {
+  return new AFunctionLambda<_FunctorType>((_FunctorType &&)lambda_functor);
+  }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Accessor Methods
@@ -125,8 +152,4 @@ inline void AFunction::set_function(void (*function_f)())
   {
   m_function_f = function_f;
   }
-
-
-#endif  // __AFUNCTION_HPP
-
 

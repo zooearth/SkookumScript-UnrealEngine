@@ -106,11 +106,7 @@
 //
 //=======================================================================================
 
-
-#ifndef __AINDEXPOINTER_HPP
-#define __AINDEXPOINTER_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -1054,8 +1050,4 @@ void AIdxPtrTable<_PtrType>::use_reserved(
     A_VERIFYX(obj_p == nullptr, "Tried to associate a non-nullptr object with the null index id!");
   #endif
   }
-
-
-#endif  // __AINDEXPOINTER_HPP
-
 

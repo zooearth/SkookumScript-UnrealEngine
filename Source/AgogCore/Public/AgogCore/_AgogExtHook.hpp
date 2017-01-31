@@ -9,10 +9,7 @@
 // Notes:       
 //=======================================================================================
 
-#ifndef __AGOGEXTHOOK_HPP
-#define __AGOGEXTHOOK_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -30,8 +27,3 @@
 
 // Show work-in-progress notes via  #pragma A_NOTE()
 //#define A_SHOW_NOTES
-
-
-#endif  // __AGOGEXTHOOK_HPP
-
-

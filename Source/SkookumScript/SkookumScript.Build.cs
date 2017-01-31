@@ -11,7 +11,7 @@ public class SkookumScript : ModuleRules
   public SkookumScript(TargetInfo Target)
   { 
     // Check if Sk source code is present (Pro-RT license) 
-    var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "Private", "SkookumScript", "SkookumScript.cpp"));
+    var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "Private", "SkookumScript", "Sk.cpp"));
     // Allow packaging script to force a lib build by creating a temp file (Agog Labs internal)
     bFullSource = bFullSource && !File.Exists(Path.Combine(ModuleDirectory, "force-lib-build.txt"));
 
@@ -37,7 +37,6 @@ public class SkookumScript : ModuleRules
         platPathSuffixes.Add(Path.Combine(platformName, WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 ? "VS2015" : "VS2013"));
         libNameExt = ".lib";
         libNamePrefix = "";
-        Definitions.Add("WIN32_LEAN_AND_MEAN");
         break;
       case UnrealTargetPlatform.Mac:
         bPlatformAllowed = true;

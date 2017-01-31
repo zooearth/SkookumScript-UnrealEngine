@@ -9,11 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __APARRAY_HPP
-#define __APARRAY_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -235,6 +231,27 @@ class APArrayFree : public APArray<_ElementType, _KeyType, _CompareClass>
     //explicit APArrayFree(uint32_t elem_count, ...);
 
     ~APArrayFree();
+  };
+
+//---------------------------------------------------------------------------------------
+// APArrayLogicalFree only differs from APArrayLogical in that it automatically calls
+// free_all() in its destructor.  Note that although APArrayLogicalFree is derived from
+// APArrayFree, there is no loss in efficiency.
+template<
+  class _ElementType,
+  class _KeyType = _ElementType
+>
+class APArrayLogicalFree : public APArrayFree<_ElementType, _KeyType, ACompareLogical<_KeyType>>
+  {
+  public:
+    // Local shorthand
+    typedef APArrayFree<_ElementType, _KeyType, ACompareLogical<_KeyType>>  tAPArrayFree;
+    typedef APArrayLogicalFree<_ElementType, _KeyType>                      tAPArrayLogicalFree;
+
+  // All the constructors are hidden (stupid!), so make appropriate links
+    APArrayLogicalFree() : tAPArrayFree() {}
+    APArrayLogicalFree(const APArrayLogicalFree & other) : tAPArrayFree(other) {}
+    explicit APArrayLogicalFree(const _ElementType ** elems_p, uint32_t elem_count, uint32_t buffer_size) : tAPArrayFree(elems_p, elem_count, buffer_size) {}
   };
 
 
@@ -2359,7 +2376,3 @@ inline APArrayFree<_ElementType, _KeyType, _CompareClass>::~APArrayFree()
   {
   this->free_all();
   }
-
-
-#endif  // __APARRAY_HPP
-

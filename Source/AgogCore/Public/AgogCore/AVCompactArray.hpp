@@ -9,11 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __AVCOMPACTARRAY_HPP
-#define __AVCOMPACTARRAY_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -110,7 +106,8 @@ template<
 
   // Converter Methods
 
-    explicit AVCompactArray(uint32_t elem_count, ...);
+    template<typename... _ParamClasses>
+    explicit AVCompactArray(uint32_t elem_count, const _ParamClasses & ... constructor_args);
     explicit AVCompactArray(const _ElementType * elems_p, uint32_t elem_count);
     //explicit AVCompactArray(const ADatum & datum);
     //AString   as_string() const;
@@ -119,7 +116,7 @@ template<
     
   // Accessor methods
 
-    _ElementType * & operator[](int pos);
+    _ElementType &   operator[](int pos);
     void             null(uint32_t pos = 0u);
 
     // Inherited from AVCompactArrayBase<>
@@ -411,39 +408,35 @@ AVCompactArray<_ElementType, _KeyType, _CompareClass> & AVCompactArray<_ElementT
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 //---------------------------------------------------------------------------------------
-//  Variable argument constructor.
+// Construct all elements with same arguments
 // Returns:     itself
-// Arg          elem_count - number of pointers to elements in the variable length
-//              argument list
-// Arg          ... - pointers to elements of type _ElementType
-// Examples:    AVCompactArray<SomeClass> (3, &elem1, elem2_p, get_elem_p());
+// Arg          elem_count - number of elements to create
+// Arg          constructor arguments or none
+// Examples:    AVCompactArray<SomeClass> (3);
 // See:         AVCompactArray<_ElementType>(elems_p, elem_count, buffer_size)
-// Author(s):    Conan Reis
+// Author(s):   Markus Breyer
+
 template<class _ElementType, class _KeyType, class _CompareClass>
+template<typename... _ParamClasses>
 AVCompactArray<_ElementType, _KeyType, _CompareClass>::AVCompactArray(
   uint32_t elem_count,
-  ...
+  const _ParamClasses & ... constructor_args
   ) :
   tAVCompactArrayBase(elem_count, nullptr)
   {
   if (elem_count)
     {
-    va_list         arg_array;
     uint32_t        pos      = 0u;
-	_ElementType ** array_pp = tAVCompactArrayBase::alloc_array(elem_count);
-
-    va_start(arg_array, elem_count);     // Initialize variable arguments
+    _ElementType *  array_p  = tAVCompactArrayBase::alloc_array(elem_count);
 
     while(pos < uint32_t(elem_count))
       {
-      array_pp[pos] = va_arg(arg_array, _ElementType *);
+      new ((void*)(array_p + pos)) _ElementType(constructor_args...);
       pos++;
       }
 
-    va_end(arg_array);  // Reset variable arguments
-
     // $Note - CReis The GCC compiler cannot resolve inherited members without "this->" or "SourceClass::" prefixing them.
-    this->m_array_p = array_pp;
+    this->m_array_p = array_p;
     }
   }
 
@@ -492,7 +485,7 @@ AVCompactArray<_ElementType, _KeyType, _CompareClass>::AVCompactArray(
 //              release mode.
 // Author(s):    Conan Reis
 template<class _ElementType, class _KeyType, class _CompareClass>
-inline _ElementType * & AVCompactArray<_ElementType, _KeyType, _CompareClass>::operator[](int pos)
+inline _ElementType & AVCompactArray<_ElementType, _KeyType, _CompareClass>::operator[](int pos)
   {
   AVCOMPACTARRAY_BOUNDS_CHECK(uint32_t(pos));
 
@@ -2204,6 +2197,3 @@ inline AVCompactArrayFree<_ElementType, _KeyType, _CompareClass>::~AVCompactArra
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
-
-#endif  // __AVCOMPACTARRAY_HPP
-

@@ -13,11 +13,7 @@
 //
 //=======================================================================================
 
-
-#ifndef __ASTRING_HPP
-#define __ASTRING_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -26,7 +22,7 @@
 #include <AgogCore/AConstructDestruct.hpp>
 #include <AgogCore/ACompareBase.hpp>
 #include <AgogCore/AMemory.hpp>
-
+#include <AgogCore/APArray.hpp>
 
 //=======================================================================================
 // Global Defines / Macros
@@ -43,14 +39,6 @@
 struct AStringRef;       
 class  AStringBM;
 class  ASymbol;
-
-#ifdef A_PLAT_PC
-  template<class _ElementType, class _KeyType = _ElementType> class APArrayLogical;
-#else
-// PS3 GCC compiler does not seem to be able to forward declare templates properly.
-  #include <AgogCore/APArray.hpp>
-#endif
-
 
 // AString enumerated constants
 enum
@@ -684,8 +672,3 @@ class A_API AStringBM : public AString
 #ifndef A_INL_IN_CPP
   #include <AgogCore/AString.inl>
 #endif
-
-
-#endif  // __ASTRING_HPP
-
-

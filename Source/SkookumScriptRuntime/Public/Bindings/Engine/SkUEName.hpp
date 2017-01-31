@@ -13,8 +13,9 @@
 // Includes
 //=======================================================================================
 
+#include "UObject/NameTypes.h"
+
 #include <SkookumScript/SkClassBinding.hpp>
-#include <NameTypes.h>
 
 //---------------------------------------------------------------------------------------
 // SkookumScript Name (= FName) class

@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKINVOKABLEBASE_HPP
-#define __SKINVOKABLEBASE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -28,6 +25,7 @@
 // Pre-declaration
 struct SkApplyExpressionBase;
 class  SkExpressionBase;
+struct SkRoutineUpdateRecord;
 
 //---------------------------------------------------------------------------------------
 // Notes      SkookumScript InvokableBase
@@ -50,7 +48,8 @@ class SK_API SkInvokableBase : public SkQualifier
 
     #if (SKOOKUM & SK_COMPILED_IN)
       SkInvokableBase(const ASymbol & name, SkClass * scope_p, const void ** binary_pp);
-      virtual void assign_binary_no_name(const void ** binary_pp);
+      virtual void assign_binary_no_name(const void ** binary_pp, SkRoutineUpdateRecord * update_record_p);
+      virtual void copy_to_update_record(SkRoutineUpdateRecord * update_record_p);
     #endif
 
     #if (SKOOKUM & SK_COMPILED_OUT)
@@ -116,7 +115,4 @@ class SK_API SkInvokableBase : public SkQualifier
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkInvokableBase.inl>
 #endif
-
-
-#endif  // __SKINVOKABLEBASE_HPP
 

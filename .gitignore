@@ -10,6 +10,8 @@
 *.DS_Store
 *.uplugin-fullsource-mode
 CMakeLists.txt
+enable-mad-check.txt
+mad-define.txt
 force-lib-build.txt
 .hg/**
 .hgignore
@@ -47,3 +49,6 @@ force-lib-build.txt
 /SkookumIDE/*-Coder.*
 /SkookumIDE/*32.*
 /SkookumIDE/Scripts/workspace?.sk
+/SkookumIDE/Engine/Binaries/Win64/SkookumIDE.exe
+/SkookumIDE/Engine/Programs/SkookumIDE/Intermediate/**
+/SkookumIDE/Engine/Programs/SkookumIDE/Saved/**

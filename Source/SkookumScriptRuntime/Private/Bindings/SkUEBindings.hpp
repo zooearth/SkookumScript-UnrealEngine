@@ -9,6 +9,8 @@
 
 #pragma once
 
+class SkUEBindingsInterface;
+
 //---------------------------------------------------------------------------------------
 // 
 class SkUEBindings
@@ -17,8 +19,9 @@ class SkUEBindings
 
     // Class Methods
 
-    static void register_static_ue_types(SkUEBindingsInterface * game_generated_bindings_p);
-    static void register_all_bindings(SkUEBindingsInterface * game_generated_bindings_p);
+    static void ensure_static_ue_types_registered(SkUEBindingsInterface * game_generated_bindings_p);
+    static void begin_register_bindings();
+    static void finish_register_bindings(SkUEBindingsInterface * game_generated_bindings_p);
 
   }; // SkUEBindings
 

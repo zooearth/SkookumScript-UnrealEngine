@@ -14,14 +14,15 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkookumScriptBehaviorComponent.h"
-
-#include "VectorField/VectorField.h" // HACK to fix broken dependency on UVectorField 
-
-#include <SkUEEEndPlayReason.generated.hpp>
-
 #include "Bindings/Engine/SkUESkookumScriptBehaviorComponent.hpp"
 
+#include "VectorField/VectorField.h" // HACK to fix broken dependency on UVectorField 
+#include <SkUEEEndPlayReason.generated.hpp>
+#include "Engine/World.h"
+#include "GameFramework/Actor.h"
+#include "Runtime/Launch/Resources/Version.h" // TEMP HACK for ENGINE_MINOR_VERSION
 
 //=======================================================================================
 // Class Data
@@ -66,7 +67,9 @@ USkookumScriptBehaviorComponent::USkookumScriptBehaviorComponent(const FObjectIn
   bTickInEditor = false;
   bAutoActivate = true;
   bWantsInitializeComponent = true;
-  bWantsBeginPlay = true;
+  #if ENGINE_MINOR_VERSION < 14
+    bWantsBeginPlay = true;
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
@@ -153,7 +156,8 @@ void USkookumScriptBehaviorComponent::InitializeComponent()
     {
     if (!m_is_instance_externally_owned)
       {
-      SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when InitializeComponent() is invoked.");
+      SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when InitializeComponent() is invoked.");
+
       create_sk_instance();
       m_component_instance_p->get_class()->resolve_raw_data();
       m_component_instance_p->call_default_constructor();
@@ -195,7 +199,7 @@ void USkookumScriptBehaviorComponent::UninitializeComponent()
   // Delete SkookumScript instance if present
   if (m_component_instance_p)
     {
-    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when UninitializeComponent() is invoked.");
 
     m_component_instance_p->method_call(ms_symbol_on_detach);
     m_component_instance_p->as<SkUESkookumScriptBehaviorComponent>() = nullptr;

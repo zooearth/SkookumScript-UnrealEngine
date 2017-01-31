@@ -9,11 +9,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __ASTRINGREF_HPP
-#define __ASTRINGREF_HPP
-#pragma once
-             
+#pragma once             
 
 //=======================================================================================
 // Includes
@@ -103,9 +99,3 @@ struct A_API AStringRef
 #ifndef A_INL_IN_CPP
   #include <AgogCore/AStringRef.inl>
 #endif
-
- 
-#endif  // __ASTRINGREF_HPP
-
-
-

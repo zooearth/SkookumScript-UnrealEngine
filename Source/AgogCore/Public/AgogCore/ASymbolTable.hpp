@@ -9,11 +9,8 @@
 // Notes:          
 //=======================================================================================
 
+#pragma once
 
-#ifndef __ASYMBOLTABLE_HPP
-#define __ASYMBOLTABLE_HPP
-
-             
 //=======================================================================================
 // Includes
 //=======================================================================================
@@ -130,8 +127,3 @@ class A_API ASymbolTable
 #ifndef A_INL_IN_CPP
   #include <AgogCore/ASymbolTable.inl>
 #endif
-
-
-#endif  // __ASYMBOLTABLE_HPP
-
-

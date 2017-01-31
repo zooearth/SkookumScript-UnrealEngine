@@ -17,6 +17,7 @@
 #include <AgogCore/AgogCore.hpp> // Always include AgogCore first (as some builds require a designated precompiled header)
 #include <AgogCore/ARegion.hpp>
 #if defined(A_PLAT_PC)
+  #define WIN32_LEAN_AND_MEAN // Keep this define out of public header files
   #include <windows.h>  // For definition of RECT
 #endif
 

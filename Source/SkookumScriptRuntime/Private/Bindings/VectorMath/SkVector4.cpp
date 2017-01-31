@@ -12,8 +12,12 @@
 //=======================================================================================
 
 #include "../../SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkVector4.hpp"
 #include "SkRotationAngles.hpp"
+
+#include <SkookumScript/SkBoolean.hpp>
+#include <SkookumScript/SkReal.hpp>
 
 //=======================================================================================
 // Method Definitions

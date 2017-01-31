@@ -16,10 +16,19 @@
 
 #include <AgogCore/AObjReusePool.hpp>
 
-
 //=======================================================================================
 // SkDataInstance Inline Methods
 //=======================================================================================
+
+//---------------------------------------------------------------------------------------
+// Constructor
+A_INLINE SkDataInstance::SkDataInstance()
+  {
+  // Mark this instance as a data instance - allows for sanity checking down the road
+  #if (SKOOKUM & SK_DEBUG)
+    m_user_data.m_data.m_ptr[1] = ms_magic_marker;
+  #endif
+  }
 
 //---------------------------------------------------------------------------------------
 // Constructor
@@ -32,12 +41,39 @@ A_INLINE SkDataInstance::SkDataInstance(
   SkInstance(class_p)
   {
   add_data_members();
+
+  // Mark this instance as a data instance - allows for sanity checking down the road
+  #if (SKOOKUM & SK_DEBUG)
+    m_user_data.m_data.m_ptr[1] = ms_magic_marker;
+  #endif
+  }
+
+//---------------------------------------------------------------------------------------
+
+A_INLINE SkInstance * SkDataInstance::get_data_by_idx(uint32_t data_idx) const
+  {
+  #if (SKOOKUM & SK_DEBUG)
+    if (m_user_data.m_data.m_ptr[1] != ms_magic_marker)
+      {
+      return on_magic_marker_mismatch(data_idx);
+      }
+  #endif
+
+  return m_data[data_idx];
   }
 
 //---------------------------------------------------------------------------------------
 // 
 A_INLINE void SkDataInstance::set_data_by_idx(uint32_t data_idx, SkInstance * obj_p)
   {
+  #if (SKOOKUM & SK_DEBUG)
+    if (m_user_data.m_data.m_ptr[1] != ms_magic_marker)
+      {
+      on_magic_marker_mismatch(data_idx);
+      return;
+      }
+  #endif
+
   m_data.set_at(data_idx, *obj_p);
   }
 
@@ -76,6 +112,11 @@ A_INLINE SkDataInstance * SkDataInstance::new_instance(SkClass * class_p)
   instance_p->m_ref_count = 1u;
   instance_p->m_ptr_id = ++ms_ptr_id_prev;
   instance_p->add_data_members();
+
+  // Mark this instance as a data instance - allows for sanity checking down the road
+  #if (SKOOKUM & SK_DEBUG)
+    instance_p->m_user_data.m_data.m_ptr[1] = ms_magic_marker;
+  #endif
 
   return instance_p;
   }

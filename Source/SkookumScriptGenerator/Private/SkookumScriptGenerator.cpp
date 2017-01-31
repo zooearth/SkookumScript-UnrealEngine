@@ -7,13 +7,21 @@
 // Adapted in parts from sample code by Robert Manuszewski of Epic Games Inc.
 //=======================================================================================
 
-#include "SkookumScriptGeneratorPrivatePCH.h"
+#include "ISkookumScriptGenerator.h"
+#include "CoreUObject.h"
+#include "Regex.h"
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
+
+#include "ISkookumScriptGenerator.h"
+#include "CoreUObject.h"
+#include "Regex.h"
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
 
 #include "SkookumScriptGeneratorBase.inl"
 
 //#define USE_DEBUG_LOG_FILE
 
-DEFINE_LOG_CATEGORY(LogSkookumScriptGenerator);
+DEFINE_LOG_CATEGORY_STATIC(LogSkookumScriptGenerator, Log, All);
 
 //---------------------------------------------------------------------------------------
 
@@ -830,7 +838,8 @@ FString FSkookumScriptGenerator::generate_method_binding_code(const FString & cl
   if (binding.m_function_p->HasAnyFunctionFlags(FUNC_Public) 
    && !binding.m_function_p->HasMetaData(ms_meta_data_key_custom_structure_param)   // Never call custom thunks directly
    && !binding.m_function_p->HasMetaData(ms_meta_data_key_array_parm)               // Never call custom thunks directly
-   && !class_p->HasMetaData(ms_meta_data_key_cannot_implement_interface_in_blueprint)) // Never call UINTERFACE methods directly
+   && !class_p->HasMetaData(ms_meta_data_key_cannot_implement_interface_in_blueprint) // Never call UINTERFACE methods directly
+   && !binding.m_function_p->HasAllFunctionFlags(FUNC_BlueprintEvent|FUNC_Native))  // Never call blueprint native functions directly
     {
     // Public function, might be called via direct call
     if (binding.m_function_p->HasAnyFunctionFlags(FUNC_RequiredAPI) || class_p->HasAnyClassFlags(CLASS_RequiredAPI))
@@ -1572,6 +1581,7 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
       FString               m_type_name;
       FString               m_parent_name;
       int                   m_sort_index;
+      bool                  m_is_referenced;
 
       bool operator < (const GenerateEntry & other) const { return m_sort_index > other.m_sort_index; }
       };
@@ -1588,7 +1598,7 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
     for (const GeneratedType & generated_type : m_types_generated)
       {
       generate_list_lookup.Add(generated_type.m_sk_name, generate_list.Num());
-      generate_list.Add({ &generated_type, generated_type.m_sk_name, FString(), 0 });
+      generate_list.Add({ &generated_type, generated_type.m_sk_name, FString(), 0, false });
       }
     // Build complete list
     int type_index = 0;
@@ -1601,6 +1611,8 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
       // Update entry
       GenerateEntry & entry = generate_list[type_index++];
       entry.m_parent_name = parent_name;
+      bool is_used_in_this_pass = (entry.m_generated_type_p->m_class_scope == class_scope);
+      entry.m_is_referenced = is_used_in_this_pass;
 
       // Crawl up hierarchy to make sure all parents are present
       int sort_index = entry.m_sort_index;
@@ -1614,6 +1626,7 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
           // Yes, update the sort index and keep crawling
           GenerateEntry & parent_entry = generate_list[*parent_index_p];
           parent_entry.m_sort_index = FMath::Max(parent_entry.m_sort_index, sort_index);
+          parent_entry.m_is_referenced = parent_entry.m_is_referenced || is_used_in_this_pass;
           parent_name = get_skookum_parent_name(parent_entry.m_generated_type_p->m_type_p, 0, 0, &parent_p);
           }
         else
@@ -1622,12 +1635,12 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
           generate_list_lookup.Add(parent_name, generate_list.Num());
           FString type_name = parent_name;
           parent_name = get_skookum_parent_name(parent_p, 0, 0, &parent_p);
-          generate_list.Add({ nullptr, type_name, parent_name, sort_index });
+          generate_list.Add({ nullptr, type_name, parent_name, sort_index, is_used_in_this_pass });
           }
         }
       }
-    generate_list.Add({ nullptr, TEXT("Enum"), TEXT("Object"), INT_MAX });
-    generate_list.Add({ nullptr, TEXT("UStruct"), TEXT("Object"), INT_MAX });
+    generate_list.Add({ nullptr, TEXT("Enum"), TEXT("Object"), INT_MAX, true });
+    generate_list.Add({ nullptr, TEXT("UStruct"), TEXT("Object"), INT_MAX, true });
     // Sort list
     generate_list.Sort();
 
@@ -1636,32 +1649,40 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
     // Loop through generated scripts and write them to disk
     for (GenerateEntry & entry : generate_list)
       {
-      script += FString::Printf(TEXT("$$ %s < %s\n"), *entry.m_type_name, *entry.m_parent_name);
-
-      const GeneratedType * generated_type_p = entry.m_generated_type_p;
-      if (generated_type_p && generated_type_p->m_class_scope == class_scope)
+      if (entry.m_is_referenced)
         {
-        script += generated_type_p->m_sk_meta_file_body + TEXT("\n");
+        script += FString::Printf(TEXT("$$ %s < %s\n"), *entry.m_type_name, *entry.m_parent_name);
 
-        // Write instance data if any
-        if (!generated_type_p->m_sk_instance_data_file_body.IsEmpty())
+        const GeneratedType * generated_type_p = entry.m_generated_type_p;
+        if (generated_type_p && generated_type_p->m_class_scope == class_scope)
           {
-          script += TEXT("$$ @\n");
-          script += generated_type_p->m_sk_instance_data_file_body + TEXT("\n");
+          script += generated_type_p->m_sk_meta_file_body + TEXT("\n");
+
+          // Write instance data if any
+          if (!generated_type_p->m_sk_instance_data_file_body.IsEmpty())
+            {
+            script += TEXT("$$ @\n");
+            script += generated_type_p->m_sk_instance_data_file_body + TEXT("\n");
+            }
+
+          // Write class data if any
+          if (!generated_type_p->m_sk_class_data_file_body.IsEmpty())
+            {
+            script += TEXT("$$ @@\n");
+            script += generated_type_p->m_sk_class_data_file_body + TEXT("\n");
+            }
+
+          // Write method definitions
+          for (tSkRoutines::TConstIterator iter(generated_type_p->m_sk_routines); iter; ++iter)
+            {
+            script += FString::Printf(TEXT("$$ @%s%s\n"), iter->m_is_class_member ? TEXT("@") : TEXT(""), *iter->m_name);
+            script += iter->m_body + TEXT("\n");
+            }
           }
-
-        // Write class data if any
-        if (!generated_type_p->m_sk_class_data_file_body.IsEmpty())
+        else if (!generated_type_p)
           {
-          script += TEXT("$$ @@\n");
-          script += generated_type_p->m_sk_class_data_file_body + TEXT("\n");
-          }
-
-        // Write method definitions
-        for (tSkRoutines::TConstIterator iter(generated_type_p->m_sk_routines); iter; ++iter)
-          {
-          script += FString::Printf(TEXT("$$ @%s%s\n"), iter->m_is_class_member ? TEXT("@") : TEXT(""), *iter->m_name);
-          script += iter->m_body + TEXT("\n");
+          // If no GeneratedType present, just add a comment with the class name as the meta file chunk
+          script += FString::Printf(TEXT("// %s\n"), *entry.m_type_name);
           }
         }
       }
@@ -1902,11 +1923,15 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
 
   binding_code += TEXT("\r\n");
 
-  // Disable pesky clang warnings on Mac/iOS builds
+  // Disable pesky deprecation warnings
   binding_code += TEXT(
-    "#ifdef __clang__\r\n"
+    "// Generated code will use some deprecated functions - that's ok don't tell me about it\r\n"
+    "#if _MSC_VER >= 1400\r\n"
+    "#pragma warning(push)\r\n"
+    "#pragma warning(disable: 4996) // Disable deprecation warnings\r\n"
+    "#elif defined __clang__\r\n"
     "#pragma clang diagnostic push\r\n"
-    "#pragma clang diagnostic ignored \"-Wdeprecated-declarations\" // Generated code will use some deprecated functions - that's ok don't tell me about it\r\n"
+    "#pragma clang diagnostic ignored \"-Wdeprecated-declarations\"\r\n"
     "#endif\r\n\r\n");
 
   // Insert generate binding code of all generated classes
@@ -1991,7 +2016,9 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
 
   // Re-enable clang warnings
   binding_code += TEXT(
-    "#ifdef __clang__\r\n"
+    "#if _MSC_VER >= 1400\r\n"
+    "#pragma warning(pop)\r\n"
+    "#elif defined __clang__\r\n"
     "#pragma clang diagnostic pop\r\n"
     "#endif\r\n\r\n");
 

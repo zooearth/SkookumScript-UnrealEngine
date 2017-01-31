@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKACTORCLASS_HPP
-#define __SKACTORCLASS_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -42,7 +39,6 @@ class SK_API SkActorClass : public SkClass
   {
   // Accesses protected elements
   friend class SkParser;
-  friend class SkCompiler;
 
   public:
 
@@ -118,7 +114,3 @@ template<> inline void           SkUserDataBase::set(SkActorClass       * const 
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkActorClass.inl>
 #endif
-
-
-#endif  // __SKACTORCLASS_HPP
-

@@ -22,6 +22,7 @@
 #include <exception>   // Uses: uncaught_exception()
 
 #if defined(A_PLAT_PC) && defined(A_EXTRA_CHECK)
+  #define WIN32_LEAN_AND_MEAN // Keep this define out of public header files
   #include <windows.h>  // Uses: IsDebuggerPresent(), OutputDebugStringA()
 #endif
 #if defined(A_PLAT_OSX) && defined(A_EXTRA_CHECK)

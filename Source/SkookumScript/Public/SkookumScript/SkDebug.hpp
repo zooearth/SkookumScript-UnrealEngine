@@ -8,10 +8,7 @@
 // Notes:          
 //=======================================================================================
 
-
-#ifndef __SKDEBUG_HPP
-#define __SKDEBUG_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -24,7 +21,7 @@
 #include <AgogCore/APArray.hpp>
 #include <AgogCore/APSorted.hpp>
 #include <SkookumScript/SkMemberInfo.hpp>
-#include <SkookumScript/SkookumRemoteBase.hpp>
+#include <SkookumScript/SkRemoteBase.hpp>
 #include <SkookumScript/SkParser.hpp>
 
 
@@ -48,6 +45,16 @@
   #define SK_ERROR_INVOKED(_ex_desc)                                A_ERROR((SkDebugInfoSetter(), _ex_desc), AErrId_generic, SkDebug)
   #define SK_ERROR_INFO(_ex_desc, _info)                            A_ERROR((SkDebugInfoSetter(_info), _ex_desc), AErrId_generic, SkDebug)
   #define SK_ERROR_ID(_ex_desc, _err_id, _ExClass)                  A_ERROR(_ex_desc, _err_id, _ExClass)
+
+  // Mad asserts are for extra checking for coders & advanced developers
+  // Any condition asserted by mad asserts MUST NOT BE FATAL and MUST BE 100% RECOVERABLE
+  #ifdef A_MAD_CHECK
+    #define SK_MAD_ASSERTX(_boolean_exp, _error_msg)                A_VERIFY(_boolean_exp, _error_msg, AErrId_generic, ADebug)
+    #define SK_MAD_ERRORX(_ex_desc)                                 A_ERROR(_ex_desc, AErrId_generic, SkDebug)
+  #else
+    #define SK_MAD_ASSERTX(_boolean_exp, _error_msg)                (void(0))
+    #define SK_MAD_ERRORX(_ex_desc)                                 (void(0))
+  #endif
 
   // Store current call so rest of engine can know if in the middle of a script call or not.
   #define SKDEBUG_STORE_CALL(_scope_p)                              SkInvokedContextBase * _old_call_p = SkDebug::ms_current_call_p; SkDebug::ms_current_call_p = _scope_p;
@@ -83,6 +90,9 @@
   #define SK_ERROR_INFO(_ex_desc, _info)                            (void(0))
   #define SK_ERROR_ID(_ex_desc, _err_id, _ExClass)                  (void(0))
 
+  #define SK_MAD_ASSERTX(_boolean_exp, _error_msg)                  (void(0))
+  #define SK_MAD_ERRORX(_ex_desc)                                   (void(0))
+
   #define SKDEBUG_STORE_CALL(_scope_p)                              (void(0))
   #define SKDEBUG_RESTORE_CALL()                                    (void(0))
 
@@ -106,7 +116,7 @@
 //---------------------------------------------------------------------------------------
 // Debug hooks for notifying when scripts start/stop various tasks so that things like
 // tracing, profiling, breakpoints, etc. can be added.
-#if defined(SKDEBUG_HOOKS)  // Normally defined in SkookumScript.hpp
+#if defined(SKDEBUG_HOOKS)  // Normally defined in Sk.hpp
 
   // Called whenever a method is about to be invoked - see SkDebug::append_hook()
   #define SKDEBUG_HOOK_METHOD(_imethod_p)                           SkDebug::hook_method(_imethod_p)
@@ -636,11 +646,62 @@ typedef APSortedLogical<SkBreakPoint, SkMemberExpression> tSkBreakPoints;
 
 #endif  // (SKOOKUM & SK_DEBUG)
 
+//---------------------------------------------------------------------------------------
+// Stores a SkookumScript callstack for printing and debugging
+struct SkCallStack
+  {
+
+  SkCallStack() {}
+
+  // Conversion Methods
+
+  #if (SKOOKUM & SK_DEBUG)
+
+  #if (SKOOKUM & SK_COMPILED_IN)
+          SkCallStack(const void ** binary_pp) { assign_binary(binary_pp); }
+    void  assign_binary(const void ** binary_pp);
+  #endif
+
+  #if (SKOOKUM & SK_COMPILED_OUT)
+    void     as_binary(void ** binary_pp) const;
+    uint32_t as_binary_length() const;  
+  #endif
+
+  #endif
+
+  // Data
+
+  struct Entry
+    {
+    Entry(const AString & invoke_string, uint32_t source_idx) : m_invoke_string(invoke_string), m_source_idx(source_idx) {}
+
+    #if (SKOOKUM & SK_DEBUG)
+
+    #if (SKOOKUM & SK_COMPILED_IN)             
+               Entry(const void ** binary_pp) { assign_binary(binary_pp); }
+      void     assign_binary(const void ** binary_pp);
+    #endif
+
+    #if (SKOOKUM & SK_COMPILED_OUT)
+      void     as_binary(void ** binary_pp) const;
+      uint32_t as_binary_length() const;
+    #endif
+
+    #endif
+
+    AString   m_invoke_string;
+    uint32_t  m_source_idx;
+    };
+
+  // The stack of callers ordered from inner to outer
+  APArrayFree<Entry>  m_stack;
+  };
+
+//---------------------------------------------------------------------------------------
 
 typedef void (* tSkMethodHook)(SkInvokedMethod * imethod_p);
 typedef void (* tSkCoroutineHook)(SkInvokedCoroutine * icoro_p);
 typedef void (* tSkScriptSystemHook)(const ASymbol & origin_id);
-
 
 //---------------------------------------------------------------------------------------
 // Notes      SkookumScript Debug
@@ -871,11 +932,11 @@ class SK_API SkDebug
 
     // Debug Output
 
-      static void    info();
-      static void    callstack(SkInvokedBase * invoked_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
-      static void    callstack_string(AString * str_p, SkInvokedBase * invoked_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
-      static AString context_string(const AString & description, SkObjectBase * call_scope_p, SkObjectBase * alt_scope_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
-      static void    locals_string(AString * str_p, SkInvokedBase * caller_p, SkInvokedBase * invoked_p = nullptr, uint32_t flags = SkInvokeInfo__locals_def);
+      static void    print_info();
+      static void    print_callstack(SkInvokedBase * invoked_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
+      static void    append_callstack_string(AString * str_p, SkInvokedBase * invoked_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
+      static void    append_locals_string(AString * str_p, SkInvokedBase * caller_p, SkInvokedBase * invoked_p = nullptr, uint32_t flags = SkInvokeInfo__locals_def);
+      static AString get_context_string(const AString & description, SkObjectBase * call_scope_p, SkObjectBase * alt_scope_p = nullptr, uint32_t stack_flags = SkInvokeInfo__callstack_def);
       static void    print(const AString & str, eSkLocale locale = SkLocale_all, uint32_t type = SkDPrintType_system);
       static bool    print_ide(const AString & str, eSkLocale locale = SkLocale_all, uint32_t type = SkDPrintType_system);
       static void    print_ide_all(const AString & str)                { print_ide(str); }
@@ -910,10 +971,13 @@ class SK_API SkDebug
       #endif
 
       #if (SKOOKUM & SK_DEBUG)
+  
         static eState               get_execution_state()                       { return ms_exec_state; }
         static SkMemberExpression & get_next_expression()                       { return ms_next_expr; }
         static SkInvokedBase *      get_next_invokable();
         static uint32_t             get_preferences()                           { return ms_pref_flags; }
+
+        static SkCallStack *        get_callstack(const SkInvokedBase * caller_p, uint32_t stack_flags = SkInvokeInfo__callstack_def);
 
         static void break_expression(SkObjectBase * scope_p, SkInvokedBase * caller_p, SkExpressionBase * expr_p);
         static void break_invokable(SkInvokedBase * invoked_p);
@@ -1168,8 +1232,3 @@ inline void SkDebug::set_hook_expr(
   }
 
 #endif  // SKDEBUG_HOOKS
-
-
-#endif  // __SKDEBUG_HPP
-
-
