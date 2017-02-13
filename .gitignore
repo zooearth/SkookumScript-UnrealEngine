@@ -49,6 +49,7 @@ force-lib-build.txt
 /SkookumIDE/*-Coder.*
 /SkookumIDE/*32.*
 /SkookumIDE/Scripts/workspace?.sk
+/SkookumIDE/Scripts/workbench*.sk
 /SkookumIDE/Engine/Binaries/Win64/SkookumIDE.exe
 /SkookumIDE/Engine/Programs/SkookumIDE/Intermediate/**
 /SkookumIDE/Engine/Programs/SkookumIDE/Saved/**

@@ -3,7 +3,7 @@
 // subclasses).
 //
 // Params:
-//   name: name of the actor to search for
+//   name: name of the actor to search for (can be String or Name class type)
 //
 // Returns: Actor found - or nil if not found
 //
@@ -33,4 +33,4 @@
 // See: named()
 //---------------------------------------------------------------------------------------
 
-(String name) <ThisClass_|None>
+(<Name|String> name) <ThisClass_|None>

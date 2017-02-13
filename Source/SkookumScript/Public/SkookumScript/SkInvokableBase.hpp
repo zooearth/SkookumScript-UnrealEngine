@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // Invokable parameters & body class
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -26,6 +38,7 @@
 struct SkApplyExpressionBase;
 class  SkExpressionBase;
 struct SkRoutineUpdateRecord;
+class  SkClosureInfoBase;
 
 //---------------------------------------------------------------------------------------
 // Notes      SkookumScript InvokableBase
@@ -74,22 +87,23 @@ class SK_API SkInvokableBase : public SkQualifier
       eAIterateResult    iterate_expressions(SkApplyExpressionBase * apply_expr_p);
     #endif
 
-    AString                    as_string_name(bool qualified = true) const;
-    SkInvokableBase &          assign(const SkInvokableBase & invokable);
-    virtual SkExpressionBase * get_custom_expr() const;
-    const SkParameters &       get_params() const                         { return *m_params_p; }
-    SkParameters &             get_params()                               { return *m_params_p; }
-    void                       set_params(SkParameters * params_p)        { m_params_p = params_p; }
-    uint16_t                   get_invoked_data_array_size() const        { return m_invoked_data_array_size; }
-    void                       set_invoked_data_array_size(uint32_t invoked_data_array_size) { m_invoked_data_array_size = (uint16_t)invoked_data_array_size; }
-    uint32_t                   get_annotation_flags() const               { return m_annotation_flags; }
-    void                       set_annotation_flags(uint32_t flags)       { m_annotation_flags = flags; }
-    uint16_t                   get_user_data() const                      { return m_user_data; }
-    void                       set_user_data(uint32_t user_data)          { m_user_data = (uint16_t)user_data; }
-    virtual eSkInvokable       get_invoke_type() const = 0;
-    virtual bool               is_bound() const = 0;
-    virtual bool               is_class_member() const = 0;
-    virtual bool               is_placeholder();
+    AString                           as_string_name(bool qualified = true) const;
+    SkInvokableBase &                 assign(const SkInvokableBase & invokable);
+    virtual SkExpressionBase *        get_custom_expr() const;
+    const SkParameters &              get_params() const                         { return *m_params_p; }
+    SkParameters &                    get_params()                               { return *m_params_p; }
+    void                              set_params(SkParameters * params_p)        { m_params_p = params_p; }
+    uint16_t                          get_invoked_data_array_size() const        { return m_invoked_data_array_size; }
+    void                              set_invoked_data_array_size(uint32_t invoked_data_array_size) { m_invoked_data_array_size = (uint16_t)invoked_data_array_size; }
+    uint32_t                          get_annotation_flags() const               { return m_annotation_flags; }
+    void                              set_annotation_flags(uint32_t flags)       { m_annotation_flags = flags; }
+    uint16_t                          get_user_data() const                      { return m_user_data; }
+    void                              set_user_data(uint32_t user_data)          { m_user_data = (uint16_t)user_data; }
+    virtual eSkInvokable              get_invoke_type() const = 0;
+    virtual bool                      is_bound() const = 0;
+    virtual bool                      is_class_member() const = 0;
+    virtual bool                      is_placeholder();
+    virtual const SkClosureInfoBase * get_closure_info() const;
     //virtual SkInvokableBase * evaluate(SkObjectBase * scope_p, SkInvokedBase * caller_p) = 0;
     //virtual SkInvokableBase * give_result(SkInstance * result_p, SkInvokableBase * sub_expr_p, SkInvokedBase * caller_p) = 0;
 
