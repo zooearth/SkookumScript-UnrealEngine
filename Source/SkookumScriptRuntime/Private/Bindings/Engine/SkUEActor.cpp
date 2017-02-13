@@ -1,10 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
 // Bindings for the Actor (= AActor) class 
-//
-// Author: Markus Breyer
 //=======================================================================================
 
 //=======================================================================================
@@ -14,6 +27,7 @@
 #include "../../SkookumScriptRuntimePrivatePCH.h"
 #include "SkUEActor.hpp"
 #include "SkUEEntity.hpp"
+#include "SkUEName.hpp"
 #include "../SkUERuntime.hpp"
 #include "../SkUEUtils.hpp"
 #include "UObjectHash.h"
@@ -43,7 +57,7 @@ namespace SkUEActor_Impl
 
   //---------------------------------------------------------------------------------------
   // Find actor of given name (returns nullptr if not found)
-  static AActor * find_named(SkInvokedMethod * scope_p, SkClass ** sk_class_pp, UClass ** ue_class_pp)
+  static AActor * find_named(const FName & name, SkInvokedMethod * scope_p, SkClass ** sk_class_pp, UClass ** ue_class_pp)
     {
     // Get actor array
     TArray<UObject*> object_array;
@@ -51,12 +65,11 @@ namespace SkUEActor_Impl
     UClass * ue_class_p = get_actor_array(&object_array, sk_class_p);
 
     // Find our actor
-    FString name = AStringToFString(scope_p->get_arg<SkString>(SkArg_1));
     UWorld * world_p = SkUEClassBindingHelper::get_world();
     AActor * actor_p = nullptr;
     for (UObject ** RESTRICT obj_pp = object_array.GetData(), **RESTRICT end_pp = obj_pp + object_array.Num(); obj_pp != end_pp; ++obj_pp)
       {
-      if ((*obj_pp)->GetWorld() == world_p && (*obj_pp)->GetName() == name)
+      if ((*obj_pp)->GetWorld() == world_p && (*obj_pp)->GetFName() == name)
         {
         actor_p = static_cast<AActor *>(*obj_pp);
         break;
@@ -95,11 +108,18 @@ namespace SkUEActor_Impl
   static void mthdc_find_named(SkInvokedMethod * scope_p, SkInstance ** result_pp)
     {
     if (result_pp) // Do nothing if result not desired
-      {      
+      {
       // Find actor
-      SkClass * sk_class_p;
-      UClass * ue_class_p;
-      AActor * actor_p = find_named(scope_p, &sk_class_p, &ue_class_p);
+      SkClass *    sk_class_p;
+      UClass *     ue_class_p;
+      SkInstance * name_p = scope_p->get_arg(SkArg_1);
+      AActor *     actor_p = find_named(
+        name_p->get_class() == SkUEName::get_class()
+          ? name_p->as<SkUEName>()
+          : AStringToFName(name_p->as<SkString>()),
+        scope_p,
+        &sk_class_p,
+        &ue_class_p);
 
       // Create instance from our actor, or return nil if none found
       *result_pp = actor_p ? SkUEActor::new_instance(actor_p, ue_class_p, sk_class_p) : SkBrain::ms_nil_p;
@@ -113,14 +133,21 @@ namespace SkUEActor_Impl
     if (result_pp) // Do nothing if result not desired
       {
       // Find actor
-      SkClass * sk_class_p;
-      UClass * ue_class_p;
-      AActor * actor_p = find_named(scope_p, &sk_class_p, &ue_class_p);
+      SkClass *    sk_class_p;
+      UClass *     ue_class_p;
+      SkInstance * name_p = scope_p->get_arg(SkArg_1);
+      AActor *     actor_p = find_named(
+        name_p->get_class() == SkUEName::get_class()
+          ? name_p->as<SkUEName>()
+          : AStringToFName(name_p->as<SkString>()),
+        scope_p,
+        &sk_class_p,
+        &ue_class_p);
 
       #if (SKOOKUM & SK_DEBUG)
         if (!actor_p)
           {
-          A_ERRORX(a_str_format("Tried to get instance named '%s' from class '%s', but no such instance exists!\n", scope_p->get_arg<SkString>(SkArg_1).as_cstr(), ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info()->get_name().as_cstr_dbg()));
+          SK_ERRORX(a_str_format("Tried to get instance named '%s' from class '%s', but no such instance exists!\n", scope_p->get_arg<SkString>(SkArg_1).as_cstr(), ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info()->get_name().as_cstr_dbg()));
           }
       #endif
 
@@ -186,12 +213,30 @@ namespace SkUEActor_Impl
       }
     }
 
+  //---------------------------------------------------------------------------------------
+  // Actor@object_id_find(Name name) <ThisClass_|None>
+  static void mthdc_object_id_find(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    if (result_pp) // Do nothing if result not desired
+      {      
+      // Find actor
+      SkClass * sk_class_p;
+      UClass *  ue_class_p;
+      AActor *  actor_p = find_named(
+        scope_p->get_arg<SkUEName>(SkArg_1), scope_p, &sk_class_p, &ue_class_p);
+
+      // Create instance from our actor, or return nil if none found
+      *result_pp = actor_p ? SkUEActor::new_instance(actor_p, ue_class_p, sk_class_p) : SkBrain::ms_nil_p;
+      }
+    }
+
   static const SkClass::MethodInitializerFunc methods_c2[] =
     {
       { "find_named",       mthdc_find_named },
       { "named",            mthdc_named },
       { "instances",        mthdc_instances },
       { "instances_first",  mthdc_instances_first },
+      { "object_id_find",   mthdc_object_id_find },
     };
 
   } // SkUEActor_Impl

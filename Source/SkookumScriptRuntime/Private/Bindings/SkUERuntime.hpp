@@ -1,10 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
 // SkookumScript Runtime Hooks for Unreal - Input/Output Init/Update/Deinit Manager
-// 
-// Author: Conan Reis
 //=======================================================================================
 
 #pragma once
@@ -21,6 +34,7 @@
 #include "Platform.h"  // Set up base types, etc for the platform
 
 #include <SkookumScript/SkRuntimeBase.hpp>
+#include <SkookumScript/SkParser.hpp>
 
 //---------------------------------------------------------------------------------------
 
@@ -34,7 +48,9 @@ class SkUEBindingsInterface;
 //---------------------------------------------------------------------------------------
 // SkookumScript Runtime Hooks for Unreal
 // - Input/Output Init/Update/Deinit Manager
-class SkUERuntime : public SkRuntimeBase
+class SkUERuntime :
+  public SkParserCustomBase,  // Since the runtime may need to parse text code
+  public SkRuntimeBase
   {
   public:
 
@@ -55,9 +71,9 @@ class SkUERuntime : public SkRuntimeBase
       const FString & get_compiled_path() const;
       bool            content_file_exists(const TCHAR * file_name_p, FString * folder_path_p) const;
 
-      bool load_and_bind_compiled_scripts(bool ensure_atomics = true, SkClass ** ignore_classes_pp = nullptr, uint32_t ignore_count = 0u);
+      bool load_and_bind_compiled_scripts(bool is_hot_reload = false, bool ensure_atomics = true, SkClass ** ignore_classes_pp = nullptr, uint32_t ignore_count = 0u);
       bool load_compiled_scripts();
-      void bind_compiled_scripts(bool ensure_atomics = true, SkClass ** ignore_classes_pp = nullptr, uint32_t ignore_count = 0u);
+      void bind_compiled_scripts(bool is_hot_reload = false, bool ensure_atomics = true, SkClass ** ignore_classes_pp = nullptr, uint32_t ignore_count = 0u);
 
       void reexpose_all_to_blueprints(bool is_final);
 
@@ -70,6 +86,15 @@ class SkUERuntime : public SkRuntimeBase
         virtual SkBinaryHandle * get_binary_hierarchy() override;
         virtual SkBinaryHandle * get_binary_class_group(const SkClass & cls) override;
         virtual void             release_binary(SkBinaryHandle * handle_p) override;
+
+        #if (SKOOKUM & SK_COMPILED_IN)
+          virtual SkObjectIDBase * object_id_binary_new(const void ** binary_pp) override;
+        #endif
+
+        #if (SKOOKUM & SK_CODE_IN)
+          virtual SkObjectIDBase * object_id_new(const ASymbol & name, SkClass * class_p, uint32_t flags) override;
+          virtual SkClass *        object_id_name_class() override;
+        #endif
 
         #if defined(A_SYMBOL_STR_DB_AGOG)  
           virtual SkBinaryHandle * get_binary_symbol_table() override;

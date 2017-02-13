@@ -1,10 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
 // SkookumScript Runtime Hooks for Unreal - Input/Output Init/Update/Deinit Manager
-// 
-// Author: Conan Reis
 //=======================================================================================
 
 
@@ -18,12 +31,17 @@
 #include "SkUERemote.hpp"
 #include "SkUEBindings.hpp"
 #include "SkUEClassBinding.hpp"
+#include "SkUEUtils.hpp"
 
 #include "GenericPlatformProcess.h"
 #include <chrono>
 
 #include <AgogCore/AMethodArg.hpp>
 #include <SkookumScript/SkClass.hpp>
+#include <SkookumScript/SkObjectID.hpp>
+#include <SkookumScript/SkParser.hpp>
+#include "Engine/SkUEName.hpp"
+
 
 //=======================================================================================
 // Local Global Structures
@@ -88,6 +106,132 @@ namespace
 } // End unnamed namespace
 
 
+//---------------------------------------------------------------------------------------
+// FName version of Validated Object ID
+// - used by Unreal engine as main identifier type.
+// 
+// #Author(s) Conan Reis
+class SkObjectIDName : public SkObjectIDBase
+  {
+  public:
+  // Public Data Members
+
+    // Name of object
+    FName m_name;
+
+  // Common Methods
+
+    SK_NEW_OPERATORS(SkObjectIDName);
+
+    SkObjectIDName() {}
+    SkObjectIDName(const ASymbol & name, SkClass * class_p, uint32_t flags);
+    SkObjectIDName(const SkObjectIDName & source) : SkObjectIDBase(source), m_name(source.m_name) {}
+
+  // Converter Methods
+
+    #if (SKOOKUM & SK_COMPILED_IN)
+      SkObjectIDName(const void ** binary_pp);
+    #endif
+
+  // Methods
+
+    virtual AString      get_name() const override           { return FNameToAString(m_name); }
+    virtual SkInstance * get_name_instance() const override  { return SkUEName::new_instance(m_name); }
+    virtual void         track_memory(AMemoryStats * mem_stats_p) const override;
+
+    #if (SKOOKUM & SK_CODE_IN)
+      virtual SkClass * validate(bool validate_deferred = true) override;
+    #endif
+
+  };  // SkObjectIDName
+
+
+//=======================================================================================
+// SkObjectIDName Methods
+//=======================================================================================
+
+//---------------------------------------------------------------------------------------
+// Constructor
+// 
+// Returns:    itself
+// Examples:   Called by SkParser
+// See:        SkParser
+// Author(s):  Conan Reis
+A_INLINE SkObjectIDName::SkObjectIDName(
+  const ASymbol & name,
+  SkClass *       class_p,
+  uint32_t        flags
+  ) :
+  SkObjectIDBase(class_p, flags),
+  m_name(AStringToFName(name.as_string()))
+  {
+  }
+
+
+#if (SKOOKUM & SK_COMPILED_IN)
+
+//---------------------------------------------------------------------------------------
+// Constructor from binary info
+// 
+// Returns: itself
+// 
+// Params:
+//   binary_pp:
+//     Pointer to address to read binary serialization info from and to increment
+//     - previously filled using as_binary() or a similar mechanism.e:        as_binary()
+// Notes:
+//   Little error checking is done on the binary info as it assumed that it previously
+//   validated upon input.
+//   
+//     Binary composition:
+//       n bytes - identifier name string
+//       4 bytes - class name id
+//       1 byte  - flags
+//             
+// Author(s):  Conan Reis
+A_INLINE SkObjectIDName::SkObjectIDName(const void ** binary_pp)
+  {
+  // n bytes - identifier name string
+  AString name(binary_pp);
+
+  m_name = name.as_cstr();
+
+  // 4 bytes - class name id
+  // 1 byte - flags (only bother storing first 8 flags)
+  SkObjectIDBase::assign_binary(binary_pp);
+  }
+
+#endif // (SKOOKUM & SK_COMPILED_IN)
+
+
+//---------------------------------------------------------------------------------------
+// Tracks memory used by this object and its sub-objects
+// See:        SkDebug, AMemoryStats
+// Modifiers:   virtual - overridden from SkExpressionBase
+// Author(s):   Conan Reis
+void SkObjectIDName::track_memory(AMemoryStats * mem_stats_p) const
+  {
+  mem_stats_p->track_memory(SKMEMORY_ARGS(SkObjectIDName, SkDebugInfo_size_used));
+
+  }
+
+#if (SKOOKUM & SK_CODE_IN)
+
+//---------------------------------------------------------------------------------------
+// Ensures this is name id is valid for the associated class.
+//
+// #Author(s) Conan Reis
+A_INLINE SkClass * SkObjectIDName::validate(
+  bool validate_deferred // = true
+  )
+  {
+  return m_class_p;
+  //return m_class_p->object_id_validate(this, validate_deferred);
+  }
+
+#endif // (SKOOKUM & SK_CODE_IN)
+
+
 //=======================================================================================
 // SkUERuntime Methods
 //=======================================================================================
@@ -105,6 +249,7 @@ SkUERuntime::SkUERuntime()
   , m_editor_interface_p(nullptr)
   {
   ms_singleton_p = this;
+  SkParser::set_customization_defaults(this);
   }
 
 //---------------------------------------------------------------------------------------
@@ -364,6 +509,7 @@ bool SkUERuntime::load_compiled_scripts()
 // #See:        load_compiled_class_group()
 // #Author(s):  Markus Breyer
 void SkUERuntime::bind_compiled_scripts(
+  bool       is_hot_reload,      // = false
   bool       ensure_atomics,     // = true
   SkClass ** ignore_classes_pp,  // = nullptr
   uint32_t   ignore_count        // = 0u
@@ -379,6 +525,12 @@ void SkUERuntime::bind_compiled_scripts(
   // Registers/connects Generic SkookumScript atomic classes, stimuli, coroutines, etc.
   // with the compiled binary that was just loaded.
   SkookumScript::initialize_program();
+
+  // On hot reload, expose here again
+  if (is_hot_reload)
+    {
+    reexpose_all_to_blueprints(true);
+    }
 
   #if (SKOOKUM & SK_DEBUG)
     // Ensure atomic (C++) methods/coroutines are properly bound to their C++ equivalents
@@ -403,6 +555,7 @@ void SkUERuntime::bind_compiled_scripts(
 // #See:        load_compiled_scripts(), bind_compiled_scripts()
 // #Author(s):  Markus Breyer
 bool SkUERuntime::load_and_bind_compiled_scripts(
+  bool       is_hot_reload,      // = false
   bool       ensure_atomics,     // = true
   SkClass ** ignore_classes_pp,  // = nullptr
   uint32_t   ignore_count        // = 0u
@@ -411,7 +564,7 @@ bool SkUERuntime::load_and_bind_compiled_scripts(
   bool success = load_compiled_scripts();
   if (success)
     {
-    bind_compiled_scripts(ensure_atomics, ignore_classes_pp, ignore_count);
+    bind_compiled_scripts(is_hot_reload, ensure_atomics, ignore_classes_pp, ignore_count);
     }
   return success;
   }
@@ -508,4 +661,34 @@ void SkUERuntime::release_binary(SkBinaryHandle * handle_p)
   }
 
 
+#if (SKOOKUM & SK_COMPILED_IN)
+
+//---------------------------------------------------------------------------------------
+SkObjectIDBase * SkUERuntime::object_id_binary_new(const void ** binary_pp)
+  {
+  return SK_NEW(SkObjectIDName)(binary_pp);
+  }
+
+#endif
+
+
+#if (SKOOKUM & SK_CODE_IN)
+
+//---------------------------------------------------------------------------------------
+SkObjectIDBase * SkUERuntime::object_id_new(
+  const ASymbol & name,
+  SkClass *       class_p,
+  uint32_t        flags
+  )
+  {
+  return SK_NEW(SkObjectIDName)(name, class_p, flags);
+  }
+
+//---------------------------------------------------------------------------------------
+SkClass * SkUERuntime::object_id_name_class()
+  {
+  return SkUEName::get_class();
+  }
+
+#endif
 
