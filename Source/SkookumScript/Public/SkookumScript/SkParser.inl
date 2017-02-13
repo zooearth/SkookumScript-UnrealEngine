@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // SkookumScript Parser and associated data-structures
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 
@@ -183,11 +195,21 @@ A_INLINE bool SkParser::Args::is_idx_probe_halt(const SkParser * parser_p)
 
 //---------------------------------------------------------------------------------------
 // Constructor
-// Returns:    itself
-// Arg         str - string to wrap around
+// 
+// Returns: itself
+// Params:
+//   str: string to parse
+//   customizations_p:
+//      Customized settings and behavior for the parser - if nullptr it uses the default
+//      one stored in `ms_defaults_p` which is set with SkParser::set_custom_defaults().
+//
 // Author(s):   Conan Reis
-A_INLINE SkParser::SkParser(const AString & str) :
+A_INLINE SkParser::SkParser(
+  const AString &      str,
+  SkParserCustomBase * customizations_p // = nullptr
+  ) :
   AString(str),
+  m_customizations_p(get_customization_defaults()),
   m_flags(ms_default_flags),
   m_member_type(SkMember__invalid),
   m_current_block_p(nullptr)
@@ -196,39 +218,49 @@ A_INLINE SkParser::SkParser(const AString & str) :
   }
 
 //---------------------------------------------------------------------------------------
-// Constructor from character array buffer.  Refers to a persistent
-//             null-terminated C-String or makes its own copy of an existing character
-//             array.
-// Returns:    itself
-// Arg         cstr_p - pointer to array of characters (does not need to be null
-//             terminated unless length is equal to ALength_calculate).  'cstr_p' should
-//             never be nullptr.  'cstr_p' will usually be a string literal or if
-//             'persistent' is false, 'cstr_p' may be any C-String that this string
-//             should make a copy of.
-// Arg         length - number of characters to use in 'cstr_p' and the index position to
-//             place a terminating null character.  The given length must not be more
-//             than the size of 'cstr_p' and the C-String buffer pointed to by 'cstr_p'
-//             should not have any null characters less then the given length.  A null
-//             terminator is placed only if 'persistent' is not true.
-//             'length' may also be set to ALength_calculate in which case the character
-//             length is calculated by finding the first terminating null character
-//             already present in 'cstr_p'.
-// Arg         persistent - Indicates whether the data pointed to by cstr_p will be
-//             available for the lifetime of this string.  If 'persistent' is true, the
-//             memory pointed to by 'cstr_p' will be used rather than having this object
-//             allocate its own memory - also the memory pointed to by 'cstr_p' will not
-//             be written to.  If 'persistent' is false, then this AString object will
-//             allocate its own memory and copy the contents of 'cstr_p' to it.
-// See:        AString(cstr_p), AString(buffer_p, size, length, deallocate)
-// Notes:      If any modifying methods are called on this string, it will first make
-//             its own unique copy of the C-String before it writes to it.
-// Author(s):   Conan Reis
+// Constructor from character array buffer. Refers to a persistent null-terminated
+// C-String or makes its own copy of an existing character array.
+// 
+// Returns: itself
+// Params:
+//   cstr_p:
+//     pointer to array of characters (does not need to be null terminated unless length
+//     is equal to ALength_calculate).  'cstr_p' should never be nullptr.  'cstr_p' will
+//     usually be a string literal or if 'persistent' is false, 'cstr_p' may be any 
+//     C-String that this string should make a copy of.
+//   length:
+//     number of characters to use in 'cstr_p' and the index position to place a
+//     terminating null character.  The given length must not be more than the size of
+//     'cstr_p' and the C-String buffer pointed to by 'cstr_p' should not have any null
+//     characters less then the given length. A null terminator is placed only if
+//     'persistent' is not true. 'length' may also be set to ALength_calculate in which
+//     case the character length is calculated by finding the first terminating null
+//     character already present in 'cstr_p'.
+//   persistent:
+//     Indicates whether the data pointed to by cstr_p will be available for the lifetime
+//     of this string.  If 'persistent' is true, the memory pointed to by 'cstr_p' will
+//     be used rather than having this object allocate its own memory - also the memory
+//     pointed to by 'cstr_p' will not be written to.  If 'persistent' is false, then
+//     this AString object will allocate its own memory and copy the contents of 'cstr_p'
+//     to it.
+//   customizations_p:
+//      Customized settings and behavior for the parser - if nullptr it uses the default
+//      one stored in `ms_defaults_p` which is set with SkParser::set_custom_defaults().
+//     
+// Notes:
+//   If any modifying methods are called on this string, it will first make its own
+//   unique copy of the C-String before it writes to it.
+//   
+// See:       AString(cstr_p), AString(buffer_p, size, length, deallocate)
+// Author(s): Conan Reis
 A_INLINE SkParser::SkParser(
-  const char * cstr_p,
-  uint32_t     length,      // = ALength_calculate
-  bool         persistent_b // = true
+  const char *         cstr_p,
+  uint32_t             length,          // = ALength_calculate
+  bool                 persistent_b,    // = true
+  SkParserCustomBase * customizations_p // = nullptr
   ) :
   AString(cstr_p, length, persistent_b),
+  m_customizations_p(get_customization_defaults()),
   m_flags(ms_default_flags),
   m_member_type(SkMember__invalid),
   m_current_block_p(nullptr)

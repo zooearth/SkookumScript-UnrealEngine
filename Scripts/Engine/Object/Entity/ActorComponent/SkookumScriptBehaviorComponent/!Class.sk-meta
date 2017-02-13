@@ -30,10 +30,7 @@
 // loaded to / unloaded from from memory on demand.
 demand_load: false
 
-// Allow object id look-up of named instances for this class
-object_id_lookup: false
-
-// Set object id validation type and time:
+// Set object ID validation type and time:
 //   none:  accept none during compile [used to temporarily disable object ids]
 //   any:   accept any during compile
 //   parse: validate using list during compile
@@ -41,4 +38,3 @@ object_id_lookup: false
 //   exist:
 //     validate using list during compile if it exists (parse) - otherwise accept
 //     any during compile and validate using list in separate pass/run (defer)
-object_id_validate: any

@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2011 Agog Labs Inc.,
-// All rights reserved.
 //
 // SkookumScript Remote Runtime
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -96,8 +108,8 @@ class SK_API SkRemoteRuntimeBase : public SkRemoteBase
     void cmd_incremental_update_reply(bool is_success, tSkSessionGUID session_guid, tSkRevision revision);
     bool cmd_recompile_classes(SkClass * class_p, bool recurse, bool wait_reply = true);
     void cmd_ready_to_debug();
-    void cmd_breakpoint_hit(const SkBreakPoint & bp);
-    void cmd_break_expression(const SkMemberExpression & expr_info);
+    void cmd_breakpoint_hit(const SkBreakPoint & bp, const SkCallStack * callstack_p);
+    void cmd_break_expression(const SkMemberExpression & expr_info, const SkCallStack * callstack_p);
 
   protected:
 
@@ -125,8 +137,8 @@ class SK_API SkRemoteRuntimeBase : public SkRemoteBase
 
     virtual bool on_cmd_recv(eCommand cmd, const uint8_t * data_p, uint32_t data_length) override;
 
-    virtual void on_breakpoint_hit(const SkBreakPoint & bp, SkObjectBase * scope_p, SkInvokedBase * caller_p);
-    virtual void on_break_expression(const SkMemberExpression & expr_info);
+    virtual void on_breakpoint_hit(const SkBreakPoint & bp, const SkCallStack * callstack_p, SkObjectBase * scope_p, SkInvokedBase * caller_p);
+    virtual void on_break_expression(const SkMemberExpression & expr_info, const SkCallStack * callstack_p);
 
     virtual void on_connect_change(eConnectState old_state) override;
 

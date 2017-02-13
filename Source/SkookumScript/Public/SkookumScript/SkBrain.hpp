@@ -1,12 +1,24 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // The "Brain" class - holds class hierarchy and other misc. objects that do
 //             not have an obvious home elsewhere.
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -115,8 +127,9 @@ class SK_API SkBrain
 
     // Names of special classes
 
-      static ASymbol ms_actor_class_name;
-      static ASymbol ms_component_class_name;
+      static ASymbol   ms_actor_class_name;
+      static ASymbol   ms_component_class_name;
+      static SkClass * ms_engine_actor_class_p;
 
     // File management members
 
@@ -154,6 +167,7 @@ class SK_API SkBrain
     static SkClass * create_class(const ASymbol & class_name, const ASymbol & superclass_name, uint32_t flags = ADef_uint32, bool append_super_members = false);
     static SkClass * get_class(const ASymbol & class_name);
     static SkClass * get_class(const char * class_name_p);
+    static SkClass * get_class_actor();
     static bool      is_class_present(const ASymbol & class_name);
 
     static const tSkClasses & get_classes()  { return ms_classes; }
@@ -173,7 +187,7 @@ class SK_API SkBrain
     static void deinitialize();
     static void compact();
 
-    static void register_builtin_bindings(); // Call if builtin bindings need to be registered prior to initialize_post_load begin called
+    static void register_builtin_bindings(); // Call if built-in bindings need to be registered prior to initialize_post_load begin called
 
     #if (SKOOKUM & SK_DEBUG)
 
