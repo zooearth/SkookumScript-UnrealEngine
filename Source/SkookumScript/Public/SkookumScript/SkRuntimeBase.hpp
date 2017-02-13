@@ -1,12 +1,24 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // The "Brain" class - holds class hierarchy and other misc. objects that do
 //             not have an obvious home elsewhere.
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -17,11 +29,16 @@
 
 #include <AgogCore/ASymbol.hpp>
 #include <SkookumScript/Sk.hpp>
+#include <SkookumScript/SkMemberInfo.hpp>
 
 
 //=======================================================================================
 // Global Structures
 //=======================================================================================
+
+// Pre-declarations
+class  SkObjectIDBase;
+
 
 enum eSkLoadStatus
   {
@@ -51,7 +68,7 @@ struct SkBinaryHandle
 
   // Public Methods
 
-            SkBinaryHandle(void * binary_p = nullptr, uint32_t size = 0) : m_binary_p(binary_p), m_size(size) {}
+    SkBinaryHandle(void * binary_p = nullptr, uint32_t size = 0) : m_binary_p(binary_p), m_size(size) {}
     virtual ~SkBinaryHandle() {}
   };
 
@@ -89,6 +106,13 @@ class SK_API SkRuntimeBase
     #endif
       virtual void             release_binary(SkBinaryHandle * handle_p) = 0;
 
+    // Object IDs
+
+      #if (SKOOKUM & SK_COMPILED_IN)
+        virtual SkObjectIDBase * object_id_binary_new(const void ** binary_pp) = 0;
+      #endif
+
+
     // Script Loading / Binding
 
       eSkLoadStatus load_compiled_hierarchy();
@@ -108,8 +132,19 @@ class SK_API SkRuntimeBase
 
   protected:
 
+      friend class SkClass;
+      friend class SkClosureInfoMethod;
+      friend class SkClosureInfoCoroutine;
+
     // Internal class methods
 
       static void bind_routines();
       static void initialization_level_changed(SkookumScript::eInitializationLevel from_level, SkookumScript::eInitializationLevel to_level);
+
+    // Internal data
+
+    #if (SKOOKUM & SK_DEBUG)
+      SkMemberInfo m_current_routine; // Current routine being serialized in
+    #endif
+
   };

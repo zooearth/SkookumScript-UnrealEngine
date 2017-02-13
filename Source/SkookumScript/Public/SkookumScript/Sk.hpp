@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // SkookumScript common declarations.  [Included in all SkookumScript files]
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -240,8 +252,8 @@ enum eSkMember
 
   SkMember_data,
   SkMember_class_meta,        // Class meta information
-  SkMember_object_ids,        // Class object id validation list
-  SkMember_object_ids_defer,  // Class object id validation list (deferred)
+  SkMember_object_ids,        // Class object ID validation list
+  SkMember_object_ids_defer,  // Class object ID validation list (deferred)
 
   SkMember__length,     // The position of these enumerations are important
   SkMember__invalid,    // Not a valid member and can be ignored

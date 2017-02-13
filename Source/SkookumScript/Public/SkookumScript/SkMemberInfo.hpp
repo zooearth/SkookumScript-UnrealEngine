@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // Member Identifier class
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -62,9 +74,10 @@ struct SK_API SkMemberInfo
     // Used when converting this structure to and from a binary stream
     enum eByteFlag
       {
-      ByteFlag_class_member  = 1 << 7,
+      ByteFlag__type_mask   = 0x3f,
 
-      ByteFlag__type_mask   = 0x7f
+      ByteFlag_closure      = 1 << 6,
+      ByteFlag_class_member = 1 << 7,
       };
 
   // Public Data
@@ -72,17 +85,18 @@ struct SK_API SkMemberInfo
     SkQualifier m_member_id;
     eSkMember   m_type;
     bool        m_class_scope;  // true = class member,  false = instance member
+    bool        m_is_closure;   // true if this actually refers to a closure within the member
 
 
   // Methods
 
     //SK_NEW_OPERATORS(SkMemberInfo);
 
-    SkMemberInfo()                                                                : m_type(SkMember__invalid), m_class_scope(false) {}
-    SkMemberInfo(const SkQualifier & member_id, eSkMember type, bool class_scope) : m_member_id(member_id), m_type(type), m_class_scope(class_scope)  {}
-    SkMemberInfo(const SkMemberInfo & info)                                       : m_member_id(info.m_member_id), m_type(info.m_type), m_class_scope(info.m_class_scope)  {}
-
-    SkMemberInfo & operator=(const SkMemberInfo & info)                           { m_member_id = info.m_member_id; m_type = info.m_type; m_class_scope = info.m_class_scope; return *this; }
+    SkMemberInfo()                                                                                          : m_type(SkMember__invalid), m_class_scope(false), m_is_closure(false) {}
+    SkMemberInfo(const SkMemberInfo & info)                                                                 : m_member_id(info.m_member_id), m_type(info.m_type), m_class_scope(info.m_class_scope), m_is_closure(info.m_is_closure) {}
+    SkMemberInfo(const SkQualifier & member_id, eSkMember type, bool class_scope, bool is_closure = false)  : m_member_id(member_id), m_type(type), m_class_scope(class_scope), m_is_closure(is_closure)  {}
+    
+    SkMemberInfo & operator=(const SkMemberInfo & info)   { m_member_id = info.m_member_id; m_type = info.m_type; m_class_scope = info.m_class_scope; m_is_closure = info.m_is_closure; return *this; }
 
     // Comparison Methods
 
