@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // Data structures for class descriptors and class objects
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -30,11 +42,11 @@ struct SkApplyExpressionBase;
 class  SkBrain;
 class  SkClassDescBase;
 class  SkInvokedMethod;
-class  SkObjectId;
+class  SkObjectIDBase;
+class  SkObjectIDSymbol;
 
 
 // Short-hand for arrays
-// $Revisit - CReis These arrays will eventually become non-sorted virtual method tables
 typedef APSorted<SkClassUnaryBase, SkClassUnaryBase, SkClassUnaryBase> tSkSortedTypes;
 typedef APSortedLogical<SkClass, ASymbol>            tSkClasses;
 typedef APSortedLogical<SkMethodBase, ASymbol>       tSkMethodTable;
@@ -171,8 +183,8 @@ typedef SkInstance * (*tSkRawAccessorFunc)(void * obj_p, tSkRawDataInfo raw_data
 typedef void * (*tSkRawPointerFunc)(SkInstance * obj_p);
 
 //---------------------------------------------------------------------------------------
-// Used to lookup named instance objects via object id expressions
-typedef SkInstance * (*tSkObjectIdLookupFunc)(SkObjectId * obj_id_p);
+// Used to lookup named instance objects via object ID expressions
+typedef SkInstance * (*tSkObjectIdLookupFunc)(SkObjectIDBase * obj_id_p);
 
 //---------------------------------------------------------------------------------------
 // SkookumScript MetaClass - i.e. a class treated as an instance using class scope (only
@@ -360,7 +372,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       Flag_is_actor         = 1 << 6,  // For fast lookup if this class is derived from the (custom or built-in) actor class
       Flag_is_component     = 1 << 7,  // For fast lookup if this class is derived from a component (custom for each engine)
 
-      // Object id flags - look-up/validate for this class - i.e. Class@'name'
+      // Object ID flags - look-up/validate for this class - i.e. Class@'name'
         Flag_object_id_lookup = 1 << 8,
 
         // Validation flags - use masks below
@@ -368,8 +380,8 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
           Flag_object_id_parse_list  = 1 << 10,
           Flag_object_id_parse_defer = 1 << 11,
 
-        // Object id validation setting (masks):
-          // Accept none during compile [used to temporarily disable object ids]
+        // Object ID validation setting (masks):
+          // Accept none during compile
           Flag__id_valid_none  = Flag_none,
           // Accept any during compile
           Flag__id_valid_any   = Flag_object_id_parse_any,
@@ -518,24 +530,6 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
     void                 assign_raw_data(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p) const;
     void *               get_raw_pointer(SkInstance * obj_p) const;
 
-    void                 enable_object_id_lookup(bool enable = true);
-    bool                 is_object_id_lookup() const                    { return (m_flags & Flag_object_id_lookup) != 0u; }
-    void                 set_object_id_lookup_func(tSkObjectIdLookupFunc object_id_lookup_f);
-    virtual SkInstance * object_id_lookup(SkObjectId * obj_id_p) const;
-
-    #if (SKOOKUM & SK_CODE_IN)
-      void              clear_object_id_valid_list();
-      uint32_t          get_object_id_validate() const                  { return m_flags & Flag__id_valid_mask; }
-      ASymbolTable *    get_object_id_valid_list() const                { return m_object_ids_p; }
-      ASymbolTable *    get_object_id_valid_list_merge();
-      void              set_object_id_validate(uint32_t validate_mask = Flag__id_valid_any);
-      virtual SkClass * object_id_validate(SkObjectId * obj_id_p, bool validate_deferred = true) const;
-
-      #if (SKOOKUM & SK_DEBUG)
-        uint32_t        object_id_validate_recurse(bool validate_deferred, uint32_t * obj_id_count_p = nullptr);
-      #endif
-    #endif
-
     #if (SKOOKUM & SK_COMPILED_OUT)
       virtual void     as_binary(void ** binary_pp, bool include_routines = true) const;
       virtual uint32_t as_binary_length(bool include_routines = true) const;
@@ -580,6 +574,28 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
     virtual void track_memory(AMemoryStats * mem_stats_p, bool skip_demand_loaded) const;
     virtual void track_memory(AMemoryStats * mem_stats_p) const         { track_memory(mem_stats_p, true); }
     void         track_memory_recursive(AMemoryStats * mem_stats_p, bool skip_demand_loaded) const;
+
+
+    // Validated Object ID methods
+
+      void                 enable_object_id_lookup(bool enable = true);
+      bool                 is_object_id_lookup() const                    { return (m_flags & Flag_object_id_lookup) != 0u; }
+      void                 set_object_id_lookup_func(tSkObjectIdLookupFunc object_id_lookup_f);
+      virtual SkInstance * object_id_lookup(SkObjectIDBase * obj_id_p, SkInvokedBase * caller_p = nullptr) const;
+      void                 object_id_lookup_clear_cache()                 { m_object_id_lookup_p = nullptr; }
+
+      #if (SKOOKUM & SK_CODE_IN)
+        void              clear_object_id_valid_list();
+        uint32_t          get_object_id_validate() const                  { return m_flags & Flag__id_valid_mask; }
+        ASymbolTable *    get_object_id_valid_list() const                { return m_object_ids_p; }
+        ASymbolTable *    get_object_id_valid_list_merge();
+        void              set_object_id_validate(uint32_t validate_mask = Flag__id_valid_any);
+        virtual SkClass * object_id_validate(SkObjectIDSymbol * obj_id_p, bool validate_deferred = true) const;
+
+        #if (SKOOKUM & SK_DEBUG)
+          uint32_t        object_id_validate_recurse(bool validate_deferred, uint32_t * obj_id_count_p = nullptr);
+        #endif
+      #endif
 
 
     // Hierarchy Methods
@@ -642,6 +658,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
         SkMethodBase *         find_instance_method_inherited(const ASymbol & method_name) const;
         SkMethodBase *         find_instance_method_overridden(const ASymbol & method_name) const;
         SkMethodBase *         find_instance_method_scoped_inherited(const SkQualifier & method_qual) const;
+        bool                   remove_instance_method(const ASymbol & method_name)           { return m_methods.free(method_name); }
         const tSkMethodTable & get_instance_methods() const                                  { return m_methods; }
         bool                   is_instance_method_valid(const ASymbol & method_name) const   { return (m_methods.get(method_name) != nullptr); }
         virtual SkInstance *   new_instance();
@@ -653,6 +670,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
         SkMethodBase *         find_class_method(const ASymbol & method_name) const                 { return m_class_methods.get(method_name); }
         SkMethodBase *         find_class_method_inherited(const ASymbol & method_name, bool * is_class_member_p = nullptr) const;
         SkMethodBase *         find_class_method_overridden(const ASymbol & method_name) const;
+        bool                   remove_class_method(const ASymbol & method_name)                     { return m_class_methods.free(method_name); }
         const tSkMethodTable & get_class_methods() const                                            { return m_class_methods; }
         void                   invoke_class_ctor();
         void                   invoke_class_ctor_recurse();
@@ -796,17 +814,22 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
     // Function to get raw data pointer from an instance of this class type
     tSkRawPointerFunc m_raw_pointer_f;
 
-    // Used to lookup named instance objects via object id expressions.  See object_id_lookup()
-    tSkObjectIdLookupFunc m_object_id_lookup_f;
+    // Object ID Info
 
-    // Used to validate object ids for this class.
-    // $Revisit - CReis Since there are few classes that use object ids it might be an idea
-    // to store only the symbol tables for classes that actually use them rather than
-    // taking up 4/8 bytes for every class whether they use object ids or not.
-    ASymbolTable * m_object_ids_p;
+      // Used to lookup named instance objects via object ID expressions. If set to nullptr
+      // use Sk class method ojbect_id_find(NameType name) <ThisClass_|None> instead.
+      // Used in object_id_lookup()
+      tSkObjectIdLookupFunc m_object_id_lookup_f;
 
-    // $Revisit - CReis [Index Look-up] Rewrite the data and method tables so that a direct
-    // index can be used rather than a binary search of the symbols.
+      // Cached Sk class method ojbect_id_find(NameType name) <ThisClass_|None> or nullptr.
+      // Used in object_id_lookup()
+      mutable SkMethodBase * m_object_id_lookup_p;
+
+      // Used to validate object IDs for this class.
+      // $Revisit - CReis Since there are few classes that use object IDs it might be an idea
+      // to store only the symbol tables for classes that actually use them rather than
+      // taking up 4/8 bytes for every class whether they use object IDs or not.
+      ASymbolTable * m_object_ids_p;
 
     // Instance Member Info
 

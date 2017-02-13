@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // Classes for expressions that can be evaluated/invoked
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -57,7 +69,7 @@ enum eSkExprType
   SkExprType_identifier_class_member,  // SkIdentifierClassMember @@random
   SkExprType_raw_member_assignment,    // SkRawMemberAssignment @bob := value
   SkExprType_raw_member_invocation,    // SkRawMemberModifyingInvocation @bob.negate()
-  SkExprType_object_id,                // SkObjectId  MyClass@'some_name'
+  SkExprType_object_id,                // SkObjectIDBase  MyClass@'some_name'
   SkExprType_literal,                  // SkLiteral (Boolean, Character, Integer, Real, String, Symbol, Class, nil, this, this_class, this_code)
   SkExprType_literal_list,             // SkLiteralList {elem1, elem2}
   SkExprType_closure_method,           // SkLiteralClosure(Method)  ^[do_this() do_that()]
@@ -209,6 +221,7 @@ class SK_API SkExpressionBase
 
       virtual AString as_code() const = 0;
       AString         as_code_block() const;
+      virtual AString as_callstack_label() const;
 
     #endif // defined(SK_AS_STRINGS)
 
@@ -295,36 +308,37 @@ class SkLoop : public SkExpressionBase
 
 
     #if (SKOOKUM & SK_COMPILED_OUT)
-      virtual void     as_binary(void ** binary_pp) const;
-      virtual uint32_t as_binary_length() const;
+      virtual void     as_binary(void ** binary_pp) const override;
+      virtual uint32_t as_binary_length() const override;
     #endif
 
 
     #if defined(SK_AS_STRINGS)
-      virtual AString as_code() const;
+      virtual AString as_code() const override;
+      virtual AString as_callstack_label() const override;
     #endif
 
 
   // Methods
 
-    virtual bool is_loop(const ASymbol & loop_name) const  { return loop_name.is_null() || (loop_name == m_name); }
+    virtual bool is_loop(const ASymbol & loop_name) const override  { return loop_name.is_null() || (loop_name == m_name); }
 
     // Overridden from SkExpressionBase
 
-    virtual eSkExprType     get_type() const;
-    virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const;
-    virtual bool            is_immediate(uint32_t * durational_idx_p = nullptr) const;
-    virtual void            track_memory(AMemoryStats * mem_stats_p) const;
+    virtual eSkExprType     get_type() const override;
+    virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const override;
+    virtual bool            is_immediate(uint32_t * durational_idx_p = nullptr) const override;
+    virtual void            track_memory(AMemoryStats * mem_stats_p) const override;
 
     // Called by SkInvokedExpression
 
-    virtual bool invoke_iterate(SkInvokedExpression * iexpr_p, SkInstance ** result_pp = nullptr) const;
-    virtual void invoke_exit(SkInvokedExpression * iexpr_p, SkInvokedExpression * sub_exit_p = nullptr) const;
+    virtual bool invoke_iterate(SkInvokedExpression * iexpr_p, SkInstance ** result_pp = nullptr) const override;
+    virtual void invoke_exit(SkInvokedExpression * iexpr_p, SkInvokedExpression * sub_exit_p = nullptr) const override;
 
     // Debugging Methods
     #if (SKOOKUM & SK_DEBUG)
-      virtual SkExpressionBase * find_expr_by_pos(uint pos, eSkExprFind type = SkExprFind_all) const;
-      virtual eAIterateResult    iterate_expressions(SkApplyExpressionBase * apply_expr_p, const SkInvokableBase * invokable_p = nullptr);
+      virtual SkExpressionBase * find_expr_by_pos(uint pos, eSkExprFind type = SkExprFind_all) const override;
+      virtual eAIterateResult    iterate_expressions(SkApplyExpressionBase * apply_expr_p, const SkInvokableBase * invokable_p = nullptr) override;
     #endif
 
   protected:
@@ -376,13 +390,13 @@ class SkLoopExit : public SkExpressionBase
 
 
     #if (SKOOKUM & SK_COMPILED_OUT)
-      virtual void     as_binary(void ** binary_pp) const;
-      virtual uint32_t as_binary_length() const;
+      virtual void     as_binary(void ** binary_pp) const override;
+      virtual uint32_t as_binary_length() const override;
     #endif
 
 
     #if defined(SK_AS_STRINGS)
-      virtual AString as_code() const;
+      virtual AString as_code() const override;
     #endif
 
 
@@ -390,9 +404,9 @@ class SkLoopExit : public SkExpressionBase
 
     // Overridden from SkExpressionBase
 
-    virtual eSkExprType     get_type() const;
-    virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const;
-    virtual void            track_memory(AMemoryStats * mem_stats_p) const;
+    virtual eSkExprType     get_type() const override;
+    virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const override;
+    virtual void            track_memory(AMemoryStats * mem_stats_p) const override;
 
   protected:
 
@@ -430,17 +444,17 @@ class SkConversion : public SkExpressionBase
     #endif
 
     #if (SKOOKUM & SK_COMPILED_OUT)
-      virtual void     as_binary(void ** binary_pp) const;
-      virtual uint32_t as_binary_length() const;
+      virtual void     as_binary(void ** binary_pp) const override;
+      virtual uint32_t as_binary_length() const override;
     #endif
 
     #if (SKOOKUM & SK_CODE_IN)
-      virtual const SkExpressionBase * find_expr_last_no_side_effect() const  { return this; }
-      virtual eSkSideEffect            get_side_effect() const;
+      virtual const SkExpressionBase * find_expr_last_no_side_effect() const override  { return this; }
+      virtual eSkSideEffect            get_side_effect() const override;
     #endif
 
     #if defined(SK_AS_STRINGS)
-      virtual AString as_code() const;
+      virtual AString as_code() const override;
     #endif
 
 
@@ -448,15 +462,15 @@ class SkConversion : public SkExpressionBase
 
     // Overridden from SkExpressionBase
 
-      virtual eSkExprType     get_type() const;
-      virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const;
-      virtual void            null_receiver(SkExpressionBase * receiver_p);
-      virtual void            track_memory(AMemoryStats * mem_stats_p) const;
+      virtual eSkExprType     get_type() const override;
+      virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const override;
+      virtual void            null_receiver(SkExpressionBase * receiver_p) override;
+      virtual void            track_memory(AMemoryStats * mem_stats_p) const override;
 
       // Debugging Methods
       #if (SKOOKUM & SK_DEBUG)
-        virtual SkExpressionBase * find_expr_by_pos(uint pos, eSkExprFind type = SkExprFind_all) const;
-        virtual eAIterateResult    iterate_expressions(SkApplyExpressionBase * apply_expr_p, const SkInvokableBase * invokable_p = nullptr);
+        virtual SkExpressionBase * find_expr_by_pos(uint pos, eSkExprFind type = SkExprFind_all) const override;
+        virtual eAIterateResult    iterate_expressions(SkApplyExpressionBase * apply_expr_p, const SkInvokableBase * invokable_p = nullptr) override;
       #endif
 
   protected:
@@ -501,32 +515,32 @@ class SkCast : public SkExpressionBase
     #endif
 
     #if (SKOOKUM & SK_COMPILED_OUT)
-      virtual void     as_binary(void ** binary_pp) const;
-      virtual uint32_t as_binary_length() const;
+      virtual void     as_binary(void ** binary_pp) const override;
+      virtual uint32_t as_binary_length() const override;
     #endif
 
     #if (SKOOKUM & SK_CODE_IN)
-      virtual const SkExpressionBase * find_expr_last_no_side_effect() const  { return this; }
-      virtual eSkSideEffect            get_side_effect() const;
+      virtual const SkExpressionBase * find_expr_last_no_side_effect() const override  { return this; }
+      virtual eSkSideEffect            get_side_effect() const override;
     #endif
 
     #if defined(SK_AS_STRINGS)
-      virtual AString as_code() const;
+      virtual AString as_code() const override;
     #endif
 
   // Methods
 
     // Overridden from SkExpressionBase
 
-      virtual eSkExprType     get_type() const;
-      virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const;
-      virtual void            null_receiver(SkExpressionBase * receiver_p);
-      virtual void            track_memory(AMemoryStats * mem_stats_p) const;
+      virtual eSkExprType     get_type() const override;
+      virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const override;
+      virtual void            null_receiver(SkExpressionBase * receiver_p) override;
+      virtual void            track_memory(AMemoryStats * mem_stats_p) const override;
 
       // Debugging Methods
       #if (SKOOKUM & SK_DEBUG)
-        virtual SkExpressionBase * find_expr_by_pos(uint pos, eSkExprFind type = SkExprFind_all) const;
-        virtual eAIterateResult    iterate_expressions(SkApplyExpressionBase * apply_expr_p, const SkInvokableBase * invokable_p = nullptr);
+        virtual SkExpressionBase * find_expr_by_pos(uint pos, eSkExprFind type = SkExprFind_all) const override;
+        virtual eAIterateResult    iterate_expressions(SkApplyExpressionBase * apply_expr_p, const SkInvokableBase * invokable_p = nullptr) override;
       #endif
 
   protected:

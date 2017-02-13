@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // Literal expression for closures & anonymous/lambda code/functions
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -77,12 +89,16 @@ class SK_API SkClosureInfoBase : public ARefCountMix<SkClosureInfoBase>
     virtual SkExpressionBase * get_closure_expr() const = 0;
     virtual SkParameters &     get_closure_params() const = 0;
     virtual SkInvokableBase *  get_invokable() const = 0;
-    virtual bool               is_method() const                  { return true; }
+    virtual bool               is_method() const     { return true; }
     virtual void               track_memory(AMemoryStats * mem_stats_p) const = 0;
-    //virtual SkInvokedBase *   invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const;
+    //virtual SkInvokedBase *   invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const override;
 
     virtual void               set_scope(const SkClass * scope_p) = 0;
     virtual void               set_name(const ASymbol & name) = 0;
+
+  #if (SKOOKUM & SK_DEBUG)
+    void                       get_member_info(SkMemberInfo * member_info_p) const;
+  #endif
 
   protected:
 
@@ -127,20 +143,22 @@ class SK_API SkClosureInfoMethod : public SkClosureInfoBase, public SkMethod
       using SkMethod::as_binary; // To make clang happy
       using SkMethod::as_binary_length; // To make clang happy
 
-      virtual void     as_binary(void ** binary_pp) const;
-      virtual uint32_t as_binary_length() const;
+      virtual void     as_binary(void ** binary_pp) const override;
+      virtual uint32_t as_binary_length() const override;
     #endif
 
 
   // Methods
 
-    virtual SkExpressionBase * get_closure_expr() const   { return m_expr_p; }
-    virtual SkParameters &     get_closure_params() const { return *m_params_p; }
-    virtual SkInvokableBase *  get_invokable() const      { return const_cast<SkClosureInfoMethod *>(this); }
-    virtual void               track_memory(AMemoryStats * mem_stats_p) const;
+    virtual SkExpressionBase *        get_closure_expr() const override   { return m_expr_p; }
+    virtual SkParameters &            get_closure_params() const override { return *m_params_p; }
+    virtual SkInvokableBase *         get_invokable() const override      { return const_cast<SkClosureInfoMethod *>(this); }
+    virtual void                      track_memory(AMemoryStats * mem_stats_p) const override;
 
-    virtual void               set_scope(const SkClass * scope_p)  { SkQualifier::set_scope(scope_p); }
-    virtual void               set_name(const ASymbol & name)      { ANamed::set_name(name); }
+    virtual void                      set_scope(const SkClass * scope_p) override  { SkQualifier::set_scope(scope_p); }
+    virtual void                      set_name(const ASymbol & name) override      { ANamed::set_name(name); }
+
+    virtual const SkClosureInfoBase * get_closure_info() const override { return this; }
 
   protected:
 
@@ -182,22 +200,24 @@ class SK_API SkClosureInfoCoroutine : public SkClosureInfoBase, public SkCorouti
       using SkCoroutine::as_binary; // To make clang happy
       using SkCoroutine::as_binary_length; // To make clang happy
 
-      virtual void     as_binary(void ** binary_pp) const;
-      virtual uint32_t as_binary_length() const;
+      virtual void     as_binary(void ** binary_pp) const override;
+      virtual uint32_t as_binary_length() const override;
     #endif
 
 
   // Methods
 
-    virtual SkExpressionBase * get_closure_expr() const   { return m_expr_p; }
-    virtual SkParameters &     get_closure_params() const { return *m_params_p; }
-    virtual SkInvokableBase *  get_invokable() const      { return const_cast<SkClosureInfoCoroutine *>(this); }
-    //virtual SkInvokedBase *    invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const;
-    virtual bool               is_method() const          { return false; }
-    virtual void               track_memory(AMemoryStats * mem_stats_p) const;
+    virtual SkExpressionBase *        get_closure_expr() const override   { return m_expr_p; }
+    virtual SkParameters &            get_closure_params() const override { return *m_params_p; }
+    virtual SkInvokableBase *         get_invokable() const override      { return const_cast<SkClosureInfoCoroutine *>(this); }
+    //virtual SkInvokedBase *         invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const override;
+    virtual bool                      is_method() const override          { return false; }
+    virtual void                      track_memory(AMemoryStats * mem_stats_p) const override;
 
-    virtual void               set_scope(const SkClass * scope_p)  { SkQualifier::set_scope(scope_p); }
-    virtual void               set_name(const ASymbol & name)      { ANamed::set_name(name); }
+    virtual void                      set_scope(const SkClass * scope_p) override  { SkQualifier::set_scope(scope_p); }
+    virtual void                      set_name(const ASymbol & name) override      { ANamed::set_name(name); }
+
+    virtual const SkClosureInfoBase * get_closure_info() const override { return this; }
 
   protected:
 
@@ -235,36 +255,36 @@ class SK_API SkLiteralClosure : public SkExpressionBase
 
 
     #if (SKOOKUM & SK_COMPILED_OUT)
-      virtual void     as_binary(void ** binary_pp) const;
-      virtual uint32_t as_binary_length() const;
+      virtual void     as_binary(void ** binary_pp) const override;
+      virtual uint32_t as_binary_length() const override;
     #endif
 
 
     #if (SKOOKUM & SK_CODE_IN)
-      virtual const SkExpressionBase * find_expr_last_no_side_effect() const  { return this; }
-      virtual eSkSideEffect            get_side_effect() const;
+      virtual const SkExpressionBase * find_expr_last_no_side_effect() const override  { return this; }
+      virtual eSkSideEffect            get_side_effect() const override;
     #endif
 
 
     #if defined(SK_AS_STRINGS)
-      virtual AString as_code() const;
+      virtual AString as_code() const override;
     #endif
 
 
   // Debugging Methods
 
     #if (SKOOKUM & SK_DEBUG)
-      virtual SkExpressionBase * find_expr_by_pos(uint pos, eSkExprFind type = SkExprFind_all) const;
-      virtual eAIterateResult    iterate_expressions(SkApplyExpressionBase * apply_expr_p, const SkInvokableBase * invokable_p = nullptr);
+      virtual SkExpressionBase * find_expr_by_pos(uint pos, eSkExprFind type = SkExprFind_all) const override;
+      virtual eAIterateResult    iterate_expressions(SkApplyExpressionBase * apply_expr_p, const SkInvokableBase * invokable_p = nullptr) override;
     #endif
 
 
   // Methods
 
     SkClosureInfoBase *     get_closure_info() const  { return m_info_p; }
-    virtual eSkExprType     get_type() const          { return m_info_p->is_method() ? SkExprType_closure_method : SkExprType_closure_coroutine; }
-    virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const;
-    virtual void            track_memory(AMemoryStats * mem_stats_p) const;
+    virtual eSkExprType     get_type() const override          { return m_info_p->is_method() ? SkExprType_closure_method : SkExprType_closure_coroutine; }
+    virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const override;
+    virtual void            track_memory(AMemoryStats * mem_stats_p) const override;
 
   protected:
 

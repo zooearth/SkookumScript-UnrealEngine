@@ -1,12 +1,25 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2008 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  Checksum declaration header
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// Checksum declaration header
 //   - generates checksums using the CRC (cyclic redundancy check) algorithm.
 //   
-// Notes:          
 //
 // A nice property of using CRCs to generate a checksum is that since it has the same
 // number of internal state bits as is returned it supports successive calls.  Not all
@@ -17,19 +30,19 @@
 //
 // Usage:
 //
-//  'prev_crc' allows you to append text to a previous calculated CRC checksum:
+// 'prev_crc' allows you to append text to a previous calculated CRC checksum:
 //
 //    uint32_t crc_full  = AChecksum::generate_crc32_cstr("Left_Right");
 //    uint32_t crc_parts = AChecksum::generate_crc32_cstr("Left_");
 //         crc_parts = AChecksum::generate_crc32_cstr("Right", crc_parts);
 //    
-//  'crc_parts' is now equal to 'crc_full'
+// 'crc_parts' is now equal to 'crc_full'
 //    
-//  This can also be useful if naming convention that works with this property is used.
-//  For example, if the CRC checksum is used as a hash and the same root is used by
-//  different model names - the base hash can be stored and used to generate the hashes of
-//  derivative names quickly.  [Note however that ASymbol objects are usually preferable
-//  instead of hashes - especially when used in conjunction with tools.]
+// This can also be useful if naming convention that works with this property is used.
+// For example, if the CRC checksum is used as a hash and the same root is used by
+// different model names - the base hash can be stored and used to generate the hashes of
+// derivative names quickly.  [Note however that ASymbol objects are usually preferable
+// instead of hashes - especially when used in conjunction with tools.]
 //    
 //    uint32_t base_hash   = AChecksum::generate_crc32_cstr("ModelName");
 //    
@@ -37,11 +50,10 @@
 //    uint32_t hash_modelb = AChecksum::generate_crc32_cstr("_B", base_hash);    Same as "ModelName_B"
 //    uint32_t hash_modelc = AChecksum::generate_crc32_cstr("_C", base_hash);    Same as "ModelName_C"
 //
-//  References:
+// References:
 //
 //    http://en.wikipedia.org/wiki/Cyclic_redundancy_check
 //    32-Bit - gnu textutils-2.1  src\cksum.c
-//
 //=======================================================================================
 
 #pragma once

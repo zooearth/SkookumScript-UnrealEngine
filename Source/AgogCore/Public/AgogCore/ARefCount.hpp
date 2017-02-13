@@ -1,11 +1,23 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2006 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  Reference Counting Base Class and Smart Pointer declaration header
-// Author(s):    Conan Reis
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// Reference Counting Base Class and Smart Pointer declaration header
 //=======================================================================================
 
 #pragma once
@@ -89,7 +101,7 @@ class ARefPtr
 
     ARefPtr()                         : m_obj_p(nullptr)  {}
     ARefPtr(const ARefPtr & ref_ptr)  : m_obj_p(ref_ptr.m_obj_p) { if (ref_ptr.m_obj_p) { ref_ptr.m_obj_p->reference(); } }
-    ARefPtr(_PtrType * obj_p)         : m_obj_p(obj_p) { if (m_obj_p) { m_obj_p->reference(); } }
+    ARefPtr(const _PtrType * obj_p)   : m_obj_p(const_cast<_PtrType *>(obj_p)) { if (m_obj_p) { m_obj_p->reference(); } }
     ~ARefPtr();
 
     // Assignment

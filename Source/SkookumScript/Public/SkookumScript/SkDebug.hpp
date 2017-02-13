@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // Debugging and error handling classes
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -376,6 +388,10 @@ class SK_API SkMemberExpression : public SkMemberInfo
       SkMemberExpression(const SkMemberExpression & info) : SkMemberInfo(info), m_expr_p(info.m_expr_p), m_source_idx(info.m_source_idx) {}
       virtual ~SkMemberExpression() {}
 
+    #if (SKOOKUM & SK_DEBUG)
+      SkMemberExpression(SkObjectBase * scope_p, SkInvokedBase * caller_p, SkExpressionBase * expr_p) {}
+    #endif
+
     // Comparison Methods
 
       bool operator==(const SkMemberExpression & expr_info) const;
@@ -422,7 +438,7 @@ class SK_API SkMemberExpression : public SkMemberInfo
   };
 
 
-#if (SKOOKUM & SK_DEBUG)
+#if 0 // Currently unused
 
 //---------------------------------------------------------------------------------------
 // Invoked object descriptor - SkInvokedContext(SkInvokedMethod or SkInvokedCoroutine) or
@@ -474,7 +490,7 @@ class SK_API SkInvokedInfo
 
     // Scope/receiver/this Info
     
-      uint32_t  m_scope_id;       // Unique object id of scope
+      uint32_t  m_scope_id;       // Unique id of scope
       uint32_t  m_scope_addr;     // Scope memory address
       SkClass * m_scope_class_p;  // Scope class
       AString   m_scope_str;      // String representation of scope (translated & breaks converted)
@@ -519,6 +535,9 @@ class SK_API SkCallTree
 
   };  // SkCallTree
 
+#endif
+
+#if (SKOOKUM & SK_DEBUG)
 
 //---------------------------------------------------------------------------------------
 // Notes      Debug Breakpoint
@@ -628,7 +647,7 @@ class SK_API SkBreakPoint : public SkMemberExpression
       // 
       //   // Other Conditions:
       //   //
-      //   //  Frame/update count
+      //   //  Level/update count
       //   //  Time-based
       //   //  Updater mind
       //   //  Scope/receiver class
@@ -644,18 +663,55 @@ class SK_API SkBreakPoint : public SkMemberExpression
 
 typedef APSortedLogical<SkBreakPoint, SkMemberExpression> tSkBreakPoints;
 
-#endif  // (SKOOKUM & SK_DEBUG)
+//---------------------------------------------------------------------------------------
+// A watch variable
+struct SkWatch
+  {
+  enum Kind
+    {
+    Kind_instance_data,
+    Kind_class_data,
+    Kind_this,
+    Kind_parameter,
+    Kind_return_parameter,
+    Kind_temporary,
+    Kind_captured
+    };
+
+  SkWatch(Kind kind, const ASymbol & var_name, const SkInstance * value_p, const ASymbol & scope_name);
+
+  #if (SKOOKUM & SK_COMPILED_IN)             
+             SkWatch(const void ** binary_pp) { assign_binary(binary_pp); }
+    void     assign_binary(const void ** binary_pp);
+  #endif
+
+  #if (SKOOKUM & SK_COMPILED_OUT)
+    void     as_binary(void ** binary_pp) const;
+    uint32_t as_binary_length() const;
+  #endif
+
+  Kind      m_kind;
+  ASymbol   m_var_name;
+  ASymbol   m_type_name;
+  ASymbol   m_scope_name;
+  AString   m_value;
+  uint32_t  m_ref_count;
+  uint32_t  m_ptr_id;
+  uint64_t  m_address;
+
+  // The data members and/or list items of this variable
+  APArrayFree<SkWatch> m_children;
+  };
 
 //---------------------------------------------------------------------------------------
-// Stores a SkookumScript callstack for printing and debugging
-struct SkCallStack
+// Stores a SkookumScript call stack for printing and debugging
+// Derived from ARefCountMix so it can be optionally stashed away during processing calls
+struct SkCallStack : public ARefCountMix<SkCallStack>
   {
 
   SkCallStack() {}
 
   // Conversion Methods
-
-  #if (SKOOKUM & SK_DEBUG)
 
   #if (SKOOKUM & SK_COMPILED_IN)
           SkCallStack(const void ** binary_pp) { assign_binary(binary_pp); }
@@ -667,19 +723,15 @@ struct SkCallStack
     uint32_t as_binary_length() const;  
   #endif
 
-  #endif
-
   // Data
 
-  struct Entry
+  // Stores a stack frame
+  struct Level : SkMemberExpression
     {
-    Entry(const AString & invoke_string, uint32_t source_idx) : m_invoke_string(invoke_string), m_source_idx(source_idx) {}
-
-    #if (SKOOKUM & SK_DEBUG)
+    Level(const SkMemberExpression & member_expr, const AString & label, bool is_context) : SkMemberExpression(member_expr), m_label(label), m_is_context(is_context) {}
 
     #if (SKOOKUM & SK_COMPILED_IN)             
-               Entry(const void ** binary_pp) { assign_binary(binary_pp); }
-      void     assign_binary(const void ** binary_pp);
+      Level(const void ** binary_pp);
     #endif
 
     #if (SKOOKUM & SK_COMPILED_OUT)
@@ -687,15 +739,21 @@ struct SkCallStack
       uint32_t as_binary_length() const;
     #endif
 
-    #endif
+    // Label string to display for this callstack level
+    AString m_label;
 
-    AString   m_invoke_string;
-    uint32_t  m_source_idx;
+    // Is this an invoked routine?
+    bool m_is_context;
+
+    // The locals known on this level of the callstack
+    APArrayFree<SkWatch> m_locals;
     };
 
   // The stack of callers ordered from inner to outer
-  APArrayFree<Entry>  m_stack;
+  APArrayFree<Level> m_stack;
   };
+
+#endif  // (SKOOKUM & SK_DEBUG)
 
 //---------------------------------------------------------------------------------------
 
@@ -850,7 +908,7 @@ class SK_API SkDebug
             // Note - all these conditions (and more) can be tested in the hook/ functions
             // themselves - it just might not be as efficient as "built-in" tests.
             // 
-            //   Frame/update count
+            //   Level/update count
             //   Time-based
             //   Updater mind
             //   Scope/receiver class
@@ -975,20 +1033,23 @@ class SK_API SkDebug
         static eState               get_execution_state()                       { return ms_exec_state; }
         static SkMemberExpression & get_next_expression()                       { return ms_next_expr; }
         static SkInvokedBase *      get_next_invokable();
+        static SkDebugInfo          get_next_debug_info();
         static uint32_t             get_preferences()                           { return ms_pref_flags; }
 
-        static SkCallStack *        get_callstack(const SkInvokedBase * caller_p, uint32_t stack_flags = SkInvokeInfo__callstack_def);
+        static SkCallStack *        get_callstack(const SkInvokedBase * invoked_p, const SkMemberExpression * initial_member_expr_p, uint32_t stack_flags = SkInvokeInfo__callstack_def);
+        static void                 append_watch_locals(APArray<SkWatch> * m_locals_p, const SkInvokedBase * invoked_p);
+        static void                 append_watch_members(APArray<SkWatch> * m_members_p, SkInstance * obj_p);
 
         static void break_expression(SkObjectBase * scope_p, SkInvokedBase * caller_p, SkExpressionBase * expr_p);
         static void break_invokable(SkInvokedBase * invoked_p);
         static void enable_preference(ePrefFlag preference, bool enable = true);
         static void invalidate_next_expression();
-        static bool is_active_member(const SkMemberInfo & member)               { return member.is_valid() && ms_next_expr.is_valid() && (member == ms_next_expr); }
-        static bool is_preference(ePrefFlag preference)                         { return (ms_pref_flags & preference) != 0u; }
-        static void set_execution_state(eState state)                           { ms_exec_state = state; }
+        static bool is_active_member(const SkMemberInfo & member) { return member.is_valid() && ms_next_expr.is_valid() && (member == ms_next_expr); }
+        static bool is_preference(ePrefFlag preference) { return (ms_pref_flags & preference) != 0u; }
+        static void set_execution_state(eState state) { ms_exec_state = state; }
         static void set_next_expression(const SkMemberExpression & expr_info);
         static void set_next_expression(SkObjectBase * scope_p, SkInvokedBase * caller_p, SkExpressionBase * expr_p);
-        static void set_preferences(uint32_t pref_flags)                        { ms_pref_flags = pref_flags; }
+        static void set_preferences(uint32_t pref_flags) { ms_pref_flags = pref_flags; }
         static void step(eStep step_type);
       #endif  // (SKOOKUM & SK_DEBUG)
 
@@ -1014,7 +1075,6 @@ class SK_API SkDebug
         static bool breakpoint_is_on_expr(const SkExpressionBase & expr);
 
         static void                   breakpoint_get_all_by_member(tSkBreakPoints * bps_p, const SkMemberInfo & member_info);
-        static const tSkBreakPoints & breakpoint_get_all_by_member(const SkMemberInfo & member_info);
         static SkBreakPoint *         breakpoint_get_by_expr(const SkExpressionBase & expr);
         static SkBreakPoint *         breakpoint_get_at_idx(uint32_t table_idx) { return (table_idx < SkDebugInfo::Flag_debug_idx__none) ? ms_breakpoint_table.get_at(table_idx) : nullptr; }
 
