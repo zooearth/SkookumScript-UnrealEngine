@@ -142,3 +142,4 @@ inline USkookumScriptListener::EventInfo * USkookumScriptListener::pop_event()
   {
   return m_event_queue.pop_first();
   }
+
