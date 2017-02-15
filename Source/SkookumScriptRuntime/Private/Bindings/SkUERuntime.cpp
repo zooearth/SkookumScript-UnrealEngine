@@ -249,7 +249,10 @@ SkUERuntime::SkUERuntime()
   , m_editor_interface_p(nullptr)
   {
   ms_singleton_p = this;
-  SkParser::set_customization_defaults(this);
+
+  #if (SKOOKUM & SK_CODE_IN)
+    SkParser::set_customization_defaults(this);
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
