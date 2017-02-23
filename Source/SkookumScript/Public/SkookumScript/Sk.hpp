@@ -348,6 +348,7 @@ class SK_API SkookumScript
 
     static SkMind *             get_master_mind() { return ms_master_mind_p; }
     static SkInstance *         get_master_mind_or_meta_class();
+    static SkClass *            get_startup_class() { return ms_startup_class_p; }
 
     static SkProgramUpdateRecord * get_program_update_record()    { return ms_program_update_record_p; }
 

@@ -344,7 +344,7 @@ void SkUERemote::set_mode(eSkLocale mode)
 //   
 // #Modifiers: virtual
 // #Author(s): Conan Reis
-void SkUERemote::on_cmd_send(const ADatum & datum)
+SkRemoteBase::eSendResponse SkUERemote::on_cmd_send(const ADatum & datum)
   {
   if (is_connected())
     {
@@ -365,6 +365,8 @@ void SkUERemote::on_cmd_send(const ADatum & datum)
         {
         m_socket_p->Send(datum.get_buffer(), datum.get_length(), bytes_sent);
         }
+
+      return SendResponse_Reconnecting;
       }
     }
   else
@@ -374,7 +376,11 @@ void SkUERemote::on_cmd_send(const ADatum & datum)
       "[Connect runtime to SkookumIDE and try again.]\n",
       SkLocale_local,
       SkDPrintType_warning);
+
+    return SendResponse_Not_Connected;
     }
+
+    return SendResponse_OK;
   }
 
 //---------------------------------------------------------------------------------------

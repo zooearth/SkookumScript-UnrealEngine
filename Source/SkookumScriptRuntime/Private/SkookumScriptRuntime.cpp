@@ -909,6 +909,11 @@ void FSkookumScriptRuntime::tick_remote()
       bool success_b = m_runtime.load_and_bind_compiled_scripts(true);
       SK_ASSERTX(success_b, AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
       m_remote_client.clear_load_compiled_binaries_requested();
+      if (success_b)
+        {
+        // Inform the IDE about the version we got
+        m_remote_client.cmd_incremental_update_reply(true, SkBrain::ms_session_guid, SkBrain::ms_revision);
+        }
 
       // After reloading, re-resolve the raw data of all dynamic classes
       #if WITH_EDITORONLY_DATA

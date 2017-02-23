@@ -130,7 +130,7 @@ FString FSkookumScriptGeneratorBase::get_or_create_project_file(const FString & 
       proj_ini += ms_overlay_name_cpp_p;
       proj_ini += TEXT("|");
       proj_ini += ms_overlay_name_cpp_p;
-      proj_ini += TEXT("|1\r\n");
+      proj_ini += TEXT("|A\r\n");
       if (FFileHelper::SaveStringToFile(proj_ini, *project_file_path, FFileHelper::EEncodingOptions::ForceAnsi))
         {
         IFileManager::Get().MakeDirectory(*(temp_root_path / TEXT("Content/SkookumScript")), true);

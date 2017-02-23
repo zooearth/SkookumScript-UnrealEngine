@@ -43,6 +43,7 @@ A_INLINE SkParser::Args::Args() :
   m_flags(ArgFlag__default),
   m_idx_probe(0u),
   m_desired_type_p(nullptr),
+  m_receiver_type_p(nullptr),
   m_start_pos(0u),
   m_end_pos(0u),
   m_result(SkParser::Result_ok),
@@ -62,6 +63,7 @@ A_INLINE SkParser::Args::Args(
   m_flags(flags),
   m_idx_probe(0u),
   m_desired_type_p(nullptr),
+  m_receiver_type_p(nullptr),
   m_start_pos(start_pos),
   m_end_pos(0u),
   m_result(SkParser::Result_ok),
@@ -80,6 +82,7 @@ A_INLINE SkParser::Args::Args(const Args & args) :
   m_idx_probe_user(args.m_idx_probe_user),
   m_idx_probe_func(args.m_idx_probe_func),
   m_desired_type_p(args.m_desired_type_p),
+  m_receiver_type_p(args.m_receiver_type_p),
   m_start_pos(args.m_start_pos),
   m_end_pos(args.m_end_pos),
   m_result(args.m_result),
@@ -94,15 +97,16 @@ A_INLINE SkParser::Args::Args(const Args & args) :
 // Author(s):   Conan Reis
 A_INLINE SkParser::Args & SkParser::Args::operator=(const Args & args)
   {
-  m_flags          = args.m_flags;
-  m_idx_probe      = args.m_idx_probe;
-  m_idx_probe_func = args.m_idx_probe_func;
-  m_idx_probe_user = args.m_idx_probe_user;
-  m_start_pos      = args.m_start_pos;
-  m_end_pos        = args.m_end_pos;
-  m_result         = args.m_result;
-  m_expr_type      = args.m_expr_type;
-  m_desired_type_p = args.m_desired_type_p;
+  m_flags           = args.m_flags;
+  m_idx_probe       = args.m_idx_probe;
+  m_idx_probe_func  = args.m_idx_probe_func;
+  m_idx_probe_user  = args.m_idx_probe_user;
+  m_start_pos       = args.m_start_pos;
+  m_end_pos         = args.m_end_pos;
+  m_result          = args.m_result;
+  m_expr_type       = args.m_expr_type;
+  m_desired_type_p  = args.m_desired_type_p;
+  m_receiver_type_p = args.m_receiver_type_p;
 
   return *this;
   }
@@ -114,12 +118,13 @@ A_INLINE SkParser::Args & SkParser::Args::operator=(const Args & args)
 // Author(s):  Conan Reis
 A_INLINE SkParser::Args & SkParser::Args::reset()
   {
-  m_flags          = ArgFlag__default;
-  m_idx_probe      = 0u;
-  m_idx_probe_func = nullptr;
-  m_start_pos      = 0u;
-  m_expr_type      = nullptr;
-  m_desired_type_p = nullptr;
+  m_flags           = ArgFlag__default;
+  m_idx_probe       = 0u;
+  m_idx_probe_func  = nullptr;
+  m_start_pos       = 0u;
+  m_expr_type       = nullptr;
+  m_desired_type_p  = nullptr;
+  m_receiver_type_p = nullptr;
 
   // Note that some of the "out" data is left unmodified
 
@@ -134,12 +139,13 @@ A_INLINE SkParser::Args & SkParser::Args::reset()
 // Author(s): Conan Reis
 A_INLINE SkParser::Args & SkParser::Args::reset(uint32_t start_pos)
   {
-  m_flags          = ArgFlag__default;
-  m_idx_probe      = 0u;
-  m_idx_probe_func = nullptr;
-  m_start_pos      = start_pos;
-  m_expr_type      = nullptr;
-  m_desired_type_p = nullptr;
+  m_flags           = ArgFlag__default;
+  m_idx_probe       = 0u;
+  m_idx_probe_func  = nullptr;
+  m_start_pos       = start_pos;
+  m_expr_type       = nullptr;
+  m_desired_type_p  = nullptr;
+  m_receiver_type_p = nullptr;
 
   // Note that some of the "out" data is left unmodified
 
@@ -177,6 +183,7 @@ A_INLINE SkParser::Args & SkParser::Args::set_idx_probe(
 // See: `ArgFlag_parse_to_idx_probe`, `m_idx_probe_user` and `m_idx_probe_func`
 A_INLINE bool SkParser::Args::is_idx_probe_halt(const SkParser * parser_p)
   {
+  // Shall we bail or continue?
   if ((m_idx_probe_func == nullptr) 
     || (m_idx_probe_func)(const_cast<SkParser *>(parser_p), *this))
     {
@@ -199,6 +206,26 @@ A_INLINE bool SkParser::Args::is_idx_probe_halt(const SkParser * parser_p)
 // Returns: itself
 // Params:
 //   str: string to parse
+//
+// Author(s):   Conan Reis
+A_INLINE SkParser::SkParser(
+  const AString &      str
+  ) :
+  AString(str),
+  m_customizations_p(get_customization_defaults()),
+  m_flags(ms_default_flags),
+  m_member_type(SkMember__invalid),
+  m_current_block_p(nullptr)
+  {
+  reset_scope();
+  }
+
+//---------------------------------------------------------------------------------------
+// Constructor
+// 
+// Returns: itself
+// Params:
+//   str: string to parse
 //   customizations_p:
 //      Customized settings and behavior for the parser - if nullptr it uses the default
 //      one stored in `ms_defaults_p` which is set with SkParser::set_custom_defaults().
@@ -207,9 +234,9 @@ A_INLINE bool SkParser::Args::is_idx_probe_halt(const SkParser * parser_p)
 A_INLINE SkParser::SkParser(
   const AString &      str,
   SkParserCustomBase * customizations_p // = nullptr
-  ) :
+) :
   AString(str),
-  m_customizations_p(get_customization_defaults()),
+  m_customizations_p(customizations_p),
   m_flags(ms_default_flags),
   m_member_type(SkMember__invalid),
   m_current_block_p(nullptr)
@@ -260,7 +287,7 @@ A_INLINE SkParser::SkParser(
   SkParserCustomBase * customizations_p // = nullptr
   ) :
   AString(cstr_p, length, persistent_b),
-  m_customizations_p(get_customization_defaults()),
+  m_customizations_p(customizations_p ? customizations_p : get_customization_defaults()),
   m_flags(ms_default_flags),
   m_member_type(SkMember__invalid),
   m_current_block_p(nullptr)
