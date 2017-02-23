@@ -1,11 +1,24 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001-2015 Agog Labs Inc. All rights reserved.
 //
 // Data structure for simplest type of object in language - instance of a
 // class without data members
-//
-// Author: Conan Reis, Markus Breyer
 //=======================================================================================
 
 #pragma once
@@ -101,6 +114,7 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
     virtual void as_code_append(AString * str_p, uint32_t code_flags = SkCodeFlag__none, SkInvokedBase * caller_p = nullptr) const;
     AString      as_code(uint32_t code_flags = SkCodeFlag__none, SkInvokedBase * caller_p = nullptr) const  { AString str; as_code_append(&str, code_flags, caller_p); return str; }
     void         as_string_invoke_append(AString * str_p, SkInvokedBase * caller_p = nullptr) const;
+    AString      as_watch_value() const { return as_code(); }
 
     #if defined(SK_AS_STRINGS)
       virtual AString         as_string_debug() const;
@@ -402,7 +416,7 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
     SkInstance(SkClass * class_p);
     SkInstance(SkClass * class_p, const tUserData & user_data);
 
-    SkInstance ** get_pool_unused_next() { return (SkInstance **)&m_user_data.m_data.m_ptr; } // Area in this class where to store the pointer to the next unused object when not in use
+    SkInstance ** get_pool_unused_next() { return (SkInstance **)&m_user_data.m_data.m_uintptr; } // Area in this class where to store the pointer to the next unused object when not in use
 
   // Data Members
 

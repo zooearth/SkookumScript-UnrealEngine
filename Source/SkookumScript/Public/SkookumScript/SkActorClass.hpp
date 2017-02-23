@@ -1,17 +1,26 @@
 //=======================================================================================
-// SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Data structure for actor class descriptors and actor class objects
-// Author(s):   Conan Reis
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
+//=======================================================================================
+// SkookumScript C++ library.
+//
+// Data structure for actor class descriptors and actor class objects
+//=======================================================================================
 
-#ifndef __SKACTORCLASS_HPP
-#define __SKACTORCLASS_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -42,7 +51,6 @@ class SK_API SkActorClass : public SkClass
   {
   // Accesses protected elements
   friend class SkParser;
-  friend class SkCompiler;
 
   public:
 
@@ -57,18 +65,18 @@ class SK_API SkActorClass : public SkClass
 
     //virtual void clear_members();
     //virtual void clear_members_compact();
-    virtual bool is_builtin_actor_class() const;
-    virtual void track_memory(AMemoryStats * mem_stats_p, bool skip_demand_loaded) const;
+    virtual bool is_builtin_actor_class() const override;
+    virtual void track_memory(AMemoryStats * mem_stats_p, bool skip_demand_loaded) const override;
 
     // Serialization Methods
 
-      virtual SkInstance * object_id_lookup(SkObjectId * obj_id_p) const;
+      virtual SkInstance * object_id_lookup(SkObjectIDBase * obj_id_p, SkInvokedBase * caller_p = nullptr) const override;
 
       #if (SKOOKUM & SK_CODE_IN)
-        //virtual SkClass * object_id_validate(SkObjectId * obj_id_p) const;
+        //virtual SkClass * object_id_validate(SkObjectIDBase * obj_id_p) const;
       #endif
 
-      virtual bool demand_unload();
+      virtual bool demand_unload() override;
 
       //#if (SKOOKUM & SK_COMPILED_OUT)
       //  virtual void     as_binary(void ** binary_pp) const;
@@ -87,7 +95,7 @@ class SK_API SkActorClass : public SkClass
       SkActor *            get_first_instance() const                   { return m_instances.get_first(); }
       const tSkActors &    get_instances() const                        { return m_instances; }
       void                 remove_instance(const SkActor & actor, eATerm term = ATerm_long);
-      virtual SkInstance * new_instance();
+      virtual SkInstance * new_instance() override;
 
   // Class Methods
 
@@ -118,7 +126,3 @@ template<> inline void           SkUserDataBase::set(SkActorClass       * const 
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkActorClass.inl>
 #endif
-
-
-#endif  // __SKACTORCLASS_HPP
-

@@ -1,10 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001-2015 Agog Labs Inc. All rights reserved.
 //
 // List of SkInstances
-//
-// Author: Conan Reis
 //=======================================================================================
 
 #pragma once
@@ -57,7 +70,7 @@ class SK_API SkInstanceList
     void                  empty();
     void                  empty_compact();
     void                  ensure_size(uint32_t needed)          { m_items.ensure_size(needed); }
-    void                  ensure_size_empty(uint32_t needed)    { m_items.empty(); m_items.ensure_size(needed); }
+    void                  ensure_size_empty(uint32_t needed)    { m_items.ensure_size_empty(needed); }
     void                  insert(SkInstance & instance, uint32_t pos, uint32_t count = 1);
     void                  insert_all(const SkInstanceList & list, uint32_t pos);
     bool                  remove(SkInstance & instance, uint32_t match = AMatch_first_found, uint32_t * find_pos_p = nullptr, uint32_t start_pos = 0u, uint32_t end_pos = ALength_remainder);

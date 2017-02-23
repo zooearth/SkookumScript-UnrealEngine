@@ -1,18 +1,27 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2000 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  ASymbol class declaration header
-// Author(s):    Conan Reis
-// Create Date:   2000-01-12
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// ASymbol class declaration header
 // Notes:          See the ASymbol class for more info.
 //=======================================================================================
 
-
-#ifndef __ASYMBOL_HPP
-#define __ASYMBOL_HPP
-             
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -53,8 +62,7 @@
 
 //---------------------------------------------------------------------------------------
 // If 'A_SYMBOLTABLE_CLASSES' is defined, ASymbolTable and associated classes are defined.
-// [Even if the Agog mechanism for a symbol/string database is not used some Agog code -
-// like SkCompiler - uses ASymbolTable.
+// [Even if the Agog mechanism for a symbol/string database is not used some Agog code]
 //
 //   Default:  if 'A_SYMBOL_STR_DB_AGOG' is defined, 'A_SYMBOLTABLE_CLASSES' is defined.
 //   Always enabled:  Regardless of what else is defined just define 'A_SYMBOLTABLE_CLASSES' 
@@ -78,7 +86,7 @@
 // By default only bother doing reference counting of symbols on non-PC - PC has enough
 // memory to handle it.
 // [Requires A_SYMBOL_REF_LINK to be defined.]
-#if defined(A_SYMBOL_REF_LINK) && !defined(A_PLAT_PC)
+#if defined(A_SYMBOL_REF_LINK) && !defined(A_PLAT_PC) && !defined(A_PLAT_LINUX64)
   #define A_SYMBOL_REF_COUNT
 #endif
 
@@ -294,7 +302,8 @@ class A_API ASymbol
 
   // Converter Methods
 
-	void as_binary(void ** binary_pp) const;
+  void            as_binary(void ** binary_pp) const;
+  static uint32_t as_binary_length() { return 4u; }
 
     #if defined(A_SYMBOL_STR_DB)
 
@@ -378,9 +387,3 @@ class A_API ASymbol
 #ifndef A_INL_IN_CPP
   #include <AgogCore/ASymbol.inl>
 #endif
-
-
-#endif  // __ASYMBOL_HPP
-
-
-

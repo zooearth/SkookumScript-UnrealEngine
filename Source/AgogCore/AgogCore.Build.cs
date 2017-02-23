@@ -1,4 +1,23 @@
-﻿// Copyright 2000 Agog Labs Inc., All Rights Reserved.
+﻿//=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// SkookumScript Plugin for Unreal Engine 4
+//=======================================================================================
+
 using System.IO;
 using System.Net;
 using System.Collections.Generic;
@@ -10,12 +29,30 @@ public class AgogCore : ModuleRules
   public AgogCore(TargetInfo Target)
   {
     // Check if Sk source code is present (Pro-RT license) 
-    var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "..", "SkookumScript", "Private", "SkookumScript", "SkookumScript.cpp"));
+    var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "..", "SkookumScript", "Private", "SkookumScript", "Sk.cpp"));
     // Allow packaging script to force a lib build by creating a temp file (Agog Labs internal)
     bFullSource = bFullSource && !File.Exists(Path.Combine(ModuleDirectory, "..", "SkookumScript", "force-lib-build.txt"));
 
     // If full source is present, build module from source, otherwise link with binary library
     Type = bFullSource ? ModuleType.CPlusPlus : ModuleType.External;
+
+    // Enable fussy level of checking (Agog Labs internal)
+    var bMadCheck = File.Exists(Path.Combine(ModuleDirectory, "enable-mad-check.txt"));
+    if (bMadCheck)
+    {
+      Definitions.Add("A_MAD_CHECK");
+    }
+
+    // Add user define if exists (Agog Labs internal)
+    var userDefineFilePath = Path.Combine(ModuleDirectory, "mad-define.txt");
+    if (File.Exists(userDefineFilePath))
+    {
+      var userDefine = File.ReadAllText(userDefineFilePath).Trim();
+      if (userDefine.Length > 0)
+      {
+        Definitions.Add(userDefine);
+      }
+    }
 
     var bPlatformAllowed = false;
 
@@ -36,7 +73,6 @@ public class AgogCore : ModuleRules
         platPathSuffixes.Add(Path.Combine(platformName, WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 ? "VS2015" : "VS2013"));
         libNameExt = ".lib";
         libNamePrefix = "";
-        Definitions.Add("WIN32_LEAN_AND_MEAN");
         break;
       case UnrealTargetPlatform.Mac:
         bPlatformAllowed = true;
@@ -73,6 +109,14 @@ public class AgogCore : ModuleRules
         bPlatformAllowed = bFullSource;
         platformName = "XONE";
         Definitions.Add("A_PLAT_X_ONE");
+        break;
+      case UnrealTargetPlatform.Linux:
+        bPlatformAllowed = true;
+        platformName = "Linux";
+        platPathSuffixes.Add(platformName);
+        useDebugCRT = true;
+        Definitions.Add("A_PLAT_LINUX64");
+        UEBuildConfiguration.bForceEnableExceptions = true;
         break;
     }
 

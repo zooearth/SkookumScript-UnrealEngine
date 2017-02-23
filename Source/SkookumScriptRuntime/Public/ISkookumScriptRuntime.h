@@ -1,20 +1,36 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
 // Main entry point for the SkookumScript runtime plugin
-// 
-// Author: Markus Breyer
 //=======================================================================================
 
 #pragma once
 
 #include "ModuleManager.h"
+#include "Misc/AssertionMacros.h"
 
 class SkClass;
 class UClass;
 class UBlueprint;
 class SkUEBindingsInterface;
+
+SKOOKUMSCRIPTRUNTIME_API DECLARE_LOG_CATEGORY_EXTERN(LogSkookum, Log, All);
 
 //---------------------------------------------------------------------------------------
 // Interface class for the runtime plugin to call the editor plugin
@@ -61,12 +77,10 @@ class ISkookumScriptRuntime : public IModuleInterface
       virtual bool  is_skookum_blueprint_function(UFunction * function_p) const = 0;
       virtual bool  is_skookum_blueprint_event(UFunction * function_p) const = 0;
 
-      virtual void  generate_class_script_files(UClass * ue_class_p, bool generate_data, bool check_if_reparented) = 0;
-      virtual void  generate_used_class_script_files() = 0;
-      virtual void  generate_all_class_script_files() = 0;
-      virtual void  rename_class_script_files(UClass * ue_class_p, const FString & old_class_name) = 0;
-      virtual void  rename_class_script_files(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name) = 0;
-      virtual void  delete_class_script_files(UClass * ue_class_p) = 0;
+      virtual void  on_class_added_or_modified(UClass * ue_class_p, bool check_if_reparented) = 0;
+      virtual void  on_class_renamed(UClass * ue_class_p, const FString & old_class_name) = 0;
+      virtual void  on_class_renamed(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name) = 0;
+      virtual void  on_class_deleted(UClass * ue_class_p) = 0;
 
     #endif
 

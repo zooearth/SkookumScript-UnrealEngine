@@ -1,0 +1,31 @@
+//---------------------------------------------------------------------------------------
+// Iterates over each item in the list calling supplied durational closure code with each
+// item as an argument *without* waiting for it to finish and moving on to the next item.
+//
+// # Examples:
+//   // Has each guy start to jump and then go to next line immediately
+//   !guys: {guy1 guy2 guy3}
+//   guys.do_branch[item._jump]
+//
+// # Notes:
+//   Use do*() versions for immediate iteration and _do*() versions for durational
+//   iteration.
+//
+// # See:       do*(), _do*(), all?(), any?()
+// # Author(s): Conan Reis
+//---------------------------------------------------------------------------------------
+
+(+(ItemClass_ item) code)
+
+  [
+  // $Revisit - CReis Rewrite as C++ call
+  !count: length
+  !idx:   0
+  
+  loop
+    [
+    if idx >= count [exit]
+    branch code(at(idx))
+    idx++
+    ]
+  ]  

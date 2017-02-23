@@ -1,17 +1,32 @@
 //=======================================================================================
-// SkookumScript Unreal Engine Runtime Script Generator
-// Copyright (c) 2016 Agog Labs Inc. All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Author: Markus Breyer
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// SkookumScript Unreal Engine Runtime Script Generator
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
 
+#include "SkookumScriptRuntimeGenerator.h"
 #include "../../SkookumScriptGenerator/Private/SkookumScriptGeneratorBase.inl" // Need this even in cooked builds
 
 #if WITH_EDITORONLY_DATA
 
-#include "SkookumScriptRuntimeGenerator.h"
+#include "Settings/ProjectPackagingSettings.h"
+#include "Interfaces/IPluginManager.h"
 
 //=======================================================================================
 
@@ -40,16 +55,16 @@ FSkookumScriptRuntimeGenerator::~FSkookumScriptRuntimeGenerator()
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptRuntimeGenerator::get_project_path()
+FString FSkookumScriptRuntimeGenerator::get_project_file_path()
   {
-  return m_project_path;
+  return m_project_file_path;
   }
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptRuntimeGenerator::get_default_project_path()
+FString FSkookumScriptRuntimeGenerator::get_default_project_file_path()
   {
-  return m_default_project_path;
+  return m_default_project_file_path;
   }
 
 //---------------------------------------------------------------------------------------
@@ -72,7 +87,7 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files()
       UClass * ue_class_p = static_cast<UBlueprint *>(obj_p)->GeneratedClass;
       if (ue_class_p)
         {
-        generate_class_script_files(ue_class_p, true, true, false);
+        generate_class_script_files(ue_class_p, true, true, true);
         }
       }
 
@@ -95,14 +110,14 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
     {
     // Check if maybe already editable - if so, silently do nothing
     FString editable_scripts_path = FPaths::GameDir() / TEXT("Scripts");
-    FString editable_project_path(editable_scripts_path / TEXT("Skookum-project.ini"));
-    if (!FPaths::FileExists(editable_project_path))
+    FString editable_project_file_path(editable_scripts_path / TEXT("Skookum-project.ini"));
+    if (!FPaths::FileExists(editable_project_file_path))
       {
       // Check temporary location (in `Intermediate` folder)
       FString temp_root_path(FPaths::GameIntermediateDir() / TEXT("SkookumScript"));
       FString temp_scripts_path(temp_root_path / TEXT("Scripts"));
-      FString temp_project_path = temp_scripts_path / TEXT("Skookum-project.ini");
-      if (!FPaths::FileExists(temp_project_path))
+      FString temp_project_file_path = temp_scripts_path / TEXT("Skookum-project.ini");
+      if (!FPaths::FileExists(temp_project_file_path))
         {
         error_msg = TEXT("Tried to make project editable but neither an editable nor a non-editable project was found!");
         }
@@ -146,13 +161,15 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
 
           // Change project to be editable
           FString proj_ini;
-          verify(FFileHelper::LoadFileToString(proj_ini, *editable_project_path));
+          verify(FFileHelper::LoadFileToString(proj_ini, *editable_project_file_path));
           proj_ini = proj_ini.Replace(ms_editable_ini_settings_p, TEXT("")); // Remove editable settings
           proj_ini += TEXT("Overlay8=Project|Project\r\n"); // Create Project overlay definition
-          verify(FFileHelper::SaveStringToFile(proj_ini, *editable_project_path, FFileHelper::EEncodingOptions::ForceAnsi));
+          verify(FFileHelper::SaveStringToFile(proj_ini, *editable_project_file_path, FFileHelper::EEncodingOptions::ForceAnsi));
 
           // Remember new project path
-          m_project_path = FPaths::ConvertRelativePathToFull(editable_project_path);
+          m_project_file_path = FPaths::ConvertRelativePathToFull(editable_project_file_path);
+          // Also update overlay path and depth
+          set_overlay_path();
           }
         }
       }
@@ -401,7 +418,7 @@ void FSkookumScriptRuntimeGenerator::generate_used_class_script_files()
     UClass * class_p = Cast<UClass>(*iter);
     if (class_p)
       {
-      generate_class_script_files(class_p, false, false, false);
+      generate_class_script_files(class_p, false, false, true);
       }
     }
 
@@ -503,9 +520,10 @@ void FSkookumScriptRuntimeGenerator::initialize_paths()
   {
   // Look for default SkookumScript project file in engine folder.
   FString plugin_root_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir());
-  FString default_project_path(plugin_root_path / TEXT("Scripts/Skookum-project-default.ini"));
-  checkf(FPaths::FileExists(default_project_path), TEXT("Cannot find default project settings file '%s'!"), *default_project_path);
-  m_default_project_path = FPaths::ConvertRelativePathToFull(default_project_path);
+  FString default_project_file_path(plugin_root_path / TEXT("Scripts/Skookum-project-default.ini"));
+  checkf(FPaths::FileExists(default_project_file_path), TEXT("Cannot find default project settings file '%s'!"), *default_project_file_path);
+  m_default_project_file_path = FPaths::ConvertRelativePathToFull(default_project_file_path);
+  m_project_file_path.Empty();
 
   // Look for specific SkookumScript project in game/project folder.
   FString project_file_path;
@@ -518,18 +536,21 @@ void FSkookumScriptRuntimeGenerator::initialize_paths()
       generate_all_class_script_files();
       }
     }
-
-  FString scripts_path = FPaths::GetPath(m_default_project_path);
   if (!project_file_path.IsEmpty())
     {
-    // If project path exists, overrides the default script location
-    scripts_path = FPaths::GetPath(project_file_path);
-
     // Qualify and store for later reference
-    m_project_path = FPaths::ConvertRelativePathToFull(project_file_path);
+    m_project_file_path = FPaths::ConvertRelativePathToFull(project_file_path);
+    // Set overlay path and depth
+    set_overlay_path();
     }
+  }
 
-  // Set overlay path and depth - first try new name, then old if new one does not exist
+//---------------------------------------------------------------------------------------
+// Set overlay path and depth
+void FSkookumScriptRuntimeGenerator::set_overlay_path()
+  {
+  check(!m_project_file_path.IsEmpty());
+  FString scripts_path = FPaths::GetPath(m_project_file_path);
   const TCHAR * overlay_name_bp_p = ms_overlay_name_bp_p;
   m_overlay_path = FPaths::ConvertRelativePathToFull(scripts_path / overlay_name_bp_p);
   if (!FPaths::DirectoryExists(m_overlay_path))
@@ -537,7 +558,7 @@ void FSkookumScriptRuntimeGenerator::initialize_paths()
     overlay_name_bp_p = ms_overlay_name_bp_old_p;
     m_overlay_path = FPaths::ConvertRelativePathToFull(scripts_path / overlay_name_bp_p);
     }
-  compute_scripts_path_depth(scripts_path / TEXT("Skookum-project.ini"), overlay_name_bp_p);
+  compute_scripts_path_depth(m_project_file_path, overlay_name_bp_p);
   }
 
 #endif // WITH_EDITORONLY_DATA

@@ -1,12 +1,29 @@
 //=======================================================================================
-// SkookumScript Unreal Engine Editor Plugin
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Author: Markus Breyer
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// SkookumScript Plugin for Unreal Engine 4
 //=======================================================================================
 
 #include "SkookumScriptEditorGUIPrivatePCH.h"
+
 #include "SkookumStyles.h"
+#include "Interfaces/IPluginmanager.h"
+#include "SlateGameResources.h"
+#include "SlateStyle.h"
 
 #define IMAGE_BRUSH( RelativePath, ... )  FSlateImageBrush(ms_singleton_p->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
 #define BOX_BRUSH( RelativePath, ... )    FSlateBoxBrush(ms_singleton_p->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)

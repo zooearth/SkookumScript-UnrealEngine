@@ -1,23 +1,30 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2000 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  Dynamic AString class declaration header
-// Author(s):    Conan Reis
-// Create Date:   2000-01-07
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// Dynamic AString class declaration header
 // Notes:          The AString class should be used in the place of standard C-String
 //              character array pointers.
 //
 // ##### Function descriptions located at implementations rather than declarations. #####
-//
 //=======================================================================================
 
-
-#ifndef __ASTRING_HPP
-#define __ASTRING_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -26,7 +33,7 @@
 #include <AgogCore/AConstructDestruct.hpp>
 #include <AgogCore/ACompareBase.hpp>
 #include <AgogCore/AMemory.hpp>
-
+#include <AgogCore/APArray.hpp>
 
 //=======================================================================================
 // Global Defines / Macros
@@ -43,14 +50,6 @@
 struct AStringRef;       
 class  AStringBM;
 class  ASymbol;
-
-#ifdef A_PLAT_PC
-  template<class _ElementType, class _KeyType = _ElementType> class APArrayLogical;
-#else
-// PS3 GCC compiler does not seem to be able to forward declare templates properly.
-  #include <AgogCore/APArray.hpp>
-#endif
-
 
 // AString enumerated constants
 enum
@@ -684,8 +683,3 @@ class A_API AStringBM : public AString
 #ifndef A_INL_IN_CPP
   #include <AgogCore/AString.inl>
 #endif
-
-
-#endif  // __ASTRING_HPP
-
-

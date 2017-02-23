@@ -1,16 +1,26 @@
 //=======================================================================================
-// SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Data structure for storing user data
-//
-// Author(s):   Markus Breyer
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
-#ifndef __SKUSERDATA_HPP
-#define __SKUSERDATA_HPP
+//=======================================================================================
+// SkookumScript C++ library.
+//
+// Data structure for storing user data
+//=======================================================================================
+
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -19,6 +29,7 @@
 #include <AgogCore/ARefCount.hpp>
 #include <AgogCore/AString.hpp>
 #include <AgogCore/ADebug.hpp>
+#include <SkookumScript/Sk.hpp>
 
 //=======================================================================================
 //
@@ -50,6 +61,7 @@ struct SkUserData : private SkUserDataBase
   // placeholder union to reserve appropriate space
   union
     {
+    SkBooleanType   m_boolean;
     SkIntegerType   m_integer;
     SkRealType      m_real;
     SkEnumType      m_enum;
@@ -96,6 +108,3 @@ inline _UserType * SkUserData<_SizeInPtrs>::as() const
   A_ASSERTX((void*)data_p != (void*)this || sizeof(_UserType) <= sizeof(*this), "_UserType does not fit into this instance of SkUserData.");
   return data_p;
   }
-
-#endif  // __SKUSERDATA_HPP
-

@@ -1,11 +1,24 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2016 Agog Labs Inc. All rights reserved.
 //
 // Component to associate a SkookumScript class and data members with a UE4 actor
 // and allow SkookumScript ctors and dtors to be called when the actor (i.e. the component) gets created/destroyed
-// 
-// Author: Conan Reis, Markus Breyer
 //=======================================================================================
 
 
@@ -14,14 +27,15 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkookumScriptBehaviorComponent.h"
-
-#include "VectorField/VectorField.h" // HACK to fix broken dependency on UVectorField 
-
-#include <SkUEEEndPlayReason.generated.hpp>
-
 #include "Bindings/Engine/SkUESkookumScriptBehaviorComponent.hpp"
 
+#include "VectorField/VectorField.h" // HACK to fix broken dependency on UVectorField 
+#include <SkUEEEndPlayReason.generated.hpp>
+#include "Engine/World.h"
+#include "GameFramework/Actor.h"
+#include "Runtime/Launch/Resources/Version.h" // TEMP HACK for ENGINE_MINOR_VERSION
 
 //=======================================================================================
 // Class Data
@@ -66,7 +80,9 @@ USkookumScriptBehaviorComponent::USkookumScriptBehaviorComponent(const FObjectIn
   bTickInEditor = false;
   bAutoActivate = true;
   bWantsInitializeComponent = true;
-  bWantsBeginPlay = true;
+  #if ENGINE_MINOR_VERSION < 14
+    bWantsBeginPlay = true;
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
@@ -153,7 +169,8 @@ void USkookumScriptBehaviorComponent::InitializeComponent()
     {
     if (!m_is_instance_externally_owned)
       {
-      SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when InitializeComponent() is invoked.");
+      SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when InitializeComponent() is invoked.");
+
       create_sk_instance();
       m_component_instance_p->get_class()->resolve_raw_data();
       m_component_instance_p->call_default_constructor();
@@ -195,7 +212,7 @@ void USkookumScriptBehaviorComponent::UninitializeComponent()
   // Delete SkookumScript instance if present
   if (m_component_instance_p)
     {
-    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when UninitializeComponent() is invoked.");
 
     m_component_instance_p->method_call(ms_symbol_on_detach);
     m_component_instance_p->as<SkUESkookumScriptBehaviorComponent>() = nullptr;

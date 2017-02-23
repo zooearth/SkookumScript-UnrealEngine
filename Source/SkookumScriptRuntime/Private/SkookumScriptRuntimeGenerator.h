@@ -1,8 +1,21 @@
 //=======================================================================================
-// SkookumScript Unreal Engine Runtime Script Generator
-// Copyright (c) 2016 Agog Labs Inc. All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Author: Markus Breyer
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// SkookumScript Unreal Engine Runtime Script Generator
 //=======================================================================================
 
 #pragma once
@@ -48,8 +61,8 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
                   FSkookumScriptRuntimeGenerator(ISkookumScriptRuntimeInterface * runtime_interface_p);
                   ~FSkookumScriptRuntimeGenerator();
 
-    FString       get_project_path();
-    FString       get_default_project_path();
+    FString       get_project_file_path();
+    FString       get_default_project_file_path();
     int32         get_overlay_path_depth() const;
     void          generate_all_class_script_files();
     FString       make_project_editable();
@@ -70,6 +83,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
   protected:
 
     void          initialize_paths();
+    void          set_overlay_path();
 
     // Types
 
@@ -79,8 +93,8 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
 
     ISkookumScriptRuntimeInterface * m_runtime_interface_p;
 
-    FString       m_project_path;
-    FString       m_default_project_path;
+    FString       m_project_file_path;
+    FString       m_default_project_file_path;
 
     FString       m_package_name_key;
     FString       m_package_path_key;

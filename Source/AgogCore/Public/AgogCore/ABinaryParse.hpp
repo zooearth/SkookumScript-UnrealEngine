@@ -1,11 +1,23 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2000 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  Binary data parsing header
-// Author(s):    Conan Reis
-// Create Date:   2001-11-28
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// Binary data parsing header
 // Notes:          It currently converts from host platform endian form to a little-endian
 //              stream.  So the binary stream (which generally is written to or read from
 //              a binary file) is the same for all platforms - i.e. little endian.
@@ -23,9 +35,7 @@
 //              IMPORTANT:  Aspects of this file are platform specific
 //=======================================================================================
 
-#ifndef __ABINARYPARSE_HPP
-#define __ABINARYPARSE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -63,6 +73,7 @@
 #if A_SANITY_CHECK_BINARY_SIZE
 
 #ifdef _MSC_VER
+#pragma message("WARNING: A_SANITY_CHECK_BINARY_SIZE enabled!")
 #pragma warning(disable : 4297) // function assumed not to throw an exception but does
 #endif
 
@@ -215,6 +226,22 @@ class AScopedBinarySizeSanityCheck
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 //---------------------------------------------------------------------------------------
+// Author(s):   Markus Breyer
+inline static void a_byte_stream_out64(void ** dest_stream_pp, const void * source_p)
+  {
+  uint8_t * dest_p = (uint8_t *)*dest_stream_pp;
+  dest_p[0] = ((uint8_t *)source_p)[0];
+  dest_p[1] = ((uint8_t *)source_p)[1];
+  dest_p[2] = ((uint8_t *)source_p)[2];
+  dest_p[3] = ((uint8_t *)source_p)[3];
+  dest_p[4] = ((uint8_t *)source_p)[4];
+  dest_p[5] = ((uint8_t *)source_p)[5];
+  dest_p[6] = ((uint8_t *)source_p)[6];
+  dest_p[7] = ((uint8_t *)source_p)[7];
+  *dest_stream_pp = dest_p + sizeof(uint64_t);
+  }
+
+//---------------------------------------------------------------------------------------
 // Author(s):   Conan Reis
 inline static void a_byte_stream_out32(void ** dest_stream_pp, const void * source_p)
   {
@@ -241,6 +268,22 @@ inline static void a_byte_stream_out16(void ** dest_stream_pp, const void * sour
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 //---------------------------------------------------------------------------------------
+// Author(s):   Markus Breyer
+inline static void a_byte_stream_swap_out64(void ** dest_stream_pp, const void * source_p)
+  {
+  uint8_t * dest_p = (uint8_t *)*dest_stream_pp;
+  dest_p[0] = ((uint8_t *)source_p)[7];
+  dest_p[1] = ((uint8_t *)source_p)[6];
+  dest_p[2] = ((uint8_t *)source_p)[5];
+  dest_p[3] = ((uint8_t *)source_p)[4];
+  dest_p[4] = ((uint8_t *)source_p)[3];
+  dest_p[5] = ((uint8_t *)source_p)[2];
+  dest_p[6] = ((uint8_t *)source_p)[1];
+  dest_p[7] = ((uint8_t *)source_p)[0];
+  *dest_stream_pp = dest_p + sizeof(uint64_t);
+  }
+
+//---------------------------------------------------------------------------------------
 // Author(s):   Conan Reis
 inline static void a_byte_stream_swap_out32(void ** dest_stream_pp, const void * source_p)
   {
@@ -265,6 +308,23 @@ inline static void a_byte_stream_swap_out16(void ** dest_stream_pp, const void *
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Alignment safe byte reading
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//---------------------------------------------------------------------------------------
+// Author(s):   Markus Breyer
+inline static uint64_t a_as_uint64_t_byte_inc(const void ** source_pp)
+  {
+  uint64_t value;
+  ((uint8_t *)&value)[0] = ((uint8_t *)*source_pp)[0];
+  ((uint8_t *)&value)[1] = ((uint8_t *)*source_pp)[1];
+  ((uint8_t *)&value)[2] = ((uint8_t *)*source_pp)[2];
+  ((uint8_t *)&value)[3] = ((uint8_t *)*source_pp)[3];
+  ((uint8_t *)&value)[4] = ((uint8_t *)*source_pp)[4];
+  ((uint8_t *)&value)[5] = ((uint8_t *)*source_pp)[5];
+  ((uint8_t *)&value)[6] = ((uint8_t *)*source_pp)[6];
+  ((uint8_t *)&value)[7] = ((uint8_t *)*source_pp)[7];
+  (*(uint64_t **)source_pp)++;
+  return value;
+  }
 
 //---------------------------------------------------------------------------------------
 // Author(s):   Conan Reis
@@ -343,6 +403,23 @@ inline static uint16_t a_as_uint16_t_byte_inc(const void ** source_pp)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Alignment safe byte reading with bytes swapped
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//---------------------------------------------------------------------------------------
+// Author(s):   Markus Breyer
+inline static uint64_t a_as_uint64_t_swap_inc(const void ** source_pp)
+  {
+  uint64_t value;
+  ((uint8_t *)&value)[0] = ((uint8_t *)*source_pp)[7];
+  ((uint8_t *)&value)[1] = ((uint8_t *)*source_pp)[6];
+  ((uint8_t *)&value)[2] = ((uint8_t *)*source_pp)[5];
+  ((uint8_t *)&value)[3] = ((uint8_t *)*source_pp)[4];
+  ((uint8_t *)&value)[4] = ((uint8_t *)*source_pp)[3];
+  ((uint8_t *)&value)[5] = ((uint8_t *)*source_pp)[2];
+  ((uint8_t *)&value)[6] = ((uint8_t *)*source_pp)[1];
+  ((uint8_t *)&value)[7] = ((uint8_t *)*source_pp)[0];
+  (*(uint64_t **)source_pp)++;
+  return value;
+  }
 
 //---------------------------------------------------------------------------------------
 // Author(s):   Conan Reis
@@ -430,6 +507,9 @@ inline static uint16_t a_as_uint16_t_swap_inc(const void ** source_pp)
   //---------------------------------------------------------------------------------------
   // Assumes byte stream is in different endian form from host and swaps bytes
 
+  #define A_BYTE_STREAM_OUT64(_dest_stream_pp, _source_p)   a_byte_stream_swap_out64(reinterpret_cast<void **>(_dest_stream_pp), (_source_p))
+  #define A_BYTE_STREAM_UI64_INC(_source_pp)                a_as_uint64_t_swap_inc((const void **)(_source_pp))
+
   #define A_BYTE_STREAM32(_dest_p, _source_p)               a_assign32_swap((_dest_p), (_source_p))
   #define A_BYTE_STREAM_OUT32(_dest_stream_pp, _source_p)   a_byte_stream_swap_out32(reinterpret_cast<void **>(_dest_stream_pp), (_source_p))
   #define A_BYTE_STREAM_IN32(_dest_p, _source_pp)           a_assign32_swap_inc((_dest_p), (const void **)(_source_pp))
@@ -450,6 +530,9 @@ inline static uint16_t a_as_uint16_t_swap_inc(const void ** source_pp)
     // Assumes byte stream is in same endian form and leaves bytes in the same order, but it
     // copies one byte at a time to allow for alignment offsets
 
+    #define A_BYTE_STREAM_OUT64(_dest_stream_pp, _source_p)   a_byte_stream_out64(reinterpret_cast<void **>(_dest_stream_pp), (_source_p))
+    #define A_BYTE_STREAM_UI64_INC(_source_pp)                a_as_uint64_t_byte_inc((const void **)(_source_pp))
+
     #define A_BYTE_STREAM32(_dest_p, _source_p)               a_assign32_byte((_dest_p), (_source_p))
     #define A_BYTE_STREAM_OUT32(_dest_stream_pp, _source_p)   a_byte_stream_out32(reinterpret_cast<void **>(_dest_stream_pp), (_source_p))
     #define A_BYTE_STREAM_IN32(_dest_p, _source_pp)           a_assign32_byte_inc((_dest_p), (const void **)(_source_pp))
@@ -467,6 +550,8 @@ inline static uint16_t a_as_uint16_t_swap_inc(const void ** source_pp)
     //---------------------------------------------------------------------------------------
     // Assumes byte stream and destination are in the same endian form and alignment is not important
 
+    #define A_BYTE_STREAM_OUT64(_dest_stream_pp, _source_p)   ( *((*(uint64_t **)(_dest_stream_pp))++) = *((const uint64_t *)(_source_p)) )
+    #define A_BYTE_STREAM_UI64_INC(_source_pp)                ( *((*(const uint64_t **)(_source_pp))++) )
 
     #define A_BYTE_STREAM32(_dest_p, _source_p)               ( *((uint32_t *)(_dest_p)) = *((const uint32_t *)(_source_p)) )
     #define A_BYTE_STREAM_OUT32(_dest_stream_pp, _source_p)   ( *((*(uint32_t **)(_dest_stream_pp))++) = *((const uint32_t *)(_source_p)) )
@@ -486,8 +571,4 @@ inline static uint16_t a_as_uint16_t_swap_inc(const void ** source_pp)
 
 #define A_BYTE_STREAM_OUT8(_dest_stream_pp, _source_p)    ( *((*(uint8_t **)(_dest_stream_pp))++) = *((const uint8_t *)(_source_p)) )
 #define A_BYTE_STREAM_UI8_INC(_source_stream_pp)          ( *((*(const uint8_t **)(_source_stream_pp))++) )
-
-
-#endif  // __ABINARYPARSE_HPP
-
 

@@ -1,22 +1,46 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
 // Binding classes for UE4 
-//
-// Author: Markus Breyer
 //=======================================================================================
 
 #include "../SkookumScriptRuntimePrivatePCH.h"
+
+#include "Bindings/SkUEClassBinding.hpp"
+#include "ISkookumScriptRuntime.h"
 #include "SkUERuntime.hpp"
-#include "SkookumScriptComponent.h"
+#include "SkUESymbol.hpp"
+#include "SkUEUtils.hpp"
 #include "SkookumScriptClassDataComponent.h"
 #include "Engine/SkUEEntity.hpp"
 #include "VectorMath/SkColor.hpp"
-
+#include <SkUEWorld.generated.hpp>
 #include "../SkookumScriptRuntimeGenerator.h"
 
-#include <SkUEWorld.generated.hpp>
+#include "CoreObject.h"
+
+#include <AgogCore/AMath.hpp>
+#include <SkookumScript/SkBoolean.hpp>
+#include <SkookumScript/SkEnum.hpp>
+#include <SkookumScript/SkInteger.hpp>
+#include <SkookumScript/SkList.hpp>
+
 
 //---------------------------------------------------------------------------------------
 
@@ -56,7 +80,7 @@ int32_t SkUEClassBindingHelper::get_world_data_idx()
 // Get pointer to UWorld from global variable
 UWorld * SkUEClassBindingHelper::get_world()
   {
-  if (!SkookumScript::is_flag_set(SkookumScript::Flag_evaluate))
+  if (SkookumScript::get_initialization_level() < SkookumScript::InitializationLevel_program)
     {
     return nullptr;
     }
@@ -70,7 +94,7 @@ UWorld * SkUEClassBindingHelper::get_world()
 // Set the game world (C++ and Skookum variable) to a specific world object
 void SkUEClassBindingHelper::set_world(UWorld * world_p)
   {
-  if (SkookumScript::is_flag_set(SkookumScript::Flag_evaluate))
+  if (SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_program)
     {
     SkBrain::ms_object_class_p->set_class_data_value_by_idx_no_ref(get_world_data_idx(), world_p ? SkUEWorld::new_instance(world_p) : SkBrain::ms_nil_p);
     }
@@ -108,11 +132,6 @@ SkInstance * SkUEClassBindingHelper::get_actor_component_instance(AActor * actor
   // If the actor has component, return the instance contained in the component
   if (actor_p)
     {
-    USkookumScriptComponent * sk_component_p = static_cast<USkookumScriptComponent *>(actor_p->GetComponentByClass(USkookumScriptComponent::StaticClass()));
-    if (sk_component_p)
-      {
-      return sk_component_p->get_sk_instance();
-      }
     USkookumScriptClassDataComponent * component_p = static_cast<USkookumScriptClassDataComponent *>(actor_p->GetComponentByClass(USkookumScriptClassDataComponent::StaticClass()));
     if (component_p)
       {
@@ -181,7 +200,7 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
 
 //---------------------------------------------------------------------------------------
 // Resolve the raw data info of each raw data member of the given class
-bool SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p)
+bool SkUEClassBindingHelper::resolve_raw_data_static(SkClass * class_p)
   {
   // By default, inherit raw pointer and accessor functions from super class
   SkClass * super_class_p = class_p->get_superclass();
@@ -204,7 +223,7 @@ bool SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p)
     }
 
   // First check if it's a class
-  UStruct * ue_struct_or_class_p = get_ue_class_from_sk_class(class_p);
+  UStruct * ue_struct_or_class_p = get_static_ue_class_from_sk_class(class_p);
   if (!ue_struct_or_class_p)
     {
     // Not a class, must be a struct then
@@ -218,30 +237,6 @@ bool SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p)
     return true;
     }
 
-  // In cooked builds, don't bother as unused classes might have been optimized out
-  #if WITH_EDITORONLY_DATA
-
-    // Potentially report error
-    tSkTypedNameRawArray & raw_data = class_p->get_instance_data_raw_for_resolving();
-    if (!raw_data.is_empty())
-      {
-      // Check if maybe all variables are already resolved
-      bool all_resolved = true;
-      for (auto var_p : raw_data)
-        {
-        if (var_p->m_raw_data_info == SkRawDataInfo_Invalid)
-          {
-          all_resolved = false;
-          break;
-          }
-        }
-
-      // In commandlet mode, SkookumScript code is never run
-      // If all resolved already, no problem either
-      SK_ASSERTX(all_resolved || IsRunningCommandlet(), a_str_format("Class '%s' has raw data but no known class mapping to UE4 for resolving.", class_p->get_name_cstr_dbg()));
-      }
-
-  #endif
   return false;
   }
 
@@ -720,6 +715,7 @@ void SkUEClassBindingHelper::register_static_enum(UEnum * ue_enum_p)
 
 void SkUEClassBindingHelper::add_static_class_mapping(SkClass * sk_class_p, UClass * ue_class_p)
   {
+  SK_ASSERTX(sk_class_p && ue_class_p, a_str_format("Tried to add static class mapping between `%s` and `%S` one of which is null.", sk_class_p ? sk_class_p->get_name_cstr() : "(null)", ue_class_p ? *ue_class_p->GetName() : TEXT("(null)")));
   ms_static_class_map_u2s.Add(ue_class_p, sk_class_p);
   ms_static_class_map_s2u.Add(sk_class_p, ue_class_p);
   }
@@ -728,6 +724,7 @@ void SkUEClassBindingHelper::add_static_class_mapping(SkClass * sk_class_p, UCla
 
 void SkUEClassBindingHelper::add_static_struct_mapping(SkClass * sk_class_p, UStruct * ue_struct_p)
   {
+  SK_ASSERTX(sk_class_p && ue_struct_p, a_str_format("Tried to add static class mapping between `%s` and `%S` one of which is null.", sk_class_p ? sk_class_p->get_name_cstr() : "(null)", ue_struct_p ? *ue_struct_p->GetName() : TEXT("(null)")));
   ms_static_struct_map_u2s.Add(ue_struct_p, sk_class_p);
   ms_static_struct_map_s2u.Add(sk_class_p, ue_struct_p);
   }
@@ -736,6 +733,7 @@ void SkUEClassBindingHelper::add_static_struct_mapping(SkClass * sk_class_p, USt
 
 void SkUEClassBindingHelper::add_static_enum_mapping(SkClass * sk_class_p, UEnum * ue_enum_p)
   {
+  SK_ASSERTX(sk_class_p && ue_enum_p, a_str_format("Tried to add static class mapping between `%s` and `%S` one of which is null.", sk_class_p ? sk_class_p->get_name_cstr() : "(null)", ue_enum_p ? *ue_enum_p->GetName() : TEXT("(null)")));
   ms_static_enum_map_u2s.Add(ue_enum_p, sk_class_p);
   }
 
@@ -761,6 +759,7 @@ UClass * SkUEClassBindingHelper::add_dynamic_class_mapping(SkClassDescBase * sk_
   UBlueprint * blueprint_p = FindObject<UBlueprint>(ANY_PACKAGE, *class_name);
   if (!blueprint_p)
     {
+  #if 0 // Demand-loading of Blueprint assets is asking for trouble - disabled
     // If we still can't find the blueprint, try to load it
     if (ms_runtime_generator_p)
       {
@@ -773,6 +772,9 @@ UClass * SkUEClassBindingHelper::add_dynamic_class_mapping(SkClassDescBase * sk_
         }
       }
     if (!blueprint_p) return nullptr;
+  #else
+    return nullptr;
+  #endif
     }
 
   // Add to map of known class equivalences
@@ -801,7 +803,8 @@ SkClass * SkUEClassBindingHelper::add_dynamic_class_mapping(UBlueprint * bluepri
   return sk_class_p;
   }
 
-#else // !WITH_EDITORONLY_DATA = cooked data build
+#endif
+
 //---------------------------------------------------------------------------------------
 
 UClass * SkUEClassBindingHelper::add_static_class_mapping(SkClassDescBase * sk_class_desc_p)
@@ -809,13 +812,25 @@ UClass * SkUEClassBindingHelper::add_static_class_mapping(SkClassDescBase * sk_c
   // Get fully derived SkClass
   SkClass * sk_class_p = sk_class_desc_p->get_key_class();
 
-  // Look it up and remember it
+  // Look up the plain class name first (i.e. a C++ class)
   FString class_name(sk_class_p->get_name_cstr());
-  UClass * ue_class_p = FindObject<UClass>(ANY_PACKAGE, *(class_name + TEXT("_C")));
+  UClass * ue_class_p = FindObject<UClass>(ANY_PACKAGE, *class_name);
   if (ue_class_p)
     {
     add_static_class_mapping(sk_class_p, ue_class_p);
+    return ue_class_p;
     }
+
+  // In cooked builds, also look up class name + "_C"
+  // We don't do this in editor builds as these classes are dynamically generated and might get deleted at any time
+  // there we use dynamic mapping of Blueprints instead
+  #if !WITH_EDITORONLY_DATA
+    ue_class_p = FindObject<UClass>(ANY_PACKAGE, *(class_name + TEXT("_C")));
+    if (ue_class_p)
+      {
+      add_static_class_mapping(sk_class_p, ue_class_p);
+      }
+  #endif
 
   return ue_class_p;
   }
@@ -824,28 +839,49 @@ UClass * SkUEClassBindingHelper::add_static_class_mapping(SkClassDescBase * sk_c
 
 SkClass * SkUEClassBindingHelper::add_static_class_mapping(UClass * ue_class_p)
   {
-  // Look up SkClass by blueprint name
-  const FString & ue_class_name = ue_class_p->GetName(); 
+  // Look up SkClass by class name
+  const FString & ue_class_name = ue_class_p->GetName();
   int32 ue_class_name_len = ue_class_name.Len();
-  if (ue_class_name_len < 3) return nullptr;
-
-  // When we get to this function, we are looking for a class name that has "_C" appended at the end
-  // So we subtract two from the length to truncate those two characters
-  // We don't check here if the last two characters actually _are_ "_C" because it does not matter
-  // since in that case it would be an error anyway
-  AString class_name(*ue_class_name, ue_class_name_len - 2);
-  SkClass * sk_class_p = SkBrain::get_class(ASymbol::create(class_name, ATerm_short));
-
-  // If found, add to map of known class equivalences
-  if (sk_class_p)
+  AString class_name(*ue_class_name, ue_class_name_len);
+  ASymbol class_symbol = ASymbol::create_existing(class_name);
+  if (!class_symbol.is_null())
     {
-    add_static_class_mapping(sk_class_p, ue_class_p);
+    SkClass * sk_class_p = SkBrain::get_class(class_symbol);
+    if (sk_class_p)
+      {
+      // Add to map of known class equivalences
+      add_static_class_mapping(sk_class_p, ue_class_p);
+      return sk_class_p;
+      }
     }
 
-  return sk_class_p;
-  }
+  // In cooked builds, also look up class name - "_C"
+  // We don't do this in editor builds as these classes are dynamically generated and might get deleted at any time
+  // there we use dynamic mapping of Blueprints instead
+  #if !WITH_EDITORONLY_DATA
 
-#endif
+    // When we get to this function, we are looking for a class name that has "_C" appended at the end
+    // So we subtract two from the length to truncate those two characters
+    // We don't check here if the last two characters actually _are_ "_C" because it does not matter
+    // since in that case it would be an error anyway
+    if (ue_class_name_len < 3) return nullptr;
+    class_name.set_length(ue_class_name_len - 2);
+    class_symbol = ASymbol::create_existing(class_name);
+    if (!class_symbol.is_null())
+      {
+      SkClass * sk_class_p = SkBrain::get_class(ASymbol::create_existing(class_name));
+      if (sk_class_p)
+        {
+        // Add to map of known class equivalences
+        add_static_class_mapping(sk_class_p, ue_class_p);
+        return sk_class_p;
+        }
+      }
+
+  #endif
+
+  return nullptr;
+  }
 
 //=======================================================================================
 // SkUEClassBindingHelper::HackedTArray

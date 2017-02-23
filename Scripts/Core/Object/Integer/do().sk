@@ -1,5 +1,5 @@
 //---------------------------------------------------------------------------------------
-// Calls supplied immediate closure code n times where n is this Integer.
+// Loops/iterates calling supplied immediate closure code n times where n is this Integer.
 // The index value is passed as an argument and is exclusive: 0..n-1
 //
 // # Examples:
@@ -11,7 +11,7 @@
 //   2
 //
 // # Notes:     Use _*() versions for durational iteration.
-// # See:       _do(), do_by(), do_reverse(), to()
+// # See:       _do(), do_by(), do_reverse(), to(), to_pre() 
 // # Author(s): Conan Reis
 //---------------------------------------------------------------------------------------
 
