@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // SkookumScript common declarations.  [Included in all SkookumScript files]
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -240,8 +252,8 @@ enum eSkMember
 
   SkMember_data,
   SkMember_class_meta,        // Class meta information
-  SkMember_object_ids,        // Class object id validation list
-  SkMember_object_ids_defer,  // Class object id validation list (deferred)
+  SkMember_object_ids,        // Class object ID validation list
+  SkMember_object_ids_defer,  // Class object ID validation list (deferred)
 
   SkMember__length,     // The position of these enumerations are important
   SkMember__invalid,    // Not a valid member and can be ignored
@@ -327,13 +339,16 @@ class SK_API SkookumScript
     static void deinitialize_program();
     static void deinitialize();
 
-    static SkMind *             get_master_mind()                 { return ms_master_mind_p; }
-    static SkInstance *         get_master_mind_or_meta_class();
+    static void register_on_initialization_level_changed_func(void (*on_initialization_level_changed_f)(eInitializationLevel, eInitializationLevel));
 
     static eInitializationLevel get_initialization_level()        { return ms_initialization_level; }
     static void                 enable_flag(eFlag flag, bool enable_b = true);
     static bool                 is_flag_set(eFlag flag);
     static bool                 is_flags_set(uint32_t flag);
+
+    static SkMind *             get_master_mind() { return ms_master_mind_p; }
+    static SkInstance *         get_master_mind_or_meta_class();
+    static SkClass *            get_startup_class() { return ms_startup_class_p; }
 
     static SkProgramUpdateRecord * get_program_update_record()    { return ms_program_update_record_p; }
 
@@ -368,6 +383,8 @@ class SK_API SkookumScript
     static void pools_reserve();
     static void pools_empty();
 
+    static void set_initialization_level(eInitializationLevel new_level);
+
   // Class Data Members
 
     static SkAppInfo * ms_app_info_p;
@@ -379,6 +396,7 @@ class SK_API SkookumScript
     static eInitializationLevel ms_initialization_level;
     static uint32_t             ms_flags;
 
+    static void (* ms_on_initialization_level_changed_f)(eInitializationLevel, eInitializationLevel);
     static void (* ms_on_update_request_f)(bool update_req_b);
     static void (* ms_update_time_f)();
     static void (* ms_on_script_linear_bytes_f)(uint32_t bytes_needed);

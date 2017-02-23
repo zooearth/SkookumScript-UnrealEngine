@@ -3,6 +3,7 @@
 #pragma once
 
 #include "IScriptGeneratorPluginInterface.h"
+#include "Modules/ModuleManager.h"
 
 
 /**
