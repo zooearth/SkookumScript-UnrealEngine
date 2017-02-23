@@ -27,9 +27,6 @@ namespace UnrealBuildTool.Rules
   {
     public SkookumScriptGenerator(TargetInfo Target)
     {			
-      // We need ICU for regex use!
-      UEBuildConfiguration.bCompileICU = true;
-
       // Tell build system we're not using PCHs
       PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
