@@ -122,6 +122,7 @@ struct SK_API SkMemberInfo
       #if (SKOOKUM & SK_DEBUG)
         SkExpressionBase * find_expr_by_pos(uint32_t pos, eSkExprFind type = SkExprFind_all) const;
         SkExpressionBase * find_expr_on_pos(uint32_t pos, eSkExprFind type = SkExprFind_all) const;
+        SkExpressionBase * find_expr_by_pos_last() const;
         SkExpressionBase * find_expr_span(uint32_t source_idx, uint32_t * idx_begin_p = nullptr, uint32_t * idx_end_p = nullptr, eSkExprFind type = SkExprFind_all) const;
         SkExpressionBase * get_body_expr() const;
         void               get_expr_span(const SkExpressionBase & expr, uint32_t * idx_begin_p, uint32_t * idx_end_p) const;

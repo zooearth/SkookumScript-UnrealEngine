@@ -365,7 +365,7 @@ void SkUEBlueprintInterface::exec_coroutine(FFrame & stack, void * const result_
   // Done with stack - now increment the code ptr unless it is null
   stack.Code += !!stack.Code;
 
-  SKDEBUG_HOOK_EXPR(call_expr_p, icoroutine_p, nullptr);
+  SKDEBUG_HOOK_EXPR(call_expr_p, icoroutine_p, nullptr, nullptr, SkDebug::HookContext_peek);
 
   #if (SKOOKUM & SK_DEBUG)
     if (!this_p->get_class()->is_class(*function_entry.m_sk_invokable_p->get_scope()))

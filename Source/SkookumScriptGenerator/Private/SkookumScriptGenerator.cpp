@@ -1623,7 +1623,7 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
       GenerateEntry & entry = generate_list[type_index++];
       entry.m_parent_name = parent_name;
       bool is_used_in_this_pass = (entry.m_generated_type_p->m_class_scope == class_scope);
-      entry.m_is_referenced = is_used_in_this_pass;
+      entry.m_is_referenced = entry.m_is_referenced || is_used_in_this_pass;
 
       // Crawl up hierarchy to make sure all parents are present
       int sort_index = entry.m_sort_index;
@@ -1937,7 +1937,7 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
   // Disable pesky deprecation warnings
   binding_code += TEXT(
     "// Generated code will use some deprecated functions - that's ok don't tell me about it\r\n"
-    "#if _MSC_VER >= 1400\r\n"
+    "#if defined _MSC_VER\r\n"
     "#pragma warning(push)\r\n"
     "#pragma warning(disable: 4996) // Disable deprecation warnings\r\n"
     "#elif defined __clang__\r\n"
@@ -2027,7 +2027,7 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
 
   // Re-enable clang warnings
   binding_code += TEXT(
-    "#if _MSC_VER >= 1400\r\n"
+    "#if defined _MSC_VER\r\n"
     "#pragma warning(pop)\r\n"
     "#elif defined __clang__\r\n"
     "#pragma clang diagnostic pop\r\n"
