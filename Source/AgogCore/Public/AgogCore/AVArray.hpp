@@ -1,12 +1,23 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2000 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  Dynamic AVArray class declaration header
-// Author(s):    Conan Reis
-// Create Date:   2000-02-09
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// Dynamic AVArray class declaration header
 //=======================================================================================
 
 #pragma once
@@ -105,9 +116,11 @@ template<
 
     AVArray();
     AVArray(const AVArray & array);
+    AVArray(AVArray && array);
     AVArray(tAVSizedArrayBase * array_p);
     ~AVArray();
     AVArray & operator=(const AVArray & array);
+    AVArray & operator=(AVArray && array);
     AVArray & operator=(const AVArrayBase<_ElementType> & array);
 
 
@@ -251,6 +264,19 @@ inline AVArray<_ElementType, _KeyType, _CompareClass>::AVArray(const tAVArray & 
   }
 
 //---------------------------------------------------------------------------------------
+//  Move constructor
+// Returns:     itself
+// Arg          array - array to move
+// See:         operator=()
+// Author(s):   Markus Breyer
+template<class _ElementType, class _KeyType, class _CompareClass>
+inline AVArray<_ElementType, _KeyType, _CompareClass>::AVArray(tAVArray && array) :
+  AVSizedArrayBase<_ElementType>(array.m_count, array.m_size, array.get_array())
+  {
+  array.empty_null_buffer();
+  }
+
+//---------------------------------------------------------------------------------------
 //  Transfer copy constructor - takes over internal buffer of given array and
 //              empties it.
 // Returns:     itself
@@ -291,7 +317,7 @@ inline AVArray<_ElementType, _KeyType, _CompareClass>::~AVArray()
 //             reinterpret_cast.
 // See:        append_all()
 // Author(s):   Conan Reis
-template<class _ElementType, class _KeyType, class _CompareClass>
+template<class _ElementType, class _KeyType, class _CompareClass>
 AVArray<_ElementType, _KeyType, _CompareClass> & AVArray<_ElementType, _KeyType, _CompareClass>::operator=(
   const AVArray & array
   )
@@ -317,6 +343,29 @@ AVArray<_ElementType, _KeyType, _CompareClass> & AVArray<_ElementType, _KeyType,
   }
 
 //---------------------------------------------------------------------------------------
+// Move assignment operator
+// Returns:    reference to itself to allow for stringization
+//             array1 = array2 = array3;
+// Examples:   array1 = array2;
+// Author(s):  Markus Breyer
+template<class _ElementType, class _KeyType, class _CompareClass>
+AVArray<_ElementType, _KeyType, _CompareClass> & AVArray<_ElementType, _KeyType, _CompareClass>::operator=(
+  AVArray && array
+  )
+  {
+  // Get rid of previous content
+  this->empty_compact();
+
+  // Move over the new content
+  this->m_count = array.m_count;
+  this->m_size = array.m_size;
+  this->m_array_p = array.m_array_p;
+  array.empty_null_buffer();
+
+  return *this;
+  }
+
+//---------------------------------------------------------------------------------------
 // Assignment operator
 // Returns:    reference to itself to allow for stringization
 //             array1 = array2 = array3;
@@ -329,7 +378,7 @@ AVArray<_ElementType, _KeyType, _CompareClass> & AVArray<_ElementType, _KeyType,
 //             reinterpret_cast.
 // See:        append_all()
 // Author(s):   Conan Reis
-template<class _ElementType, class _KeyType, class _CompareClass>
+template<class _ElementType, class _KeyType, class _CompareClass>
 AVArray<_ElementType, _KeyType, _CompareClass> & AVArray<_ElementType, _KeyType, _CompareClass>::operator=(
   const AVArrayBase<_ElementType> & array
   )
@@ -374,7 +423,7 @@ AVArray<_ElementType, _KeyType, _CompareClass> & AVArray<_ElementType, _KeyType,
 // Examples:    AVArray<AString> strings(strs_p, 5u);
 // See:         AVArray<_ElementType>(elem_count, ...)
 // Author(s):    Conan Reis
-template<class _ElementType, class _KeyType, class _CompareClass>
+template<class _ElementType, class _KeyType, class _CompareClass>
 AVArray<_ElementType, _KeyType, _CompareClass>::AVArray(
   const _ElementType *  elems_p,
   uint32_t              elem_count,
@@ -404,7 +453,7 @@ AVArray<_ElementType, _KeyType, _CompareClass>::AVArray(
 //              the ADatum::as_new_object() method.
 // Examples:    AVArray array(datum);
 // Author       Conan Reis
-/* $Revisit - CReis this should be rewritten
+/* $Revisit - CReis this should be rewritten
 AVArray::AVArray(const ADatum & datum)
   {
   A_VERIFY(

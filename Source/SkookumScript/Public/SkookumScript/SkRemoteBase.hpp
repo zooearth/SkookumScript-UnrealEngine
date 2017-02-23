@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2011 Agog Labs Inc.,
-// All rights reserved.
 //
 // SkookumScript Remote IDE Commands
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -103,6 +115,13 @@ class SK_API SkRemoteBase
   public:
   // Nested Types
 
+    enum eSendResponse
+      {
+      SendResponse_OK,
+      SendResponse_Reconnecting,
+      SendResponse_Not_Connected,
+      };
+
     enum eCommand
       {                                // (I)DE, (R)untime or (C)ommon
       // Start-up / Simple
@@ -111,6 +130,8 @@ class SK_API SkRemoteBase
         Command_version_reply,           // R->I cmd_version_reply()
         Command_authenticate,            // I->R cmd_authenticate()
         Command_preferences,             // I->R cmd_preferences()
+
+        Command_ping_test,               // R->I cmd_ping_test() - One-way connection test
 
         Command_print,                   // C->C cmd_print()
 
@@ -240,17 +261,19 @@ class SK_API SkRemoteBase
 
     #ifdef SKOOKUM_REMOTE
 
-      void cmd_simple(eCommand cmd);
-      void cmd_simple_uint32(eCommand cmd, uint32_t value);
-      void cmd_print(const AString & str, uint32_t type);
-      void cmd_invoke(const AString & code);
-      void cmd_invoke_result(const AString & str);
-      void cmd_symbols_update(const ASymbolTable & syms);
+      void          cmd_simple(eCommand cmd);
+      void          cmd_simple_uint32(eCommand cmd, uint32_t value);
+      eSendResponse cmd_ping_test();
+      void          cmd_print(const AString & str, uint32_t type);
+      void          cmd_invoke(const AString & code);
+      void          cmd_invoke_result(const AString & str);
+      void          cmd_symbols_update(const ASymbolTable & syms);
 
-      virtual void on_cmd_invoke_result(AString & result_str);
-      void         on_cmd_print(AString & str, uint32_t type_flags);
-      virtual void on_cmd_send(const ADatum & datum) = 0;
-      virtual bool on_cmd_recv(eCommand cmd, const uint8_t * data_p, uint32_t data_length);
+      virtual void  on_cmd_invoke_result(AString & result_str);
+      void          on_cmd_print(AString & str, uint32_t type_flags);
+
+      virtual eSendResponse on_cmd_send(const ADatum & datum) = 0;
+      virtual bool          on_cmd_recv(eCommand cmd, const uint8_t * data_p, uint32_t data_length);
 
     #endif  // SKOOKUM_REMOTE
 

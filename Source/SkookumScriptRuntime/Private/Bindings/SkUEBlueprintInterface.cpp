@@ -1,10 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
 // Class for interfacing with UE4 Blueprint graphs 
-//
-// Author: Markus Breyer
 //=======================================================================================
 
 #include "SkUEBlueprintInterface.hpp"
@@ -66,6 +79,16 @@ void SkUEBlueprintInterface::clear()
 
 //---------------------------------------------------------------------------------------
 
+void SkUEBlueprintInterface::clear_all_sk_invokables()
+  {
+  for (BindingEntry * binding_entry_p : m_binding_entry_array)
+    {
+    binding_entry_p->m_sk_invokable_p = nullptr;
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
 UClass * SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final)
   {
   UClass * ue_static_class_p = SkUEClassBindingHelper::get_static_ue_class_from_sk_class_super(sk_class_p);
@@ -102,7 +125,7 @@ bool SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, UClass * ue_cl
   for (uint32_t i = 0; i < m_binding_entry_array.get_length(); ++i)
     {
     BindingEntry * binding_entry_p = m_binding_entry_array[i];
-    if (binding_entry_p && binding_entry_p->m_sk_class_p == sk_class_p)
+    if (binding_entry_p && binding_entry_p->m_sk_invokable_p->get_scope() == sk_class_p)
       {
       binding_entry_p->m_marked_for_delete = true;
       ++change_count;
@@ -170,6 +193,35 @@ void SkUEBlueprintInterface::reexpose_all(tSkUEOnClassUpdatedFunc * on_class_upd
 
 //---------------------------------------------------------------------------------------
 
+void SkUEBlueprintInterface::rebind_all_sk_invokables()
+  {
+  for (BindingEntry * binding_entry_p : m_binding_entry_array)
+    {
+    SkClass * sk_class_p = SkBrain::get_class(binding_entry_p->m_sk_class_name);
+    SK_ASSERTX(sk_class_p, a_str_format("Could not find class `%s` while rebinding Blueprint exposed routines to new compiled binary.", binding_entry_p->m_sk_class_name.as_cstr()));
+    if (sk_class_p)
+      {
+      SkInvokableBase * sk_invokable_p;
+      if (binding_entry_p->m_is_class_member)
+        {
+        sk_invokable_p = sk_class_p->get_class_methods().get(binding_entry_p->m_sk_invokable_name);
+        }
+      else
+        {
+        sk_invokable_p = sk_class_p->get_instance_methods().get(binding_entry_p->m_sk_invokable_name);
+        if (!sk_invokable_p)
+          {
+          sk_invokable_p = sk_class_p->get_coroutines().get(binding_entry_p->m_sk_invokable_name);
+          }
+        }
+      SK_ASSERTX(sk_invokable_p, a_str_format("Could not find routine `%s@%s` while rebinding Blueprint exposed routines to new compiled binary.", binding_entry_p->m_sk_invokable_name.as_cstr(), binding_entry_p->m_sk_class_name.as_cstr()));
+      binding_entry_p->m_sk_invokable_p = sk_invokable_p;
+      }
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
 bool SkUEBlueprintInterface::is_skookum_blueprint_function(UFunction * function_p) const
   {
   Native native_function_p = function_p->GetNativeFunc();
@@ -210,11 +262,11 @@ void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, 
   SkInvokedMethod imethod(nullptr, this_p, method_p, a_stack_allocate(method_p->get_invoked_data_array_size(), SkInstance*));
 
   SKDEBUG_ICALL_SET_INTERNAL(&imethod);
-  SKDEBUG_HOOK_SCRIPT_ENTRY(function_entry.m_invokable_name);
+  SKDEBUG_HOOK_SCRIPT_ENTRY(function_entry.m_sk_invokable_name);
 
   // Fill invoked method's argument list
   const SkParamEntry * param_entry_array = function_entry.get_param_entry_array();
-  SK_ASSERTX(imethod.get_data().get_size() >= function_entry.m_num_params, a_str_format("Not enough space (%d) for %d arguments while invoking '%s@%s'!", imethod.get_data().get_size(), function_entry.m_num_params, function_entry.m_sk_class_p->get_name_cstr_dbg(), function_entry.m_invokable_name.as_cstr_dbg()));
+  SK_ASSERTX(imethod.get_data().get_size() >= function_entry.m_num_params, a_str_format("Not enough space (%d) for %d arguments while invoking '%s@%s'!", imethod.get_data().get_size(), function_entry.m_num_params, function_entry.m_sk_class_name.as_cstr_dbg(), function_entry.m_sk_invokable_name.as_cstr_dbg()));
   for (uint32_t i = 0; i < function_entry.m_num_params; ++i)
     {
     const SkParamEntry & param_entry = param_entry_array[i];
@@ -225,9 +277,9 @@ void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, 
   stack.Code += !!stack.Code;
 
   #if (SKOOKUM & SK_DEBUG)
-    if (!this_p->get_class()->is_class(*function_entry.m_sk_class_p))
+    if (!this_p->get_class()->is_class(*function_entry.m_sk_invokable_p->get_scope()))
       {
-      SK_ERRORX(a_str_format("Attempted to invoke method '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", function_entry.m_sk_class_p->get_name_cstr(), function_entry.m_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_p->get_name_cstr()));
+      SK_ERRORX(a_str_format("Attempted to invoke method '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", function_entry.m_sk_class_name.as_cstr(), function_entry.m_sk_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_name.as_cstr()));
       }
     else
   #endif
@@ -311,12 +363,12 @@ void SkUEBlueprintInterface::exec_coroutine(FFrame & stack, void * const result_
   // Done with stack - now increment the code ptr unless it is null
   stack.Code += !!stack.Code;
 
-  SKDEBUG_HOOK_EXPR(call_expr_p, icoroutine_p, nullptr);
+  SKDEBUG_HOOK_EXPR(call_expr_p, icoroutine_p, nullptr, nullptr, SkDebug::HookContext_peek);
 
   #if (SKOOKUM & SK_DEBUG)
-    if (!this_p->get_class()->is_class(*function_entry.m_sk_class_p))
+    if (!this_p->get_class()->is_class(*function_entry.m_sk_invokable_p->get_scope()))
       {
-      SK_ERRORX(a_str_format("Attempted to invoke coroutine '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", function_entry.m_sk_class_p->get_name_cstr(), function_entry.m_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_p->get_name_cstr()));
+      SK_ERRORX(a_str_format("Attempted to invoke coroutine '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", function_entry.m_sk_class_name.as_cstr(), function_entry.m_sk_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_name.as_cstr()));
       }
     else
   #endif
@@ -394,8 +446,8 @@ bool SkUEBlueprintInterface::try_update_binding_entry(UClass * ue_class_p, SkInv
     {
     BindingEntry * binding_entry_p = m_binding_entry_array[binding_index];
     if (binding_entry_p
-      && binding_entry_p->m_invokable_name == sk_invokable_p->get_name()
-      && binding_entry_p->m_sk_class_p == sk_invokable_p->get_scope()
+      && binding_entry_p->m_sk_invokable_name == sk_invokable_p->get_name()
+      && binding_entry_p->m_sk_class_name == sk_invokable_p->get_scope()->get_name()
       && binding_entry_p->m_is_class_member == sk_invokable_p->is_class_member())
       {
       // There is no overloading in SkookumScript
@@ -596,7 +648,7 @@ void SkUEBlueprintInterface::delete_binding_entry(uint32_t binding_index)
   BindingEntry * binding_entry_p = m_binding_entry_array[binding_index];
   if (binding_entry_p)
     {
-    SK_ASSERTX(binding_entry_p->m_ue_function_p.IsValid() || !binding_entry_p->m_ue_class_p.IsValid(), a_str_format("UFunction %s was deleted outside of SkUEBlueprintInterface and left dangling links behind in its owner UClass (%S).", binding_entry_p->m_invokable_name.as_cstr(), *binding_entry_p->m_ue_class_p->GetName()));
+    SK_ASSERTX(binding_entry_p->m_ue_function_p.IsValid() || !binding_entry_p->m_ue_class_p.IsValid(), a_str_format("UFunction %s was deleted outside of SkUEBlueprintInterface and left dangling links behind in its owner UClass (%S).", binding_entry_p->m_sk_invokable_name.as_cstr(), *binding_entry_p->m_ue_class_p->GetName()));
     if (binding_entry_p->m_ue_function_p.IsValid())
       {
       UFunction * ue_function_p = binding_entry_p->m_ue_function_p.Get();
@@ -619,10 +671,7 @@ void SkUEBlueprintInterface::delete_binding_entry(uint32_t binding_index)
         }
       // Destroy the function along with its attached properties
       // HACK remove from root if it's rooted - proper fix: Find out why it's rooted to begin with
-      if (ue_function_p->IsRooted())
-        {
-        ue_function_p->RemoveFromRoot();
-        }
+      ue_function_p->RemoveFromRoot();
       ue_function_p->MarkPendingKill();
       }
     FMemory::Free(binding_entry_p);
@@ -643,9 +692,13 @@ UFunction * SkUEBlueprintInterface::build_ue_function(UClass * ue_class_p, SkInv
   qualified_invokable_name.append(class_name_p);
   qualified_invokable_name.append(" @ ", 3u);
   qualified_invokable_name.append(invokable_name_p);
+  FName qualified_invokable_fname(qualified_invokable_name.as_cstr());
+
+  // Must not be already present
+  check(!ue_class_p->FindFunctionByName(qualified_invokable_fname));
 
   // Make UFunction object
-  UFunction * ue_function_p = NewObject<UFunction>(ue_class_p, qualified_invokable_name.as_cstr(), RF_Public);
+  UFunction * ue_function_p = NewObject<UFunction>(ue_class_p, qualified_invokable_fname, RF_Public);
 
   ue_function_p->FunctionFlags |= FUNC_Public;
   if (sk_invokable_p->is_class_member())
@@ -789,7 +842,7 @@ UProperty * SkUEBlueprintInterface::build_ue_param(UFunction * ue_function_p, Sk
     A_LOOP_INFINITE
       {
       uclass_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(sk_parameter_class_p);
-      SK_ASSERTX(uclass_p || is_superclass || !is_final, a_cstr_format("Class '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints is not a known engine class.", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
+      SK_ASSERTX(uclass_p || is_superclass || !is_final, a_cstr_format("Class '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints is not a known engine class. Maybe it is the class of a Blueprint that is not loaded yet?", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
       if (uclass_p || sk_parameter_class_p == SkUEEntity::get_class()) break;
       // If not final, keep looking for existing super classes as temp replacement just to get the Blueprint to compile
       sk_parameter_class_p = sk_parameter_class_p->get_key_class()->get_superclass();

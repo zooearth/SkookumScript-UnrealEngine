@@ -1,10 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
 // Class for managing functions exposed to Blueprint graphs 
-//
-// Author: Markus Breyer
 //=======================================================================================
 
 #pragma once
@@ -19,6 +32,7 @@
 #include <AgogCore/AFunctionArg.hpp>
 #include <AgogCore/APArray.hpp>
 #include <AgogCore/ASymbol.hpp>
+#include <SkookumScript/SkClass.hpp>
 #include <SkookumScript/SkInvokableBase.hpp>
 #include <SkookumScript/SkMethod.hpp>
 #include <SkookumScript/SkParameters.hpp>
@@ -42,9 +56,11 @@ class SkUEBlueprintInterface
     static SkUEBlueprintInterface * get() { return ms_singleton_p; }
 
     void      clear();
+    void      clear_all_sk_invokables();
     UClass *  reexpose_class(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final);
     void      reexpose_class_recursively(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final);
     void      reexpose_all(tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final); // Gather methods from SkookumScript
+    void      rebind_all_sk_invokables();
 
     bool      is_skookum_blueprint_function(UFunction * function_p) const;
     bool      is_skookum_blueprint_event(UFunction * function_p) const;
@@ -77,19 +93,19 @@ class SkUEBlueprintInterface
     // Keep track of a binding between Blueprints and Sk
     struct BindingEntry
       {
-      ASymbol                   m_invokable_name;   // Copy of m_sk_invokable_p->get_name() in case m_sk_invokable_p goes bad
-      SkClass *                 m_sk_class_p;       // Copy of m_sk_invokable_p->get_scope() in case m_sk_invokable_p goes bad
+      ASymbol                   m_sk_invokable_name;  // Copy of m_sk_invokable_p->get_name() in case m_sk_invokable_p goes bad
+      ASymbol                   m_sk_class_name;      // Copy of m_sk_invokable_p->get_scope()->get_name() in case m_sk_invokable_p goes bad
       SkInvokableBase *         m_sk_invokable_p;
-      TWeakObjectPtr<UClass>    m_ue_class_p;       // Copy of m_sk_invokable_p->GetOwnerClass() to detect if a deleted UFunction leaves dangling pointers
+      TWeakObjectPtr<UClass>    m_ue_class_p;         // Copy of m_sk_invokable_p->GetOwnerClass() to detect if a deleted UFunction leaves dangling pointers
       TWeakObjectPtr<UFunction> m_ue_function_p;
       uint16_t                  m_num_params;
-      bool                      m_is_class_member;  // Copy of m_sk_invokable_p->is_class_member() in case m_sk_invokable_p goes bad
+      bool                      m_is_class_member;    // Copy of m_sk_invokable_p->is_class_member() in case m_sk_invokable_p goes bad
       bool                      m_marked_for_delete;
       eBindingType              m_type;
 
       BindingEntry(SkInvokableBase * sk_invokable_p, UFunction * ue_method_p, uint32_t num_params, eBindingType type)
-        : m_invokable_name(sk_invokable_p->get_name())
-        , m_sk_class_p(sk_invokable_p->get_scope())
+        : m_sk_invokable_name(sk_invokable_p->get_name())
+        , m_sk_class_name(sk_invokable_p->get_scope()->get_name())
         , m_sk_invokable_p(sk_invokable_p)
         , m_ue_class_p(ue_method_p->GetOwnerClass())
         , m_ue_function_p(ue_method_p)

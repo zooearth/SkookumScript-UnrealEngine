@@ -1,8 +1,21 @@
 //=======================================================================================
-// SkookumScript Unreal Engine Editor Plugin
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Author: Markus Breyer
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// SkookumScript Plugin for Unreal Engine 4
 //=======================================================================================
 
 #include "ISkookumScriptEditor.h"
@@ -197,6 +210,9 @@ void FSkookumScriptEditor::on_class_updated(UClass * ue_class_p)
   // 1) Refresh actions (in Blueprint editor drop down menu)
   FBlueprintActionDatabase::Get().RefreshClassActions(ue_class_p);
 
+  // Remember affected Blueprints here
+  TArray<UBlueprint *> affected_blueprints;
+
   // Storage for gathered objects
   TArray<UObject*> obj_array;
 
@@ -209,10 +225,12 @@ void FSkookumScriptEditor::on_class_updated(UClass * ue_class_p)
     UFunction * target_function_p = function_node_p->GetTargetFunction();
     // Also refresh all nodes with no target function as it is probably a Sk function that was deleted
     //if (!target_function_p || get_runtime()->is_skookum_blueprint_function(target_function_p))
-    if (target_function_p && get_runtime()->is_skookum_blueprint_function(target_function_p))
+    if (target_function_p 
+     && get_runtime()->is_skookum_blueprint_function(target_function_p)
+     && ue_class_p->IsChildOf(target_function_p->GetOwnerClass()))
       {
-      const UEdGraphSchema * schema_p = function_node_p->GetGraph()->GetSchema();
-      schema_p->ReconstructNode(*function_node_p, true);
+      function_node_p->ReconstructNode();
+      affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(function_node_p));
       }
     }
 
@@ -223,15 +241,23 @@ void FSkookumScriptEditor::on_class_updated(UClass * ue_class_p)
     {
     UK2Node_Event * event_node_p = Cast<UK2Node_Event>(obj_p);
     UFunction * event_function_p = event_node_p->FindEventSignatureFunction();
-    if (event_function_p && get_runtime()->is_skookum_blueprint_event(event_function_p))
+    if (event_function_p 
+     && get_runtime()->is_skookum_blueprint_event(event_function_p)
+     && ue_class_p->IsChildOf(event_function_p->GetOwnerClass()))
       {
-      const UEdGraphSchema * schema_p = event_node_p->GetGraph()->GetSchema();
-      schema_p->ReconstructNode(*event_node_p, true);
+      event_node_p->ReconstructNode();
+      affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(event_node_p));
       }
     }
 
-  // 4) Try recompiling any Blueprints that previously had errors
-  recompile_blueprints_with_errors();
+  // 4) Try recompiling any affected Blueprint that previously had errors
+  for (UBlueprint * blueprint_p : affected_blueprints)
+    {
+    if (blueprint_p && blueprint_p->Status == BS_Error)
+      {
+      FKismetEditorUtilities::CompileBlueprint(blueprint_p);
+      }
+    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -263,7 +289,7 @@ void FSkookumScriptEditor::on_object_modified(UObject * obj_p)
   {
   // Is this a blueprint?
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-  if (blueprint_p)
+  if (blueprint_p && blueprint_p->GeneratedClass)
     {
     get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, false);
     }
@@ -286,7 +312,7 @@ void FSkookumScriptEditor::on_assets_deleted(const TArray<UClass*> & deleted_ass
 void FSkookumScriptEditor::on_asset_post_import(UFactory * factory_p, UObject * obj_p)
   {
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-  if (blueprint_p)
+  if (blueprint_p && blueprint_p->GeneratedClass)
     {
     get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, false);
     }
@@ -307,7 +333,7 @@ void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const
   if (asset_data.AssetClass == s_blueprint_class_name)
     {
     UBlueprint * blueprint_p = FindObjectChecked<UBlueprint>(ANY_PACKAGE, *asset_data.AssetName.ToString());
-    if (blueprint_p)
+    if (blueprint_p && blueprint_p->GeneratedClass)
       {
       get_runtime()->on_class_renamed(blueprint_p->GeneratedClass, FPaths::GetBaseFilename(old_object_path));
       }
@@ -326,7 +352,7 @@ void FSkookumScriptEditor::on_in_memory_asset_created(UObject * obj_p)
 void FSkookumScriptEditor::on_in_memory_asset_deleted(UObject * obj_p)
   {
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-  if (blueprint_p)
+  if (blueprint_p && blueprint_p->GeneratedClass)
     {
     get_runtime()->on_class_deleted(blueprint_p->GeneratedClass);
     }
