@@ -165,27 +165,32 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
   FString ini_file_text;
   if (FFileHelper::LoadFileToString(ini_file_text, *project_ini_file_path))
     {
-    FRegexPattern regex(TEXT("Overlay[0-9]+=-?\\*?") + overlay_name.Replace(TEXT("+"), TEXT("\\+")) + TEXT("\\|.*?\\|([0-9]+|A)"));
-    FRegexMatcher matcher(regex, ini_file_text);
-    if (matcher.FindNext())
+    // Find the substring overlay_name|*|
+    FString search_text = overlay_name + TEXT("|");
+    int32 pos = ini_file_text.Find(search_text, ESearchCase::CaseSensitive);
+    if (pos >= 0)
       {
-      int32 begin_idx = matcher.GetCaptureGroupBeginning(1);
-      if (begin_idx >= 0)
+      pos += search_text.Len();
+      while (ini_file_text[pos] != '|')
         {
-        const TCHAR * depth_text_p = &ini_file_text[begin_idx];
+        if (ini_file_text[pos] == '\n') return false;
+        if (++pos >= ini_file_text.Len()) return false;
+        }
 
-        if (*depth_text_p == 'A')
-          {
-          m_overlay_path_depth = PathDepth_archived;
-          return true;
-          }
+      // Look what's behind the last bar
+      const TCHAR * depth_text_p = &ini_file_text[pos + 1];
 
-        int32 path_depth = FCString::Atoi(depth_text_p);
-        if (path_depth > 0 || (path_depth == 0 && ini_file_text[begin_idx] == '0'))
-          {
-          m_overlay_path_depth = path_depth;
-          return true;
-          }
+      if (*depth_text_p == 'A')
+        {
+        m_overlay_path_depth = PathDepth_archived;
+        return true;
+        }
+
+      int32 path_depth = FCString::Atoi(depth_text_p);
+      if (path_depth > 0 || (path_depth == 0 && *depth_text_p == '0'))
+        {
+        m_overlay_path_depth = path_depth;
+        return true;
         }
       }
     }
