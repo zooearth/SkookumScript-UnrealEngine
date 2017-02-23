@@ -56,6 +56,7 @@ class SK_API SkDataInstance : public SkInstance
     void          add_data_members();
     void          data_empty()          { m_data.empty(); }
     SkInstance *  get_data_by_idx(uint32_t data_idx) const;
+    SkInstance ** get_data_addr_by_idx(uint32_t data_idx) const;
     void          set_data_by_idx(uint32_t data_idx, SkInstance * obj_p);
 
     // Overriding from SkInstance
@@ -93,7 +94,7 @@ class SK_API SkDataInstance : public SkInstance
     static void * const ms_magic_marker;
 
     // Called when a mismatch is detected - alerts the user and returns nil
-    SkInstance * on_magic_marker_mismatch(uint32_t data_idx) const;
+    SkInstance ** on_magic_marker_mismatch(uint32_t data_idx) const;
   #endif
 
   };  // SkDataInstance

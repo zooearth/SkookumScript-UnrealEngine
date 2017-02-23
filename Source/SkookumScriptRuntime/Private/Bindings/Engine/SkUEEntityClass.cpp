@@ -45,7 +45,7 @@ namespace SkUEEntityClass_Impl
     if (result_pp) // Do nothing if result not desired
       {
       UClass * uclass_p = scope_p->this_as<SkUEEntityClass>();
-      AString uclass_name = FStringToAString(uclass_p->GetName());
+      AString uclass_name = uclass_p ? FStringToAString(uclass_p->GetName()) : AString("???", true);
 
       AString str(nullptr, 3u + uclass_name.get_length(), 0u);
       str.append('(');

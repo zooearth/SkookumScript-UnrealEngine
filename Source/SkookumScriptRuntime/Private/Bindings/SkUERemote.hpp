@@ -122,7 +122,7 @@ class SkUERemote : public SkRemoteRuntimeBase
 
   // Events
 
-    virtual void              on_cmd_send(const ADatum & datum) override;
+    virtual eSendResponse     on_cmd_send(const ADatum & datum) override;
     virtual void              on_cmd_make_editable() override;
     virtual void              on_cmd_freshen_compiled_reply(eCompiledState state) override;
     virtual void              on_class_updated(SkClass * class_p) override;
