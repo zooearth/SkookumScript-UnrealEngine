@@ -110,6 +110,14 @@ public class AgogCore : ModuleRules
         platformName = "XONE";
         Definitions.Add("A_PLAT_X_ONE");
         break;
+      case UnrealTargetPlatform.Linux:
+        bPlatformAllowed = true;
+        platformName = "Linux";
+        platPathSuffixes.Add(platformName);
+        useDebugCRT = true;
+        Definitions.Add("A_PLAT_LINUX64");
+        UEBuildConfiguration.bForceEnableExceptions = true;
+        break;
     }
 
     // NOTE: All modules inside the SkookumScript plugin folder must use the exact same definitions!

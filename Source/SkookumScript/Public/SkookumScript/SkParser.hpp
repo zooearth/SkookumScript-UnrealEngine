@@ -657,6 +657,9 @@ class SK_API SkParser : public AString
           // nullptr if don't desire a specific type or desired type not known.
           SkClassDescBase * m_desired_type_p;
 
+          // Type of current receiver
+          SkClassDescBase * m_receiver_type_p;
+
           // Whether upcoming parse should be immediate (method), durational (coroutine)
           // or either - see `eSkInvokeTime` and `m_exec_time`
           //eSkInvokeTime m_desired_exec_time
@@ -748,7 +751,8 @@ class SK_API SkParser : public AString
 
     SK_NEW_OPERATORS(SkParser);
 
-    SkParser(const AString & str, SkParserCustomBase * customizations_p = nullptr);
+    SkParser(const AString & str);
+    SkParser(const AString & str, SkParserCustomBase * customizations_p);
     SkParser(const char * cstr_p, uint32_t length = ALength_calculate, bool persistent = true, SkParserCustomBase * customizations_p = nullptr);
 
     SkParser & operator=(const AString & str)              { AString::operator=(str); return *this; }
@@ -803,7 +807,7 @@ class SK_API SkParser : public AString
       SkLoopExit *       parse_loop_exit(Args & args = ms_def_args.reset()) const;
       SkMethodBase *     parse_method(Args & args = ms_def_args.reset(), const ASymbol & name = ASymbol::get_null(), eSkInvokeTime desired_exec_time = SkInvokeTime_any, bool append_to_class_b = true) const;
       SkCoroutineBase *  parse_coroutine(Args & args = ms_def_args.reset(), const ASymbol & name = ASymbol::get_null(), bool append_to_class_b = true) const;
-      bool               parse_temporary(Args & args = ms_def_args.reset(), ASymbol * ident_p = nullptr, SkExpressionBase ** expr_pp = nullptr, bool * predicate_p = nullptr, bool allow_binding = true) const;
+      bool               parse_temporary(Args & args = ms_def_args.reset(), ASymbol * ident_p = nullptr, SkExpressionBase ** expr_pp = nullptr, uint32_t * bind_pos_p = nullptr, bool * predicate_p = nullptr, bool allow_binding = true) const;
 
 
     // Simple Parse Methods

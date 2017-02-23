@@ -137,6 +137,7 @@ class SK_API SkInvokedBase :
     SkInvokedBase * get_caller() const                    { return m_caller_p; }
     SkObjectBase *  get_scope() const                     { return m_scope_p; }
     void            set_caller(SkInvokedBase * caller_p)  { m_caller_p = caller_p; }
+    SkInvokedBase * get_topmost_caller() const;
 
     virtual SkInvokedContextBase *   get_caller_context() const;
     virtual const SkExpressionBase * get_expr() const     { return nullptr; }

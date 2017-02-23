@@ -67,11 +67,25 @@ A_INLINE SkInstance * SkDataInstance::get_data_by_idx(uint32_t data_idx) const
   #if (SKOOKUM & SK_DEBUG)
     if (m_user_data.m_data.m_ptr[1] != ms_magic_marker)
       {
-      return on_magic_marker_mismatch(data_idx);
+      return *on_magic_marker_mismatch(data_idx);
       }
   #endif
 
   return m_data[data_idx];
+  }
+
+//---------------------------------------------------------------------------------------
+
+A_INLINE SkInstance ** SkDataInstance::get_data_addr_by_idx(uint32_t data_idx) const
+  {
+#if (SKOOKUM & SK_DEBUG)
+  if (m_user_data.m_data.m_ptr[1] != ms_magic_marker)
+    {
+    return on_magic_marker_mismatch(data_idx);
+    }
+#endif
+
+  return m_data.get_array() + data_idx;
   }
 
 //---------------------------------------------------------------------------------------
