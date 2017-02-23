@@ -1,11 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // SkookumScript Parser and associated data-structures
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
 #pragma once
@@ -74,7 +86,7 @@ variable-ident   = variable-name | ([expression ws '.' ws] data-name)
 variable-name    = name-predicate
 data-name        = '@' | '@@' variable-name
 reserved-ident   = 'nil' | 'this' | 'this_class' | 'this_code'
-object-id        = [class] '@' ['?' | '='] symbol-literal
+object-id        = [class-name] '@' ['?' | '#'] symbol-literal
 method-name      = name-predicate | constructor-name | destructor-name | convert-name
 name-predicate   = instance-name ['?']
 constructor-name = '!' [instance-name]
@@ -235,7 +247,8 @@ class SkMetaClass;
 class SkMethodBase;
 class SkMethodCallBase;
 class SkMethodFunc;
-class SkObjectId;
+class SkMethodToOperator;
+class SkObjectIDBase;
 class SkParameterBase;
 class SkTypedClass;
 class SkUnaryParam;
@@ -251,46 +264,23 @@ class SkUnaryParam;
 #endif // (SKOOKUM & SK_CODE_IN)
 
 //---------------------------------------------------------------------------------------
-// Method name to operator translator
-#ifdef SK_CODE
-
-class SkMethodToOperator
+// Custom behavior and settings for SkParser.
+// 
+// A reference to this structure is stored in each SkParser object `m_customizations_p`
+// member which is either passed in the constructor or it uses the default one stored in
+// `SkParser::ms_defaults_p` which is set with SkParser::set_custom_defaults().
+struct SkParserCustomBase
   {
-  public:
-
-    SK_NEW_OPERATORS(SkMethodToOperator);
-
-    SkMethodToOperator();
-
-    ASymbol method_to_operator(const ASymbol & method_name) const;
-
-  private:
-
-    struct SkTranslate
-      {
-      ASymbol m_from;
-      ASymbol m_to;
-
-      void set(const ASymbol & from, const ASymbol & to) { m_from = from; m_to = to; }
-
-      operator const ASymbol & () const { return m_from; }
-      };
-
-    APSortedLogical<SkTranslate, ASymbol> m_mthd2op;
-    SkTranslate                           m_mthd2op_table[27];
-
+  #if (SKOOKUM & SK_CODE_IN)
+    virtual SkObjectIDBase * object_id_new(const ASymbol & name, SkClass * class_p, uint32_t flags) = 0;
+    virtual SkClass *        object_id_name_class() = 0;
+  #endif
   };
-
-#endif
 
 
 //---------------------------------------------------------------------------------------
-// Notes      SkookumScript Parser
-// Subclasses 
-// See Also   
-// UsesLibs   AgogCore/AgogCore.lib
-// InLibs     SkookumLib.lib
-// Examples:    
+// SkookumScript Parser
+// 
 // Author(s)  Conan Reis
 class SK_API SkParser : public AString
   {
@@ -316,7 +306,7 @@ class SK_API SkParser : public AString
       // If set, parser is in first compile/parse pass (discovery) mode
       Flag_preparse        = 1 << 2,
 
-      // Perform deferred validation of object ids
+      // Perform deferred validation of object IDs
       Flag_obj_id_validate = 1 << 3,
 
       Flag__default = Flag_type_check | Flag_strict
@@ -404,7 +394,7 @@ class SK_API SkParser : public AString
       Result_err_expected_named_arg,          // Expected a named argument specifier identifier# and did not find one.
       Result_err_expected_op_index_end,       // Expected index operator ending curly bracket/brace `}` and did not find one.
       Result_err_expected_operator,           // Expected an operator method call, but did not find one
-      Result_err_expected_obj_id,             // Expected an operator id, but did not find the '@', '@?' or '@='symbols.
+      Result_err_expected_obj_id,             // Expected an operator id, but did not find the '@', '@?' or '@#'symbols.
       Result_err_expected_parameters,         // A parameter list must start with an opening parenthesis (bracket) '('
       Result_err_expected_param_name,         // Parameter descriptors must be named
       Result_err_expected_race_block,         // Expected a 'race' code block [ ], but did not find one.
@@ -482,8 +472,8 @@ class SK_API SkParser : public AString
       Result_err_context_non_ident_member,    // * A data member with the specified name does not exist in the supplied object.
       Result_err_context_non_method,          // * A method with the specified name does not exist or is not registered.
       Result_err_context_non_coroutine,       // * A coroutine with the specified name does not exist or is not registered.
-      Result_err_context_object_id_bad_class, // * Object identifier was used with a class that does not support named instance lookup.
-      Result_err_context_object_id_invalid,   // * Object identifier was invalid - no object with the specified name will be present.
+      Result_err_context_object_id_bad_class, // * Object ID was used with a class that does not support object IDs.
+      Result_err_context_object_id_invalid,   // * Object ID is invalid - no object with the specified name will be present.
       Result_err_context_immediate,           // Deferred statements (such as coroutines) found where only immediate statements are accepted.
       Result_err_context_deferred,            // Only immediate statements were found where deferred statements (such as coroutines) are expected.
       Result_err_context_concurrent_redundant,  // A concurrent block (sync or race) should have at least two deferred expressions or running concurrently is redundant.
@@ -530,7 +520,9 @@ class SK_API SkParser : public AString
       Identify_op_group_open,  // ( { [
       Identify_op_group_close, // ) } [
       Identify_comment,        // It could be a block of comments which could include a series of single line comments
-      Identify_string,         // Simple string or symbol literal
+      Identify_string,         // Simple string
+      Identify_symbol,         // Symbol literal
+      Identify_object_id,      // Object ID
       Identify_number,
       Identify_annotation,
       Identify_lexical_error
@@ -624,7 +616,7 @@ class SK_API SkParser : public AString
       //     - desired and result eSkInvokeTime expression duration
       //     - has side effect?
       //     - routine + argument/idx
-      //     - object id type (could store in m_type_p)
+      //     - object ID type (could store in m_type_p)
       //     - expression type
       //     - on whitespace/comment?
       //     - full syntax terminal
@@ -664,6 +656,9 @@ class SK_API SkParser : public AString
           // Type hint for upcoming parse so that less type info needs to be specified.
           // nullptr if don't desire a specific type or desired type not known.
           SkClassDescBase * m_desired_type_p;
+
+          // Type of current receiver
+          SkClassDescBase * m_receiver_type_p;
 
           // Whether upcoming parse should be immediate (method), durational (coroutine)
           // or either - see `eSkInvokeTime` and `m_exec_time`
@@ -757,7 +752,8 @@ class SK_API SkParser : public AString
     SK_NEW_OPERATORS(SkParser);
 
     SkParser(const AString & str);
-    SkParser(const char * cstr_p, uint32_t length = ALength_calculate, bool persistent = true);
+    SkParser(const AString & str, SkParserCustomBase * customizations_p);
+    SkParser(const char * cstr_p, uint32_t length = ALength_calculate, bool persistent = true, SkParserCustomBase * customizations_p = nullptr);
 
     SkParser & operator=(const AString & str)              { AString::operator=(str); return *this; }
     SkParser & operator=(const SkParser & parser)          { AString::operator=(parser); return *this; }
@@ -811,7 +807,7 @@ class SK_API SkParser : public AString
       SkLoopExit *       parse_loop_exit(Args & args = ms_def_args.reset()) const;
       SkMethodBase *     parse_method(Args & args = ms_def_args.reset(), const ASymbol & name = ASymbol::get_null(), eSkInvokeTime desired_exec_time = SkInvokeTime_any, bool append_to_class_b = true) const;
       SkCoroutineBase *  parse_coroutine(Args & args = ms_def_args.reset(), const ASymbol & name = ASymbol::get_null(), bool append_to_class_b = true) const;
-      bool               parse_temporary(Args & args = ms_def_args.reset(), ASymbol * ident_p = nullptr, SkExpressionBase ** expr_pp = nullptr, bool * predicate_p = nullptr, bool allow_binding = true) const;
+      bool               parse_temporary(Args & args = ms_def_args.reset(), ASymbol * ident_p = nullptr, SkExpressionBase ** expr_pp = nullptr, uint32_t * bind_pos_p = nullptr, bool * predicate_p = nullptr, bool allow_binding = true) const;
 
 
     // Simple Parse Methods
@@ -851,10 +847,10 @@ class SK_API SkParser : public AString
       SkMethodFunc *    preparse_method_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
       SkCoroutineFunc * preparse_coroutine_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
 
-    // Identification Methods  - Quickly identifies/categorizes a section of code without necessarily doing a full analysis.
+    // Identification Methods - Quickly identifies/categorizes a section of code without necessarily doing a full analysis.
 
-      eIdentify identify_text(       uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, uint flags = IdentifyFlag__default) const;
-      eIdentify identify_class(      uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, AString * class_name_p = nullptr, SkClass ** class_pp = nullptr) const;
+      eIdentify identify_text(uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, uint flags = IdentifyFlag__default) const;
+      eIdentify identify_class(uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, AString * class_name_p = nullptr, SkClass ** class_pp = nullptr) const;
       eSkMember identify_member_filename(SkQualifier * ident_p = nullptr, bool * class_member_p = nullptr, bool optional_scope = true) const;
       eResult   identify_member_name(SkMemberInfo * member_p, uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, eSkMember accept_to = SkMember_class_meta) const;
 
@@ -866,14 +862,16 @@ class SK_API SkParser : public AString
     static void clear_stats();
     static void print_stats();
 
-    static AFlagSet32 & get_default_flags()                                  { return ms_default_flags; }
-    static bool         is_ident_operator(uint32_t sym_id);
-    static bool         is_ident_reserved(uint32_t sym_id);
-    static bool         is_strict()                                          { return ms_default_flags.is_set_any(Flag_strict); }
-    static void         enable_strict(bool strict = true)                    { ms_default_flags.enable(Flag_strict, strict); }
-    static AString      get_result_context_string(const AString & code, eResult result, uint32_t result_pos, uint32_t result_start = ADef_uint32, uint32_t start_pos = 0u);
-    static AString      get_result_string(eResult result);
-    static eResult      invoke_script(const AString & code, AString * result_str_p = nullptr, SkInstance ** result_pp = nullptr, SkInstance * instance_p = nullptr, bool print_info = true);
+    static SkParserCustomBase * get_customization_defaults();
+    static AFlagSet32 &         get_default_flags()                                          { return ms_default_flags; }
+    static bool                 is_ident_operator(uint32_t sym_id);
+    static bool                 is_ident_reserved(uint32_t sym_id);
+    static bool                 is_strict()                                                  { return ms_default_flags.is_set_any(Flag_strict); }
+    static void                 enable_strict(bool strict = true)                            { ms_default_flags.enable(Flag_strict, strict); }
+    static AString              get_result_context_string(const AString & code, eResult result, uint32_t result_pos, uint32_t result_start = ADef_uint32, uint32_t start_pos = 0u);
+    static AString              get_result_string(eResult result);
+    static eResult              invoke_script(const AString & code, AString * result_str_p = nullptr, SkInstance ** result_pp = nullptr, SkInstance * instance_p = nullptr, bool print_info = true);
+    static void                 set_customization_defaults(SkParserCustomBase * defaults_p)  { ms_defaults_p = defaults_p; }
 
   #endif // (SKOOKUM & SK_CODE_IN)
 
@@ -904,8 +902,8 @@ class SK_API SkParser : public AString
       // [May not use with ParamFlag_result_bool.]
       ParamFlag_coroutine        = 1 << 1,
 
-      //  Query/predicate method - ensure that result class is `Boolean` or infer `Boolean` if
-      //  omitted. [May not use with ParamFlag_coroutine.]
+      // Query/predicate method - ensure that result class is `Boolean` or infer `Boolean` if
+      // omitted. [May not use with ParamFlag_coroutine.]
       ParamFlag_result_bool      = 1 << 2,
 
       ParamFlag__mask_result = ParamFlag_coroutine | ParamFlag_result_bool,
@@ -994,7 +992,7 @@ class SK_API SkParser : public AString
       SkConcurrentRace *   parse_concurrent_race_block(Args & args) const;
       SkConcurrentBranch * parse_concurrent_branch_block(Args & args) const;
       SkDivert *           parse_divert_block(Args & args) const;
-      SkObjectId *         parse_object_id_tail(Args & args, SkClass * class_p = nullptr) const;
+      SkObjectIDBase *     parse_object_id_tail(Args & args, SkClass * class_p = nullptr) const;
       SkInvocation *       parse_prefix_operator_expr(const ASymbol & op_name, Args & args) const;
       bool                 parse_statement_append(Args & args, eSkInvokeTime desired_exec_time = SkInvokeTime_any) const;
       bool                 parse_temporary_append(Args & args) const;
@@ -1039,14 +1037,19 @@ class SK_API SkParser : public AString
       // Test methods that depend on expression data-structure
       // $Vital - CReis These tests need to be rewritten to work even if an expression structure is not available
 
-        bool              ensure_expr_effect(const SkExpressionBase * expr_p, uint32_t * pos_p, Args & args) const;
-        bool              ensure_exec_time(const SkExpressionBase & expr, Args & args, eSkInvokeTime desired_exec_time) const;
+      bool              ensure_expr_effect(const SkExpressionBase * expr_p, uint32_t * pos_p, Args & args) const;
+      bool              ensure_exec_time(const SkExpressionBase & expr, Args & args, eSkInvokeTime desired_exec_time) const;
       SkClassDescBase * identifier_desired_type(SkIdentifierLocal * identifier_p, SkClassDescBase * identifier_type_p, SkClassDescBase * context_type_p) const;
       eResult           identifier_validate_bind(SkExpressionBase * identifier_p) const;
       eResult           identifier_validate_bind_type(SkIdentifierLocal * identifier_p, SkClassDescBase * old_type_p, SkClassDescBase * new_type_p) const;
 
 
   // Data Members
+
+    // Customized settings and behavior for the parser - passed in the constructor or it
+    // uses the default one stored in `SkParser::ms_defaults_p` which is set with
+    // SkParser::set_custom_defaults().
+    SkParserCustomBase * m_customizations_p;
 
     // Parse flags - see SkParser::eFlag
     AFlagSet32 m_flags;
@@ -1065,7 +1068,10 @@ class SK_API SkParser : public AString
 
   // Class Data Members
 
+    static SkParserCustomBase * ms_defaults_p;
+
     // Initial flags for new SkParser objects if flags are not otherwise specified.
+    // - see m_flags and eFlag
     static AFlagSet32 ms_default_flags;
 
     // $Revisit - CReis This should be part of a result structure.

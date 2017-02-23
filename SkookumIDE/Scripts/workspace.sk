@@ -1,25 +1,20 @@
-// Select code & press F4 to execute it (or Shift+F4 to execute locally on IDE).
-// Or drag & drop a .sk script file here to execute it.
+// Unfamiliar with SkookumScript?
+// Read through these examples illustrating some basic concepts.
+
+// Select code and press F4 to execute it.
 
 // ========================================
 // === 1) Core SkookumScript Principles ===
 // ========================================
 
-// Unfamiliar with SkookumScript?
-// Take a moment and read through these examples illustrating
-// some basic concepts of SkookumScript.
-
 //-----------------------------------------
 // Simple Math
 
 // Select this expression (or just have the caret on the line)
-// and hit F4 (to evaluate on game runtime) or Shift+F4 to
-// evaluate locally on the IDE.
+// and hit F4 (to evaluate on game runtime).
 4 + 5
 
 // The result will be printed in the IDE log window.
-// Alt+Insert         - pastes the last result
-// Alt+Control+Insert - copies the last result to the clipboard
 
 // Do the same with any of these:
 3.0 + 4.5
@@ -32,7 +27,7 @@
 //-----------------------------------------
 // Variables!
 
-// The exclamation mark ! indicates that something "new" is being
+// The exclamation mark ! indicates that something “new” is being
 // created. This creates variable 'bob' and binds it to the
 // Integer 9 and bob has the type Integer
 !bob : 9

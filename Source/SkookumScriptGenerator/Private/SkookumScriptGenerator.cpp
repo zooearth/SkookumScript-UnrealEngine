@@ -1,10 +1,21 @@
 //=======================================================================================
-// SkookumScript Unreal Engine Binding Generator
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Author: Markus Breyer
-//
-// Adapted in parts from sample code by Robert Manuszewski of Epic Games Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// SkookumScript Plugin for Unreal Engine 4
 //=======================================================================================
 
 #include "ISkookumScriptGenerator.h"
@@ -1607,7 +1618,7 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
       GenerateEntry & entry = generate_list[type_index++];
       entry.m_parent_name = parent_name;
       bool is_used_in_this_pass = (entry.m_generated_type_p->m_class_scope == class_scope);
-      entry.m_is_referenced = is_used_in_this_pass;
+      entry.m_is_referenced = entry.m_is_referenced || is_used_in_this_pass;
 
       // Crawl up hierarchy to make sure all parents are present
       int sort_index = entry.m_sort_index;
@@ -1921,7 +1932,7 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
   // Disable pesky deprecation warnings
   binding_code += TEXT(
     "// Generated code will use some deprecated functions - that's ok don't tell me about it\r\n"
-    "#if _MSC_VER >= 1400\r\n"
+    "#if defined _MSC_VER\r\n"
     "#pragma warning(push)\r\n"
     "#pragma warning(disable: 4996) // Disable deprecation warnings\r\n"
     "#elif defined __clang__\r\n"
@@ -2011,7 +2022,7 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
 
   // Re-enable clang warnings
   binding_code += TEXT(
-    "#if _MSC_VER >= 1400\r\n"
+    "#if defined _MSC_VER\r\n"
     "#pragma warning(pop)\r\n"
     "#elif defined __clang__\r\n"
     "#pragma clang diagnostic pop\r\n"
