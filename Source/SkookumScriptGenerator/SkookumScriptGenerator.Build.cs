@@ -27,9 +27,6 @@ namespace UnrealBuildTool.Rules
   {
     public SkookumScriptGenerator(TargetInfo Target)
     {			
-      // We need ICU for regex use!
-      UEBuildConfiguration.bCompileICU = true;
-
       PublicIncludePaths.AddRange(
         new string[] {					
           "Programs/UnrealHeaderTool/Public",
