@@ -161,21 +161,21 @@
 // `SKDEBUG_HOOKS` is not defined.
 #if (SKOOKUM & SK_DEBUG)
   
-    #define SKDEBUG_HOOK_EXPR(_expr_p, _scope_p, _caller_p) \
+    #define SKDEBUG_HOOK_EXPR(_expr_p, _scope_p, _caller_p, _caller_caller_p, _hook_context) \
       if (SkDebug::ms_expr_hook_flag | ((_expr_p)->m_debug_info & SkDebugInfo::Flag_debug_enabled)) \
-        { SkDebug::hook_expression((SkExpressionBase *)(_expr_p), (_scope_p), (_caller_p)); } \
+        { SkDebug::hook_expression((SkExpressionBase *)(_expr_p), (_scope_p), (_caller_p), (_caller_caller_p), (_hook_context)); } \
       (void(0))
 
 #elif defined(SKDEBUG_HOOKS)
 
-  #define SKDEBUG_HOOK_EXPR(_expr_p, _scope_p, _caller_p) \
+  #define SKDEBUG_HOOK_EXPR(_expr_p, _scope_p, _caller_p, _caller_caller_p, _hook_context) \
     if (SkDebug::ms_expr_hook_flag) \
-      { SkDebug::hook_expression((SkExpressionBase *)(_expr_p), (_scope_p), (_caller_p)); } \
+      { SkDebug::hook_expression((SkExpressionBase *)(_expr_p), (_scope_p), (_caller_p), (_caller_caller_p), (_hook_context)); } \
     (void(0))
 
 #else  // Neither (SKOOKUM & SK_DEBUG) nor SKDEBUG_HOOKS defined
 
-  #define SKDEBUG_HOOK_EXPR(_expr_p, _scope_p, _caller_p) \
+  #define SKDEBUG_HOOK_EXPR(_expr_p, _scope_p, _caller_p, _caller_caller_p, _hook_context) \
     (void(0))
 
 #endif
@@ -203,24 +203,25 @@ enum eSkInvokeInfo
   SkInvokeInfo_none           = 0x0,     // No extra info
   SkInvokeInfo_indent         = 1 << 0,  // Indent lines when building multi-line string
   SkInvokeInfo_skip_this      = 1 << 1,  // Skip the most recent/current call when string
+  SkInvokeInfo_peek           = 1 << 2,  // The most current call is just a peek
 
-  SkInvokeInfo_scope          = 1 << 2,  // Include the identifier scope
-  SkInvokeInfo_args           = 1 << 3,  // Include argument values
-  SkInvokeInfo_this           = 1 << 4,  // Include this/receiver value
+  SkInvokeInfo_scope          = 1 << 3,  // Include the identifier scope
+  SkInvokeInfo_args           = 1 << 4,  // Include argument values
+  SkInvokeInfo_this           = 1 << 5,  // Include this/receiver value
 
   // Locals only info
-  SkInvokeInfo_temporaries    = 1 << 5,  // Include local/temp variables
-  SkInvokeInfo_captured       = 1 << 6,  // Include captured variables from closures
-  SkInvokeInfo_instance_data  = 1 << 7,  // Include instance data members
-  SkInvokeInfo_class_data     = 1 << 8,  // Include class data members
+  SkInvokeInfo_temporaries    = 1 << 6,  // Include local/temp variables
+  SkInvokeInfo_captured       = 1 << 7,  // Include captured variables from closures
+  SkInvokeInfo_instance_data  = 1 << 8,  // Include instance data members
+  SkInvokeInfo_class_data     = 1 << 9,  // Include class data members
 
   SkInvokeInfo__locals_def    = SkInvokeInfo_scope | SkInvokeInfo_temporaries | SkInvokeInfo_captured | SkInvokeInfo_args | SkInvokeInfo_this | SkInvokeInfo_instance_data | SkInvokeInfo_class_data,
 
   // Callstack only info
-  SkInvokeInfo_ignore_absent  = 1 << 9,  // If no call stack available do not print any info
-  SkInvokeInfo_index          = 1 << 10, // Include caller source character index
-  SkInvokeInfo_updater        = 1 << 11, // Include the updater for invoked coroutines
-  SkInvokeInfo_depth          = 1 << 12, // Include the call depth
+  SkInvokeInfo_ignore_absent  = 1 << 10,  // If no call stack available do not print any info
+  SkInvokeInfo_index          = 1 << 11, // Include caller source character index
+  SkInvokeInfo_updater        = 1 << 12, // Include the updater for invoked coroutines
+  SkInvokeInfo_depth          = 1 << 13, // Include the call depth
   // Update count for coroutines?
   // Pending count?
   // Expressions?
@@ -591,6 +592,7 @@ class SK_API SkBreakPoint : public SkMemberExpression
 
       virtual SkExpressionBase * get_expr() const override;
       virtual void               release_expr() override;
+      static void                release_expr(SkExpressionBase * expr_p);
       void                       acquire_expr()  { get_expr(); }
 
   // Methods
@@ -678,7 +680,7 @@ struct SkWatch
     Kind_captured
     };
 
-  SkWatch(Kind kind, const ASymbol & var_name, const SkInstance * value_p, const ASymbol & scope_name);
+  SkWatch(Kind kind, const ASymbol & var_name, const ASymbol & scope_name, const SkInstance * var_p, uint64_t var_guid = 0);
 
   #if (SKOOKUM & SK_COMPILED_IN)             
              SkWatch(const void ** binary_pp) { assign_binary(binary_pp); }
@@ -695,9 +697,10 @@ struct SkWatch
   ASymbol   m_type_name;
   ASymbol   m_scope_name;
   AString   m_value;
+  uint64_t  m_var_guid;
   uint32_t  m_ref_count;
   uint32_t  m_ptr_id;
-  uint64_t  m_address;
+  uint64_t  m_obj_address;
 
   // The data members and/or list items of this variable
   APArrayFree<SkWatch> m_children;
@@ -709,7 +712,7 @@ struct SkWatch
 struct SkCallStack : public ARefCountMix<SkCallStack>
   {
 
-  SkCallStack() {}
+  SkCallStack() : m_current_level_idx(0) {}
 
   // Conversion Methods
 
@@ -748,6 +751,9 @@ struct SkCallStack : public ARefCountMix<SkCallStack>
     // The locals known on this level of the callstack
     APArrayFree<SkWatch> m_locals;
     };
+
+  // The stack level to show by default (currently, either 0 or 1)
+  uint16_t m_current_level_idx;
 
   // The stack of callers ordered from inner to outer
   APArrayFree<Level> m_stack;
@@ -837,6 +843,13 @@ class SK_API SkDebug
       PrefFlag__default           = PrefFlag_break_print_callstack | PrefFlag_break_print_locals
       };
 
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Which context the debug hook gets invoked in
+    enum eHookContext
+      {
+      HookContext_current,  // Same context that is currently being debugged
+      HookContext_peek,     // Context of routine that is about to be invoked but hasn't been invoked yet
+      };
 
     #if defined(SKDEBUG_HOOKS)
 
@@ -1037,6 +1050,7 @@ class SK_API SkDebug
         static uint32_t             get_preferences()                           { return ms_pref_flags; }
 
         static SkCallStack *        get_callstack(const SkInvokedBase * invoked_p, const SkMemberExpression * initial_member_expr_p, uint32_t stack_flags = SkInvokeInfo__callstack_def);
+        static SkCallStack *        get_callstack(const SkInvokedBase * invoked_p, const SkInvokedBase * invoked_caller_p, const SkMemberExpression * initial_member_expr_p, uint32_t stack_flags = SkInvokeInfo__callstack_def);
         static void                 append_watch_locals(APArray<SkWatch> * m_locals_p, const SkInvokedBase * invoked_p);
         static void                 append_watch_members(APArray<SkWatch> * m_members_p, SkInstance * obj_p);
 
@@ -1076,7 +1090,7 @@ class SK_API SkDebug
 
         static void                   breakpoint_get_all_by_member(tSkBreakPoints * bps_p, const SkMemberInfo & member_info);
         static SkBreakPoint *         breakpoint_get_by_expr(const SkExpressionBase & expr);
-        static SkBreakPoint *         breakpoint_get_at_idx(uint32_t table_idx) { return (table_idx < SkDebugInfo::Flag_debug_idx__none) ? ms_breakpoint_table.get_at(table_idx) : nullptr; }
+        static SkBreakPoint *         breakpoint_get_at_idx(uint32_t table_idx);
 
         static const APSortedLogicalFree<SkBreakPoint, SkMemberExpression> & breakpoints_get_all()  { return ms_breakpoints; }
 
@@ -1090,7 +1104,7 @@ class SK_API SkDebug
     // Execution Hooks
 
       #if defined(SKDEBUG_COMMON)
-        static void            hook_expression(SkExpressionBase * expr_p, SkObjectBase * scope_p, SkInvokedBase * next_caller_p);
+        static void            hook_expression(SkExpressionBase * expr_p, SkObjectBase * scope_p, SkInvokedBase * caller_p, SkInvokedBase * _caller_caller_p, eHookContext hook_context);
       #endif
 
       #if defined(SKDEBUG_HOOKS)
@@ -1185,7 +1199,7 @@ class SK_API SkDebug
       static eStep ms_step_type;
 
       static AIdPtr<SkInvokedContextBase> ms_step_icontext_p;
-      static AIdPtr<SkInvokedBase>        ms_step_caller_p;
+      static AIdPtr<SkInvokedBase>        ms_step_topmost_caller_p;
       static SkExpressionBase *           ms_step_expr_p;
 
     // Breakpoints

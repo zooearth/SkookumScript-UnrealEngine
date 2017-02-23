@@ -115,6 +115,13 @@ class SK_API SkRemoteBase
   public:
   // Nested Types
 
+    enum eSendResponse
+      {
+      SendResponse_OK,
+      SendResponse_Reconnecting,
+      SendResponse_Not_Connected,
+      };
+
     enum eCommand
       {                                // (I)DE, (R)untime or (C)ommon
       // Start-up / Simple
@@ -123,6 +130,8 @@ class SK_API SkRemoteBase
         Command_version_reply,           // R->I cmd_version_reply()
         Command_authenticate,            // I->R cmd_authenticate()
         Command_preferences,             // I->R cmd_preferences()
+
+        Command_ping_test,               // R->I cmd_ping_test() - One-way connection test
 
         Command_print,                   // C->C cmd_print()
 
@@ -252,17 +261,19 @@ class SK_API SkRemoteBase
 
     #ifdef SKOOKUM_REMOTE
 
-      void cmd_simple(eCommand cmd);
-      void cmd_simple_uint32(eCommand cmd, uint32_t value);
-      void cmd_print(const AString & str, uint32_t type);
-      void cmd_invoke(const AString & code);
-      void cmd_invoke_result(const AString & str);
-      void cmd_symbols_update(const ASymbolTable & syms);
+      void          cmd_simple(eCommand cmd);
+      void          cmd_simple_uint32(eCommand cmd, uint32_t value);
+      eSendResponse cmd_ping_test();
+      void          cmd_print(const AString & str, uint32_t type);
+      void          cmd_invoke(const AString & code);
+      void          cmd_invoke_result(const AString & str);
+      void          cmd_symbols_update(const ASymbolTable & syms);
 
-      virtual void on_cmd_invoke_result(AString & result_str);
-      void         on_cmd_print(AString & str, uint32_t type_flags);
-      virtual void on_cmd_send(const ADatum & datum) = 0;
-      virtual bool on_cmd_recv(eCommand cmd, const uint8_t * data_p, uint32_t data_length);
+      virtual void  on_cmd_invoke_result(AString & result_str);
+      void          on_cmd_print(AString & str, uint32_t type_flags);
+
+      virtual eSendResponse on_cmd_send(const ADatum & datum) = 0;
+      virtual bool          on_cmd_recv(eCommand cmd, const uint8_t * data_p, uint32_t data_length);
 
     #endif  // SKOOKUM_REMOTE
 

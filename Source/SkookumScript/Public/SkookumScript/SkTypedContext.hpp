@@ -188,6 +188,7 @@ struct SK_API SkTypeContext
       void                  free_locals(const AVCompactArrayBase<ASymbol> & var_names);
       void                  free_locals(const tSkParamList & param_names);
       void                  free_all_locals();
+      void                  get_names_of_all_locals(AVArray<ASymbol> * out_names_p) const;
       bool                  is_locals() const;
       void                  merge(tSkTypedNamesIndexed * merge_vars_p) const;
       void                  merge_locals(tSkTypedNamesIndexed * merge_vars_p, bool first_path_b) const;

@@ -84,6 +84,13 @@ public class SkookumScript : ModuleRules
         platPathSuffixes.Add(Path.Combine(platformName, "x64"));
         useDebugCRT = true;
         break;
+      case UnrealTargetPlatform.Linux:
+        bPlatformAllowed = true;
+        platformName = "Linux";
+        platPathSuffixes.Add(platformName);
+        useDebugCRT = true;
+        UEBuildConfiguration.bForceEnableExceptions = true;
+        break;
     }
 
     // NOTE: All modules inside the SkookumScript plugin folder must use the exact same definitions!
