@@ -77,23 +77,31 @@ void USkookumScriptClassDataComponent::create_sk_instance()
     if (!class_p) goto set_default_class; // Recover from bad user input
 
     // Do some extra checking in non-shipping builds
-    // Do some extra checking in non-shipping builds
     #if (SKOOKUM & SK_DEBUG)
-      SkClass * super_class_known_to_ue_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_ue(class_p);
-      SkClass * super_class_known_to_sk_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_sk(actor_p->GetClass());
-      SK_ASSERTX(super_class_known_to_sk_p && super_class_known_to_sk_p == super_class_known_to_ue_p, a_cstr_format(
-        "Owner Script Class Name '%s' in SkookumScriptClassDataComponent of '%S' is not properly related to Actor. "
-        "Both the Actor Script Class Name '%s' and the UE4 class of '%S' ('%S') must share the topmost ancestor class known to both SkookumScript and UE4. "
-        "Right now these ancestor classes are different ('%s' for '%s' and '%s' for '%S').",
+      UClass * known_ue_superclass_p;
+      SkClass * super_class_known_to_ue_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_ue(class_p, &known_ue_superclass_p);
+      UClass * allowed_ue_superclass_p = known_ue_superclass_p;
+      while (!actor_p->GetClass()->IsChildOf(allowed_ue_superclass_p))
+        {
+        allowed_ue_superclass_p = allowed_ue_superclass_p->GetSuperClass();
+        }
+      SK_ASSERTX(actor_p->GetClass()->IsChildOf(known_ue_superclass_p), a_cstr_format(
+        "Owner Script Class Name '%s' in SkookumScriptClassDataComponent of '%S' is derived from the UE4 class '%S', however '%S's class '%S' is not. "
+        "This can lead to problems since '%s' might try to use functionality of '%S' which '%S' does not have.\n\n"
+        "To fix this, either make sure that '%S' is derived from '%S', or change '%s' so that instead from '%S' it derives from just '%S' (or a superclass of it).",
         class_name_ascii.as_cstr(),
         *actor_p->GetName(),
-        class_name_ascii.as_cstr(),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(known_ue_superclass_p),
         *actor_p->GetName(),
-        *actor_p->GetClass()->GetName(),
-        super_class_known_to_ue_p ? super_class_known_to_ue_p->get_name_cstr_dbg() : "<none>",
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(actor_p->GetClass()),
         class_name_ascii.as_cstr(),
-        super_class_known_to_sk_p ? super_class_known_to_sk_p->get_name_cstr_dbg() : "<none>",
-        *actor_p->GetClass()->GetName()));
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(known_ue_superclass_p),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(actor_p->GetClass()),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(actor_p->GetClass()),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(known_ue_superclass_p),
+        class_name_ascii.as_cstr(),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(known_ue_superclass_p),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(allowed_ue_superclass_p)));
     #endif
     }
   else
