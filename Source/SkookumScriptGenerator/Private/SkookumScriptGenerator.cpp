@@ -749,26 +749,33 @@ int32 FSkookumScriptGenerator::generate_enum(UEnum * enum_p, int32 include_prior
     // Class data members and class constructor
     FString data_body;
     FString constructor_body = FString::Printf(TEXT("// %s\r\n// EnumPath: %s\r\n\r\n()\r\n\r\n  [\r\n"), *enum_type_name, *enum_p->GetPathName());
-    for (int32 enum_index = 0; enum_index < enum_p->NumEnums() - 1; ++enum_index)
+    int32 max_name_length = 0;
+    // Pass 0: Compute max_name_length
+    // Pass 1: Generate the data
+    for (uint32_t pass = 0; pass < 2; ++pass)
       {
-      FString enum_val_name = enum_p->GetEnumName(enum_index);
-      FString enum_val_full_name = enum_p->GenerateFullEnumName(*enum_val_name);
-
-      FString skookified_val_name = skookify_var_name(enum_val_name, false, true);
-      if (skookified_val_name.Equals(TEXT("world"))
-       || skookified_val_name.Equals(TEXT("random")))
+      for (int32 enum_index = 0; enum_index < enum_p->NumEnums() - 1; ++enum_index)
         {
-        skookified_val_name += TEXT("_");
-        }
+        FString enum_val_name = enum_p->GetEnumName(enum_index);
+        FString enum_val_full_name = enum_p->GenerateFullEnumName(*enum_val_name);
+        FString skookified_val_name = skookify_var_name(enum_val_name, false, VarScope_class);
 
-      FName token = FName(*enum_val_full_name, FNAME_Find);
-      if (token != NAME_None)
-        {
-        int32 enum_value = UEnum::LookupEnumName(token);
-        if (enum_value != INDEX_NONE)
+        FName token = FName(*enum_val_full_name, FNAME_Find);
+        if (token != NAME_None)
           {
-          data_body += FString::Printf(TEXT("%s !@%s\r\n"), *enum_type_name, *skookified_val_name);
-          constructor_body += FString::Printf(TEXT("  @%s: %s!int(%d)\r\n"), *skookified_val_name, *enum_type_name, enum_value);
+          int32 enum_value = UEnum::LookupEnumName(token);
+          if (enum_value != INDEX_NONE)
+            {
+            if (pass == 0)
+              {
+              max_name_length = FMath::Max(max_name_length, skookified_val_name.Len());
+              }
+            else
+              {
+              data_body += FString::Printf(TEXT("%s !%s\r\n"), *enum_type_name, *skookified_val_name);
+              constructor_body += FString::Printf(TEXT("  %s %s!int(%d)\r\n"), *(skookified_val_name + TEXT(":")).RightPad(max_name_length + 1), *enum_type_name, enum_value);
+              }
+            }
           }
         }
       }
@@ -1286,7 +1293,7 @@ FString FSkookumScriptGenerator::generate_routine_script_parameters(UFunction * 
       if (!(param_p->GetPropertyFlags() & CPF_ReturnParm))
         {
         FString type_name = get_skookum_property_type_name(param_p);
-        FString var_name = skookify_var_name(param_p->GetName(), param_p->IsA(UBoolProperty::StaticClass()));
+        FString var_name = skookify_var_name(param_p->GetName(), param_p->IsA(UBoolProperty::StaticClass()), VarScope_local);
         max_type_length = FMath::Max(max_type_length, type_name.Len());
         max_name_length = FMath::Max(max_name_length, var_name.Len());
         ++inputs_count;
@@ -1306,7 +1313,7 @@ FString FSkookumScriptGenerator::generate_routine_script_parameters(UFunction * 
       else
         {
         FString type_name = get_skookum_property_type_name(param_p);
-        FString var_name = skookify_var_name(param_p->GetName(), param_p->IsA(UBoolProperty::StaticClass()));
+        FString var_name = skookify_var_name(param_p->GetName(), param_p->IsA(UBoolProperty::StaticClass()), VarScope_local);
         FString default_initializer = get_skookum_default_initializer(function_p, param_p);
         parameter_body += separator + type_name.RightPad(max_type_length) + TEXT(" ");
         if (default_initializer.IsEmpty())
@@ -1681,7 +1688,7 @@ bool FSkookumScriptGenerator::save_generated_script_files(eClassScope class_scop
           // Write method definitions
           for (tSkRoutines::TConstIterator iter(generated_type_p->m_sk_routines); iter; ++iter)
             {
-            script += FString::Printf(TEXT("$$ @%s%s\n"), iter->m_is_class_member ? TEXT("@") : TEXT(""), *iter->m_name);
+            script += FString::Printf(TEXT("$$ %s%s\n"), iter->m_is_class_member ? TEXT("@@") : TEXT("@"), *iter->m_name);
             script += iter->m_body + TEXT("\n");
             }
           }
@@ -2248,7 +2255,7 @@ FString FSkookumScriptGenerator::get_skookum_default_initializer(UFunction * fun
         case SkTypeID_Real:            default_value = TEXT("0.0"); break;
         case SkTypeID_Boolean:         default_value = TEXT("false"); break;
         case SkTypeID_String:          default_value = TEXT("\"\""); break;
-        case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".@") + skookify_var_name(get_enum(param_p)->GetEnumName(0), false, true); break;
+        case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".") + skookify_var_name(get_enum(param_p)->GetEnumName(0), false, VarScope_class); break;
         case SkTypeID_Name:            default_value = TEXT("Name!none"); break;
         case SkTypeID_Vector2:
         case SkTypeID_Vector3:
@@ -2306,7 +2313,7 @@ FString FSkookumScriptGenerator::get_skookum_default_initializer(UFunction * fun
         case SkTypeID_Boolean:         default_value = default_value.ToLower(); break;
         case SkTypeID_String:          default_value = TEXT("\"") + default_value + TEXT("\""); break;
         case SkTypeID_Name:            default_value = (default_value == TEXT("None") ? TEXT("Name!none") : TEXT("Name!(\"") + default_value + TEXT("\")")); break;
-        case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".@") + skookify_var_name(default_value, false, true); break;
+        case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".") + skookify_var_name(default_value, false, VarScope_class); break;
         case SkTypeID_Vector2:         default_value = TEXT("Vector2!xy") + default_value; break;
         case SkTypeID_Vector3:         default_value = TEXT("Vector3!xyz(") + default_value + TEXT(")"); break;
         case SkTypeID_Vector4:         default_value = TEXT("Vector4!xyzw") + default_value; break;
