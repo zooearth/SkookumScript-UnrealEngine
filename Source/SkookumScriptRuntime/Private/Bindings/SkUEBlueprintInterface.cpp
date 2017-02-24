@@ -837,13 +837,14 @@ UProperty * SkUEBlueprintInterface::build_ue_param(UFunction * ue_function_p, Sk
     }
   else if (sk_parameter_class_p->get_key_class()->is_class(*SkUEEntity::get_class()))
     {
-    UClass * uclass_p;
+    // Crawl up class hierarchy from current class to Entity and look for a match
+    UClass * uclass_p = nullptr;
     bool is_superclass = false;
-    A_LOOP_INFINITE
+    while (sk_parameter_class_p)
       {
       uclass_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(sk_parameter_class_p);
-      SK_ASSERTX(uclass_p || is_superclass || !is_final, a_cstr_format("Class '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints is not a known engine class. Maybe it is the class of a Blueprint that is not loaded yet?", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
       if (uclass_p || sk_parameter_class_p == SkUEEntity::get_class()) break;
+      SK_ASSERTX(!is_final || is_superclass, a_cstr_format("Class '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints is not a known engine class. Maybe it is the class of a Blueprint that is not loaded yet?", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
       // If not final, keep looking for existing super classes as temp replacement just to get the Blueprint to compile
       sk_parameter_class_p = sk_parameter_class_p->get_key_class()->get_superclass();
       is_superclass = true;
@@ -858,13 +859,15 @@ UProperty * SkUEBlueprintInterface::build_ue_param(UFunction * ue_function_p, Sk
     }
   else
     {
-    UStruct * ustruct_p;
+    // Crawl up class hierarchy and look for a match
+    UStruct * ustruct_p = nullptr;
     bool is_superclass = false;
-    A_LOOP_INFINITE
+    while (sk_parameter_class_p)
       {
       ustruct_p = SkUEClassBindingHelper::get_static_ue_struct_from_sk_class(sk_parameter_class_p);    
-      SK_ASSERTX(ustruct_p || is_superclass || !is_final, a_cstr_format("Class '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints can not be mapped to a Blueprint-compatible type.", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
-      if (ustruct_p || sk_parameter_class_p == SkUEEntity::get_class()) break;
+      if (ustruct_p) break;
+      // In final run we must have found the struct above, assert only once and keep looking for a super class
+      SK_ASSERTX(!is_final || is_superclass, a_cstr_format("Class '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints can not be mapped to a Blueprint-compatible type.", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
       // If not final, keep looking for existing super classes as temp replacement just to get the Blueprint to compile
       sk_parameter_class_p = sk_parameter_class_p->get_key_class()->get_superclass();
       is_superclass = true;

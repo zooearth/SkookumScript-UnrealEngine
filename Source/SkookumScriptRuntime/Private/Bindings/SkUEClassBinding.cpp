@@ -141,6 +141,15 @@ SkInstance * SkUEClassBindingHelper::get_actor_component_instance(AActor * actor
   }
 
 //---------------------------------------------------------------------------------------
+// Chop off trailing "_C" if exists
+FString SkUEClassBindingHelper::get_ue_class_name_sans_c(UClass * ue_class_p)
+  {
+  FString class_name = ue_class_p->GetName();
+  class_name.RemoveFromEnd(TEXT("_C"));
+  return class_name;
+  }
+
+//---------------------------------------------------------------------------------------
 // Resolve the raw data info of each raw data member of the given class
 void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_struct_or_class_p)
   {
@@ -166,14 +175,14 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
       ue_var_p = *property_it;
       ue_var_name = ue_var_p->GetName();
       bool is_boolean = ue_var_p->IsA(UBoolProperty::StaticClass());
-      ue_var_name_sk = ASymbol::create_existing(FStringToAString(FSkookumScriptGeneratorBase::skookify_var_name(ue_var_name, is_boolean, true)));
+      ue_var_name_sk = ASymbol::create_existing(FStringToAString(FSkookumScriptGeneratorBase::skookify_var_name(ue_var_name, is_boolean, FSkookumScriptGeneratorBase::VarScope_instance)));
       // If it's unknown it might be due to case insensitivity of FName - check if it's a boolean, and if so, swap case
       if (ue_var_name_sk.is_null() && is_boolean && ue_var_name.Len() >= 2 && ue_var_name[0] == TCHAR('B'))
         {
         // E.g. "Blocked" might really be "bLocked"
         ue_var_name[0] = FChar::ToLower(ue_var_name[0]);
         ue_var_name[1] = FChar::ToUpper(ue_var_name[1]);
-        ue_var_name_sk = ASymbol::create_existing(FStringToAString(FSkookumScriptGeneratorBase::skookify_var_name(ue_var_name, is_boolean, true)));
+        ue_var_name_sk = ASymbol::create_existing(FStringToAString(FSkookumScriptGeneratorBase::skookify_var_name(ue_var_name, is_boolean, FSkookumScriptGeneratorBase::VarScope_instance)));
         }
       ++property_it;
       if (var_p->get_name() == ue_var_name_sk) break;
