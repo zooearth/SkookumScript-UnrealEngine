@@ -95,11 +95,23 @@ void USkookumScriptBehaviorComponent::create_sk_instance()
 
   FString class_name = ScriptComponentClassName;
   AString class_name_ascii(*class_name, class_name.Len());
-  SkClass * class_p = SkBrain::get_class(class_name_ascii.as_cstr());
-  SK_ASSERTX(class_p, a_cstr_format("Cannot find Script Class Name '%s' specified in SkookumScriptBehaviorComponent of '%S'. Misspelled?", class_name_ascii.as_cstr(), *actor_p->GetName()));
+  SkClass * class_p = nullptr;
+  if (!class_name_ascii.is_empty())
+    {
+    // Try to find explicitly specified class
+    class_p = SkBrain::get_class(class_name_ascii.as_cstr());
+    SK_ASSERTX(class_p, a_cstr_format("Cannot find Script Class Name '%s' specified in SkookumScriptBehaviorComponent of '%S'. Misspelled?", class_name_ascii.as_cstr(), *actor_p->GetName()));
+    }
   if (!class_p)
     {
-    class_p = SkBrain::get_class(SkBrain::ms_component_class_name); // Recover from bad user input
+    // Default class is SkookumScriptBehaviorComponent itself
+    class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(this->GetClass());
+    SK_ASSERTX(class_p, a_cstr_format("Cannot find equivalent SkookumScript class for SkookumScriptBehaviorComponent class '%S'!", *this->GetClass()->GetName()));
+    if (!class_p)
+      {
+      // Recover if class not found
+      class_p = SkBrain::get_class(SkBrain::ms_component_class_name);
+      }
     }
 
   // Based on the desired class, create SkInstance or SkDataInstance
