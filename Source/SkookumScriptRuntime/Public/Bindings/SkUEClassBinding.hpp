@@ -100,6 +100,8 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
     static SkClass *      get_object_class(UObject * obj_p, UClass * def_uclass_p = nullptr, SkClass * def_class_p = nullptr); // Determine SkookumScript class from UClass
     static SkInstance *   get_actor_component_instance(AActor * actor_p); // Return SkInstance of an actor's SkookumScriptClassDataComponent if present, nullptr otherwise
 
+    static FString        get_ue_class_name_sans_c(UClass * ue_class_p);
+
     static tSkRawDataInfo compute_raw_data_info(UProperty * ue_var_p);
     static bool           resolve_raw_data_static(SkClass * class_p);
     static void           resolve_raw_data(SkClass * class_p, UStruct * ue_struct_or_class_p);
