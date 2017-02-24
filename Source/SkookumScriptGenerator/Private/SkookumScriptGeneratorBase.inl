@@ -389,17 +389,14 @@ FString FSkookumScriptGeneratorBase::skookify_class_name(const FString & name)
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, bool append_question_mark, bool is_member)
+FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, bool append_question_mark, eVarScope scope)
   {
   if (name.IsEmpty()) return name;
 
   // Change title case to lower case with underscores
   FString skookum_name;
   skookum_name.Reserve(name.Len() + 16);
-  if (is_member)
-    {
-    skookum_name.AppendChar('@');
-    }
+  skookum_name.AppendChars(TEXT("@@"), scope == VarScope_instance ? 1 : (scope == VarScope_class ? 2 : 0));
   bool is_boolean = name.Len() > 2 && name[0] == 'b' && isupper(name[1]);
   bool was_upper = true;
   bool was_underscore = true;
@@ -440,7 +437,8 @@ FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, boo
     }
 
   // Check for reserved keywords and append underscore if found
-  if (!is_member && is_skookum_reserved_word(skookum_name))
+  if ((scope == VarScope_local && is_skookum_reserved_word(skookum_name))
+   || (scope == VarScope_class && (skookum_name == TEXT("@@world") || skookum_name == TEXT("@@random"))))
     {
     skookum_name.AppendChar('_');
     }
@@ -457,7 +455,9 @@ FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, boo
         uint32_t c = skookum_name_p[i];
         if ((c - '0') > 9u && (c - 'a') > 5u) goto no_md5;
         }
-      skookum_name = skookum_name.Left(skookum_name_len - 33);
+      // We chop off most digits of the MD5 and leave only the first four, 
+      // assuming that that's distinctive enough for just a few of them at a time
+      skookum_name = skookum_name.Left(skookum_name_len - 28);
     no_md5:;
       }
     }
@@ -474,7 +474,7 @@ FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, boo
 
 FString FSkookumScriptGeneratorBase::skookify_method_name(const FString & name, UProperty * return_property_p)
   {
-  FString method_name = skookify_var_name(name, false);
+  FString method_name = skookify_var_name(name, false, VarScope_local);
   bool is_boolean = false;
 
   // Remove K2 (Kismet 2) prefix if present
@@ -795,7 +795,7 @@ FString FSkookumScriptGeneratorBase::get_comment_block(UField * field_p)
         if (identifier_length > 0)
           {
           // Replace parameter name with skookified version
-          FString param_name = skookify_var_name(comment_block.Mid(identifier_begin, identifier_length), false);
+          FString param_name = skookify_var_name(comment_block.Mid(identifier_begin, identifier_length), false, VarScope_local);
           comment_block.RemoveAt(identifier_begin, identifier_length, false);
           comment_block.InsertAt(identifier_begin, param_name);
           pos += param_name.Len() - identifier_length;
@@ -877,7 +877,7 @@ FString FSkookumScriptGeneratorBase::generate_class_instance_data_file_body(UStr
     if (can_export_property(var_p, include_priority, referenced_flags))
       {
       FString type_name = get_skookum_property_type_name(var_p);
-      FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), true);
+      FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), VarScope_instance);
       max_type_length = FMath::Max(max_type_length, type_name.Len());
       max_name_length = FMath::Max(max_name_length, var_name.Len());
       }
@@ -888,7 +888,7 @@ FString FSkookumScriptGeneratorBase::generate_class_instance_data_file_body(UStr
     {
     UProperty * var_p = *property_it;
     FString type_name = get_skookum_property_type_name(var_p);
-    FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), true);
+    FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), VarScope_instance);
     if (can_export_property(var_p, include_priority, referenced_flags))
       {
       FString comment;
