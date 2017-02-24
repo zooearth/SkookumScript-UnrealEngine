@@ -43,17 +43,21 @@ namespace SkUEActor_Impl
   {
 
   //---------------------------------------------------------------------------------------
-  // Get array of actors of the given class
-  static UClass * get_actor_array(TArray<UObject*> * object_array_p, SkClass * class_p)
+  // Get array of actors of the given class or a superclass
+  static UClass * get_actor_super_class_array(SkClass * sk_class_p, TArray<UObject*> * object_array_p, bool * is_superclass_p = nullptr)
     {
-    UClass * uclass_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(class_p);
-    SK_ASSERTX(uclass_p, a_cstr_format("Class '%s' not found. All actor classes must be present. Maybe it is the class of a Blueprint that is not loaded yet?", class_p->get_name_cstr_dbg()));
-    if (uclass_p)
+    UClass * ue_superclass_p;
+    SkClass * sk_superclass_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_ue(sk_class_p, &ue_superclass_p);
+    if (ue_superclass_p)
       {
       object_array_p->Reserve(1024);
-      GetObjectsOfClass(uclass_p, *object_array_p, true, RF_ClassDefaultObject);
+      GetObjectsOfClass(ue_superclass_p, *object_array_p, true, RF_ClassDefaultObject);
       }
-    return uclass_p;
+    if (is_superclass_p)
+      {
+      *is_superclass_p = (sk_superclass_p != sk_class_p);
+      }
+    return ue_superclass_p;
     }
 
   //---------------------------------------------------------------------------------------
@@ -62,8 +66,9 @@ namespace SkUEActor_Impl
     {
     // Get actor array
     TArray<UObject*> object_array;
+    bool is_superclass = false;
     SkClass * sk_class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
-    UClass * ue_class_p = get_actor_array(&object_array, sk_class_p);
+    UClass * ue_class_p = get_actor_super_class_array(sk_class_p, &object_array, &is_superclass);
 
     // Find our actor
     UWorld * world_p = SkUEClassBindingHelper::get_world();
@@ -73,7 +78,20 @@ namespace SkUEActor_Impl
       if ((*obj_pp)->GetWorld() == world_p && (*obj_pp)->GetFName() == name)
         {
         actor_p = static_cast<AActor *>(*obj_pp);
-        break;
+        if (!is_superclass)
+          {
+          break;
+          }
+        SkInstance * component_instance_p = SkUEClassBindingHelper::get_actor_component_instance(actor_p);
+        if (component_instance_p)
+          {
+          SkClass * component_instance_class_p = component_instance_p->get_class();
+          if (component_instance_class_p->is_class(*sk_class_p))
+            {
+            sk_class_p = component_instance_class_p;
+            break;
+            }
+          }
         }
       }
 
@@ -165,21 +183,37 @@ namespace SkUEActor_Impl
       {
       // Get actor array
       TArray<UObject*> object_array;
-      SkClass * class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
-      UClass * uclass_p = get_actor_array(&object_array, class_p);
+      bool is_superclass = false;
+      SkClass * sk_class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
+      UClass * ue_class_p = get_actor_super_class_array(sk_class_p, &object_array, &is_superclass);
 
       // Build SkList from it
       UWorld * world_p = SkUEClassBindingHelper::get_world();
       SkInstance * instance_p = SkList::new_instance(object_array.Num());
       SkInstanceList & list = instance_p->as<SkList>();
       APArray<SkInstance> & instances = list.get_instances();
+      instances.ensure_size(object_array.Num());
       for (UObject ** RESTRICT obj_pp = object_array.GetData(), **RESTRICT end_pp = obj_pp + object_array.Num(); obj_pp != end_pp; ++obj_pp)
         {
         // Must be in this world and not about to die
         if ((*obj_pp)->GetWorld() == world_p && !(*obj_pp)->IsPendingKill())
           {
-          // This instance is already refcounted so directly append to underlying array
-          instances.append(*SkUEActor::new_instance(static_cast<AActor *>(*obj_pp), uclass_p, class_p));
+          AActor * actor_p = static_cast<AActor *>(*obj_pp);
+
+          // Check if the right class
+          SkInstance * component_instance_p = SkUEClassBindingHelper::get_actor_component_instance(actor_p);
+          if (component_instance_p)
+            {
+            if (component_instance_p->get_class()->is_class(*sk_class_p))
+              {
+              component_instance_p->reference();
+              instances.append(*component_instance_p);
+              }
+            }
+          else if (!is_superclass)
+            {
+            instances.append(*SkUEEntity::new_instance(actor_p, ue_class_p, sk_class_p));
+            }
           }
         }
       *result_pp = instance_p;
@@ -194,8 +228,9 @@ namespace SkUEActor_Impl
       {
       // Get actor array
       TArray<UObject*> object_array;
-      SkClass * class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
-      UClass * uclass_p = get_actor_array(&object_array, class_p);
+      bool is_superclass = false;
+      SkClass * sk_class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
+      UClass * ue_class_p = get_actor_super_class_array(sk_class_p, &object_array, &is_superclass);
 
       // Return first one
       UWorld * world_p = SkUEClassBindingHelper::get_world();
@@ -204,8 +239,24 @@ namespace SkUEActor_Impl
         // Must be in this world and not about to die
         if ((*obj_pp)->GetWorld() == world_p && !(*obj_pp)->IsPendingKill())
           {
-          *result_pp = SkUEActor::new_instance(static_cast<AActor *>(*obj_pp), uclass_p, class_p);
-          return;
+          AActor * actor_p = static_cast<AActor *>(*obj_pp);
+
+          // Check if the right class
+          SkInstance * component_instance_p = SkUEClassBindingHelper::get_actor_component_instance(actor_p);
+          if (component_instance_p)
+            {
+            if (component_instance_p->get_class()->is_class(*sk_class_p))
+              {
+              component_instance_p->reference();
+              *result_pp = component_instance_p;
+              return;
+              }
+            }
+          else if (!is_superclass)
+            {
+            *result_pp = SkUEEntity::new_instance(actor_p, ue_class_p, sk_class_p);
+            return;
+            }
           }
         }
 
