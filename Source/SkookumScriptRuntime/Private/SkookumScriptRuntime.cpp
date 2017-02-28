@@ -795,7 +795,14 @@ void FSkookumScriptRuntime::compile_and_load_binaries()
             EAppReturnType::Type decision = FMessageDialog::Open(
               EAppMsgType::CancelRetryContinue,
               FText::FromString(TEXT(
-                "The SkookumScript compiled binaries could not be generated because errors were found in the script files.\n\n")),
+                "The SkookumScript compiled binaries could not be generated because errors were found in the script files.\n\n"
+                "Check the IDE if the errors are in your project code and can be easily fixed. If so, fix them then hit 'Retry'.\n\n"
+                "If the errors are in an overlay named 'Project-Generated' or 'Project-Generated-BP', the scripts in that overlay might have to be regenerated. "
+                "To do this click 'Cancel'. UE4 will continue loading with script execution disabled and regenerate the script code. Then restart UE4 and all should be good.\n\n"
+                "If the above did not help, (and the errors are in an overlay named 'Project-Generated' or 'Project-Generated-BP'), deleting the folder these files are in might help. "
+                "In the IDE, when displaying the error, right-click on the script that has the error and choose 'Show in Explorer'. "
+                "Make sure the folder is inside 'Project-Generated' or 'Project-Generated-BP'. If so, delete the folder you opened up, and recompile in the IDE."
+              )),
               &title);
             if (decision == EAppReturnType::Retry)
               {
