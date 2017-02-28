@@ -657,8 +657,10 @@ class SK_API SkParser : public AString
           // nullptr if don't desire a specific type or desired type not known.
           SkClassDescBase * m_desired_type_p;
 
-          // Type of current receiver
-          SkClassDescBase * m_receiver_type_p;
+          // Type of most recent receiver - used only during probe parsing
+          // We use ARefPtr because we might want the receiver type to stay around after the parse 
+          // while this Args object is still alive
+          ARefPtr<SkClassDescBase> m_receiver_type_p;
 
           // Whether upcoming parse should be immediate (method), durational (coroutine)
           // or either - see `eSkInvokeTime` and `m_exec_time`
