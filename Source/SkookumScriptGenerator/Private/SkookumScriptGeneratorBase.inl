@@ -135,8 +135,11 @@ FString FSkookumScriptGeneratorBase::get_or_create_project_file(const FString & 
         {
         IFileManager::Get().MakeDirectory(*(temp_root_path / TEXT("Content/SkookumScript")), true);
         IFileManager::Get().MakeDirectory(*(temp_scripts_path / ms_overlay_name_bp_p / TEXT("Object")), true);
-        IFileManager::Get().MakeDirectory(*(temp_scripts_path / ms_overlay_name_cpp_p / TEXT("Object")), true);
-        created = true;
+        FString overlay_sk = TEXT("$$ .\n");
+        if (FFileHelper::SaveStringToFile(overlay_sk, *(temp_scripts_path / ms_overlay_name_cpp_p / TEXT("!Overlay.sk")), FFileHelper::EEncodingOptions::ForceAnsi))
+          {
+          created = true;
+          }
         }
       else
         {
