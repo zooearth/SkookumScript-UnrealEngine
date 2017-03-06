@@ -1,10 +1,23 @@
 //=======================================================================================
-// SkookumScript C++ library.
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// SkookumScript Plugin for Unreal Engine 4
 //
 // SkookumScript 4D vector class
-//
-// Author: Markus Breyer
 //=======================================================================================
 
 //=======================================================================================
@@ -12,7 +25,12 @@
 //=======================================================================================
 
 #include "../../SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkVector4.hpp"
+#include "SkRotationAngles.hpp"
+
+#include <SkookumScript/SkBoolean.hpp>
+#include <SkookumScript/SkReal.hpp>
 
 //=======================================================================================
 // Method Definitions
@@ -353,6 +371,19 @@ namespace SkVector4_Impl
       }
     }
 
+  //---------------------------------------------------------------------------------------
+  // # Skookum:   Vector4@RotationAngles() RotationAngles
+  // # Author(s): Zachary Burke
+  static void mthd_RotationAngles(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    // Do nothing if result not desired
+    if (result_pp)
+      {
+      const FRotator & rotation = scope_p->this_as<SkVector4>().Rotation();
+      *result_pp = SkRotationAngles::new_instance(rotation);
+      }
+    }
+
   /*
   //---------------------------------------------------------------------------------------
   // # Skookum:   Vector4@distance(Vector4 vec) Real
@@ -503,6 +534,7 @@ namespace SkVector4_Impl
       { "set",              mthd_set },
       { "zero?",            mthd_zeroQ },
       { "zero",             mthd_zero },
+      { "RotationAngles",   mthd_RotationAngles },
 
       //{ "distance",         mthd_distance },
       //{ "distance_squared", mthd_distance_squared },

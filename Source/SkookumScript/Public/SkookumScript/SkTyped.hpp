@@ -1,17 +1,26 @@
 //=======================================================================================
-// SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Typed name and typed data classes
-// Author(s):   Conan Reis
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
+//=======================================================================================
+// SkookumScript C++ library.
+//
+// Typed name and typed data classes
+//=======================================================================================
 
-#ifndef __SKTYPED_HPP
-#define __SKTYPED_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -59,8 +68,9 @@ struct SK_API SkTypedName : ANamed
 
   // Comparison Methods
 
-    bool operator==(const SkTypedName & typed) const  { return (m_name == typed.m_name) && (m_type_p->compare(*typed.m_type_p) == AEquate_equal); }
-    bool operator<(const SkTypedName & typed) const   { return (m_name < typed.m_name) || ((m_name == typed.m_name) && (m_type_p->compare(*typed.m_type_p) == AEquate_less)); }
+    bool      operator==(const SkTypedName & typed) const  { return (m_name == typed.m_name) && (m_type_p->compare(*typed.m_type_p) == AEquate_equal); }
+    bool      operator<(const SkTypedName & typed) const   { return (m_name < typed.m_name) || ((m_name == typed.m_name) && (m_type_p->compare(*typed.m_type_p) == AEquate_less)); }
+    uint32_t  generate_crc32() const { return m_type_p->generate_crc32() ^ get_name_id(); }
 
   // Converter Methods
 
@@ -133,7 +143,3 @@ typedef APSortedLogical<SkTypedNameIndexed, ASymbol> tSkTypedNamesIndexed;
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkTyped.inl>
 #endif
-
-
-#endif  // __SKTYPED_HPP
-

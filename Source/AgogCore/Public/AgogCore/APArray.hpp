@@ -1,19 +1,26 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2000 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  Dynamic APArray class declaration header
-// Author(s):    Conan Reis
-// Create Date:   2000-02-09
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// Dynamic APArray class declaration header
+//=======================================================================================
 
-#ifndef __APARRAY_HPP
-#define __APARRAY_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -235,6 +242,27 @@ class APArrayFree : public APArray<_ElementType, _KeyType, _CompareClass>
     //explicit APArrayFree(uint32_t elem_count, ...);
 
     ~APArrayFree();
+  };
+
+//---------------------------------------------------------------------------------------
+// APArrayLogicalFree only differs from APArrayLogical in that it automatically calls
+// free_all() in its destructor.  Note that although APArrayLogicalFree is derived from
+// APArrayFree, there is no loss in efficiency.
+template<
+  class _ElementType,
+  class _KeyType = _ElementType
+>
+class APArrayLogicalFree : public APArrayFree<_ElementType, _KeyType, ACompareLogical<_KeyType>>
+  {
+  public:
+    // Local shorthand
+    typedef APArrayFree<_ElementType, _KeyType, ACompareLogical<_KeyType>>  tAPArrayFree;
+    typedef APArrayLogicalFree<_ElementType, _KeyType>                      tAPArrayLogicalFree;
+
+  // All the constructors are hidden (stupid!), so make appropriate links
+    APArrayLogicalFree() : tAPArrayFree() {}
+    APArrayLogicalFree(const APArrayLogicalFree & other) : tAPArrayFree(other) {}
+    explicit APArrayLogicalFree(const _ElementType ** elems_p, uint32_t elem_count, uint32_t buffer_size) : tAPArrayFree(elems_p, elem_count, buffer_size) {}
   };
 
 
@@ -2359,7 +2387,3 @@ inline APArrayFree<_ElementType, _KeyType, _CompareClass>::~APArrayFree()
   {
   this->free_all();
   }
-
-
-#endif  // __APARRAY_HPP
-

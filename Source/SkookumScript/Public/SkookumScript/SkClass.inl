@@ -10,6 +10,22 @@
 
 
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // Includes
 //=======================================================================================
 
@@ -33,6 +49,12 @@
 A_INLINE eAEquate SkMetaClass::compare(const SkMetaClass & mclass) const
   {
   return m_class_info_p->compare_ids(*mclass.m_class_info_p);
+  }
+
+//---------------------------------------------------------------------------------------
+A_INLINE uint32_t SkMetaClass::generate_crc32() const
+  {
+  return m_class_info_p->generate_crc32();
   }
 
 //---------------------------------------------------------------------------------------
@@ -112,9 +134,9 @@ A_INLINE SkMethodBase * SkMetaClass::find_method_inherited(const ASymbol & metho
 //             method does not.
 // Modifiers:   virtual - overridden from SkClassUnaryBase
 // Author(s):   Conan Reis
-A_INLINE void SkMetaClass::append_method(SkMethodBase * method_p)
+A_INLINE void SkMetaClass::append_method(SkMethodBase * method_p, bool * has_signature_changed_p)
   {
-  m_class_info_p->append_class_method(method_p);
+  m_class_info_p->append_class_method(method_p, has_signature_changed_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -160,7 +182,7 @@ A_INLINE bool SkMetaClass::is_method_inherited_valid(const ASymbol & method_name
 //             method does not.
 // Modifiers:   virtual - overridden from SkClassUnaryBase
 // Author(s):   Conan Reis
-A_INLINE void SkMetaClass::append_coroutine(SkCoroutineBase * coroutine_p)
+A_INLINE void SkMetaClass::append_coroutine(SkCoroutineBase * coroutine_p, bool * has_signature_changed_p)
   {
 
 
@@ -289,10 +311,10 @@ A_INLINE void * SkClass::get_raw_pointer(SkInstance * obj_p) const
 #if (SKOOKUM & SK_CODE_IN)
 
 //---------------------------------------------------------------------------------------
-// Gets existing object id validation list or creates one if set to use a validation list.
+// Gets existing object ID validation list or creates one if set to use a validation list.
 //
 // #Notes
-//   To get existing object id validation list without creating one if it doesn't already
+//   To get existing object ID validation list without creating one if it doesn't already
 //   exist use get_object_id_valid_list().
 //
 // #See Also  get_object_id_valid_list()
@@ -530,7 +552,7 @@ A_INLINE const ASymbol & SkClass::get_key_class_name() const
 // #Author(s) Conan Reis
 A_INLINE SkClassDescBase * SkClass::get_item_type() const
   {
-  return (this == SkBrain::ms_list_class_p)
+  return is_class(*SkBrain::ms_list_class_p)
     ? SkBrain::ms_object_class_p
     : nullptr;
   }
@@ -764,10 +786,10 @@ A_INLINE bool SkClass::is_method_inherited_valid(const ASymbol & method_name) co
 //             method does not.
 // Modifiers:   virtual - overridden from SkClassUnaryBase
 // Author(s):   Conan Reis
-A_INLINE void SkClass::append_method(SkMethodBase * method_p)
+A_INLINE void SkClass::append_method(SkMethodBase * method_p, bool * has_signature_changed_p)
   {
   // Note that only instance methods are checked.
-  append_instance_method(method_p);
+  append_instance_method(method_p, has_signature_changed_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -930,6 +952,10 @@ A_INLINE SkClassUnion * SkClassUnion::get_or_create(const SkClassUnion & class_u
   if (union_p == nullptr)
     {
     union_p = SK_NEW(SkClassUnion)(class_union);
+    // All SkClassUnions stored in ms_shared_unions start out with 1 refcount
+    // so that ARefPtr can never free them
+    // They only ever get deleted in SkClassUnion::shared_ensure_references()
+    union_p->reference();
     ms_shared_unions.insert(*union_p, find_pos);
     }
 

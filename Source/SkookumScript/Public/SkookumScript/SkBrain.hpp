@@ -1,18 +1,27 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
 //
 // The "Brain" class - holds class hierarchy and other misc. objects that do
 //             not have an obvious home elsewhere.
-// Author(s):   Conan Reis
-// Notes:          
 //=======================================================================================
 
-
-#ifndef __SKBRAIN_HPP
-#define __SKBRAIN_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -20,7 +29,7 @@
 
 #include <AgogCore/APSorted.hpp>
 #include <AgogCore/ASymbol.hpp>
-#include <SkookumScript/SkookumScript.hpp>
+#include <SkookumScript/Sk.hpp>
 
 
 //=======================================================================================
@@ -41,6 +50,9 @@ class SkInstance;
 // Shorthand
 typedef APSortedLogical<SkClass, ASymbol> tSkClasses;
 
+// For revisioning the program in memory
+typedef uint64_t tSkSessionGUID;
+typedef uint32_t tSkRevision;
 
 //---------------------------------------------------------------------------------------
 // Notes      The "Brain" class - holds class hierarchy and other misc. objects that do
@@ -77,6 +89,11 @@ class SK_API SkBrain
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Public Class Data Members (for quick access)
 
+    // Revision of this program
+
+      static tSkSessionGUID ms_session_guid;  // GUID of the compiler session that this program was compiled with
+      static tSkRevision    ms_revision;      // Revision of this program associated with the above session GUID
+
     // Common Classes
 
       static SkClass * ms_boolean_class_p;
@@ -110,8 +127,9 @@ class SK_API SkBrain
 
     // Names of special classes
 
-      static ASymbol ms_actor_class_name;
-      static ASymbol ms_component_class_name;
+      static ASymbol   ms_actor_class_name;
+      static ASymbol   ms_component_class_name;
+      static SkClass * ms_engine_actor_class_p;
 
     // File management members
 
@@ -149,6 +167,7 @@ class SK_API SkBrain
     static SkClass * create_class(const ASymbol & class_name, const ASymbol & superclass_name, uint32_t flags = ADef_uint32, bool append_super_members = false);
     static SkClass * get_class(const ASymbol & class_name);
     static SkClass * get_class(const char * class_name_p);
+    static SkClass * get_class_actor();
     static bool      is_class_present(const ASymbol & class_name);
 
     static const tSkClasses & get_classes()  { return ms_classes; }
@@ -164,9 +183,11 @@ class SK_API SkBrain
     static void initialize_post_load();
     static void initialize_classes();
     static void deinitialize_classes();
+    static void deinitialize_program();
     static void deinitialize();
     static void compact();
 
+    static void register_builtin_bindings(); // Call if built-in bindings need to be registered prior to initialize_post_load begin called
 
     #if (SKOOKUM & SK_DEBUG)
 
@@ -192,6 +213,8 @@ class SK_API SkBrain
 
     static tSkClasses ms_classes;
 
+    static bool ms_builtin_bindings_registered;
+
   };  // SkBrain
 
 
@@ -202,7 +225,3 @@ class SK_API SkBrain
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkBrain.inl>
 #endif
-
-
-#endif  // __SKBRAIN_HPP
-

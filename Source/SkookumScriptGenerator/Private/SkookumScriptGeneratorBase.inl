@@ -1,8 +1,21 @@
 //=======================================================================================
-// SkookumScript Unreal Engine Binding Generator Helper
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Author: Markus Breyer
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// SkookumScript Plugin for Unreal Engine 4
 //=======================================================================================
 
 #include "SkookumScriptGeneratorBase.h"
@@ -78,6 +91,8 @@ const FString FSkookumScriptGeneratorBase::ms_reserved_keywords[] =
 
 const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_function_category(TEXT("Category"));
 const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_blueprint_type(TEXT("BlueprintType"));
+const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_display_name(TEXT("DisplayName"));
+const FString       FSkookumScriptGeneratorBase::ms_asset_name_key(TEXT("// UE4 Asset Name: "));
 const FString       FSkookumScriptGeneratorBase::ms_package_name_key(TEXT("// UE4 Package Name: \""));
 const FString       FSkookumScriptGeneratorBase::ms_package_path_key(TEXT("// UE4 Package Path: \""));
 TCHAR const * const FSkookumScriptGeneratorBase::ms_editable_ini_settings_p(TEXT("Editable=false\r\nCanMakeEditable=true\r\n"));
@@ -89,7 +104,7 @@ const FFileHelper::EEncodingOptions::Type FSkookumScriptGeneratorBase::ms_script
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::get_or_create_project_file(const FString & ue_project_directory_path, bool * created_p)
+FString FSkookumScriptGeneratorBase::get_or_create_project_file(const FString & ue_project_directory_path, const TCHAR * project_name_p, bool * created_p)
   {
   // 1) Check permanent location
   bool created = false;
@@ -105,9 +120,9 @@ FString FSkookumScriptGeneratorBase::get_or_create_project_file(const FString & 
       {
       // If in neither folder, create new project in temporary location
       // $Revisit MBreyer - read ini file from default_project_path and patch it up to carry over customizations
-      FString proj_ini = FString::Printf(TEXT("[Project]\r\nProjectName=%s\r\nStrictParse=true\r\nUseBuiltinActor=false\r\nCustomActorClass=Actor\r\nStartupMind=Master\r\n%s"), FApp::GetGameName(), ms_editable_ini_settings_p);
+      FString proj_ini = FString::Printf(TEXT("[Project]\r\nProjectName=%s\r\nStrictParse=true\r\nUseBuiltinActor=false\r\nCustomActorClass=Actor\r\nStartupMind=Master\r\n%s"), project_name_p, ms_editable_ini_settings_p);
       proj_ini += TEXT("[Output]\r\nCompileManifest=false\r\nCompileTo=../Content/SkookumScript/Classes.sk-bin\r\n");
-      proj_ini += TEXT("[Script Overlays]\r\nOverlay1=*Core|Core\r\nOverlay2=-*Core-Sandbox|Core-Sandbox\r\nOverlay3=*VectorMath|VectorMath\r\nOverlay4=*Engine-Generated|Engine-Generated|1\r\nOverlay5=*Engine|Engine\r\nOverlay6=*");
+      proj_ini += TEXT("[Script Overlays]\r\nOverlay1=*Core|Core\r\nOverlay2=-*Core-Sandbox|Core-Sandbox\r\nOverlay3=*VectorMath|VectorMath\r\nOverlay4=*Engine-Generated|Engine-Generated|A\r\nOverlay5=*Engine|Engine\r\nOverlay6=*");
       proj_ini += ms_overlay_name_bp_p;
       proj_ini += TEXT("|");
       proj_ini += ms_overlay_name_bp_p;
@@ -115,13 +130,16 @@ FString FSkookumScriptGeneratorBase::get_or_create_project_file(const FString & 
       proj_ini += ms_overlay_name_cpp_p;
       proj_ini += TEXT("|");
       proj_ini += ms_overlay_name_cpp_p;
-      proj_ini += TEXT("|1\r\n");
+      proj_ini += TEXT("|A\r\n");
       if (FFileHelper::SaveStringToFile(proj_ini, *project_file_path, FFileHelper::EEncodingOptions::ForceAnsi))
         {
         IFileManager::Get().MakeDirectory(*(temp_root_path / TEXT("Content/SkookumScript")), true);
         IFileManager::Get().MakeDirectory(*(temp_scripts_path / ms_overlay_name_bp_p / TEXT("Object")), true);
-        IFileManager::Get().MakeDirectory(*(temp_scripts_path / ms_overlay_name_cpp_p / TEXT("Object")), true);
-        created = true;
+        FString overlay_sk = TEXT("$$ .\n");
+        if (FFileHelper::SaveStringToFile(overlay_sk, *(temp_scripts_path / ms_overlay_name_cpp_p / TEXT("!Overlay.sk")), FFileHelper::EEncodingOptions::ForceAnsi))
+          {
+          created = true;
+          }
         }
       else
         {
@@ -150,19 +168,32 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
   FString ini_file_text;
   if (FFileHelper::LoadFileToString(ini_file_text, *project_ini_file_path))
     {
-    FRegexPattern regex(TEXT("Overlay[0-9]+=-?\\*?") + overlay_name.Replace(TEXT("+"), TEXT("\\+")) + TEXT("\\|.*?\\|([0-9]+)"));
-    FRegexMatcher matcher(regex, ini_file_text);
-    if (matcher.FindNext())
+    // Find the substring overlay_name|*|
+    FString search_text = overlay_name + TEXT("|");
+    int32 pos = ini_file_text.Find(search_text, ESearchCase::CaseSensitive);
+    if (pos >= 0)
       {
-      int32 begin_idx = matcher.GetCaptureGroupBeginning(1);
-      if (begin_idx >= 0)
+      pos += search_text.Len();
+      while (ini_file_text[pos] != '|')
         {
-        int32 path_depth = FCString::Atoi(&ini_file_text[begin_idx]);
-        if (path_depth > 0 || (path_depth == 0 && ini_file_text[begin_idx] == '0'))
-          {
-          m_overlay_path_depth = path_depth;
-          return true;
-          }
+        if (ini_file_text[pos] == '\n') return false;
+        if (++pos >= ini_file_text.Len()) return false;
+        }
+
+      // Look what's behind the last bar
+      const TCHAR * depth_text_p = &ini_file_text[pos + 1];
+
+      if (*depth_text_p == 'A')
+        {
+        m_overlay_path_depth = PathDepth_archived;
+        return true;
+        }
+
+      int32 path_depth = FCString::Atoi(depth_text_p);
+      if (path_depth > 0 || (path_depth == 0 && *depth_text_p == '0'))
+        {
+        m_overlay_path_depth = path_depth;
+        return true;
         }
       }
     }
@@ -361,17 +392,14 @@ FString FSkookumScriptGeneratorBase::skookify_class_name(const FString & name)
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, bool append_question_mark, bool is_member)
+FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, bool append_question_mark, eVarScope scope)
   {
   if (name.IsEmpty()) return name;
 
   // Change title case to lower case with underscores
   FString skookum_name;
   skookum_name.Reserve(name.Len() + 16);
-  if (is_member)
-    {
-    skookum_name.AppendChar('@');
-    }
+  skookum_name.AppendChars(TEXT("@@"), scope == VarScope_instance ? 1 : (scope == VarScope_class ? 2 : 0));
   bool is_boolean = name.Len() > 2 && name[0] == 'b' && isupper(name[1]);
   bool was_upper = true;
   bool was_underscore = true;
@@ -412,7 +440,8 @@ FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, boo
     }
 
   // Check for reserved keywords and append underscore if found
-  if (!is_member && is_skookum_reserved_word(skookum_name))
+  if ((scope == VarScope_local && is_skookum_reserved_word(skookum_name))
+   || (scope == VarScope_class && (skookum_name == TEXT("@@world") || skookum_name == TEXT("@@random"))))
     {
     skookum_name.AppendChar('_');
     }
@@ -429,7 +458,9 @@ FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, boo
         uint32_t c = skookum_name_p[i];
         if ((c - '0') > 9u && (c - 'a') > 5u) goto no_md5;
         }
-      skookum_name = skookum_name.Left(skookum_name_len - 33);
+      // We chop off most digits of the MD5 and leave only the first four, 
+      // assuming that that's distinctive enough for just a few of them at a time
+      skookum_name = skookum_name.Left(skookum_name_len - 28);
     no_md5:;
       }
     }
@@ -446,7 +477,7 @@ FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, boo
 
 FString FSkookumScriptGeneratorBase::skookify_method_name(const FString & name, UProperty * return_property_p)
   {
-  FString method_name = skookify_var_name(name, false);
+  FString method_name = skookify_var_name(name, false, VarScope_local);
   bool is_boolean = false;
 
   // Remove K2 (Kismet 2) prefix if present
@@ -767,7 +798,7 @@ FString FSkookumScriptGeneratorBase::get_comment_block(UField * field_p)
         if (identifier_length > 0)
           {
           // Replace parameter name with skookified version
-          FString param_name = skookify_var_name(comment_block.Mid(identifier_begin, identifier_length), false);
+          FString param_name = skookify_var_name(comment_block.Mid(identifier_begin, identifier_length), false, VarScope_local);
           comment_block.RemoveAt(identifier_begin, identifier_length, false);
           comment_block.InsertAt(identifier_begin, param_name);
           pos += param_name.Len() - identifier_length;
@@ -784,6 +815,13 @@ FString FSkookumScriptGeneratorBase::get_comment_block(UField * field_p)
       (get_enum(field_p) ? TEXT("enum") :
       TEXT("field")))));
     comment_block += FString::Printf(TEXT("//\n// UE4 name of this %s: %s\n"), *this_kind, *field_p->GetName());
+
+    // Add display name of this object
+    if (field_p->HasMetaData(ms_meta_data_key_display_name))
+      {
+      FString display_name = field_p->GetMetaData(ms_meta_data_key_display_name);
+      comment_block += FString::Printf(TEXT("// Blueprint display name: %s\n"), *display_name);
+      }
 
     // Add Blueprint category
     if (field_p->HasMetaData(ms_meta_data_key_function_category))
@@ -813,7 +851,7 @@ FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type
       UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(class_p);
       if (blueprint_p)
         {
-        meta_body += TEXT("// UE4 Asset Name: ") + blueprint_p->GetName() + TEXT("\r\n");
+        meta_body += ms_asset_name_key + blueprint_p->GetName() + TEXT("\r\n");
         UPackage * blueprint_package_p = Cast<UPackage>(blueprint_p->GetOuter());
         if (blueprint_package_p)
           {
@@ -842,7 +880,7 @@ FString FSkookumScriptGeneratorBase::generate_class_instance_data_file_body(UStr
     if (can_export_property(var_p, include_priority, referenced_flags))
       {
       FString type_name = get_skookum_property_type_name(var_p);
-      FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), true);
+      FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), VarScope_instance);
       max_type_length = FMath::Max(max_type_length, type_name.Len());
       max_name_length = FMath::Max(max_name_length, var_name.Len());
       }
@@ -853,7 +891,7 @@ FString FSkookumScriptGeneratorBase::generate_class_instance_data_file_body(UStr
     {
     UProperty * var_p = *property_it;
     FString type_name = get_skookum_property_type_name(var_p);
-    FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), true);
+    FString var_name = skookify_var_name(var_p->GetName(), var_p->IsA(UBoolProperty::StaticClass()), VarScope_instance);
     if (can_export_property(var_p, include_priority, referenced_flags))
       {
       FString comment;

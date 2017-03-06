@@ -1,10 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
 // UObject that listens to dynamic multicast delegate events
-// 
-// Author: Markus Breyer
 //=======================================================================================
 
 
@@ -13,17 +26,16 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkookumScriptListener.h"
 #include "SkookumScriptListenerManager.hpp"
-
 #include "Bindings/VectorMath/SkVector3.hpp"
 #include "Bindings/Engine/SkUEName.hpp"
-
-#include <SkUEActor.generated.hpp>
 #include <SkUEEntity.generated.hpp>
-#include <SkUEDamageType.generated.hpp>
-#include <SkUEController.generated.hpp>
-#include <SkUEPrimitiveComponent.generated.hpp>
+
+#include <SkookumScript/SkBoolean.hpp>
+#include <SkookumScript/SkClosure.hpp>
+#include <SkookumScript/SkInvokedCoroutine.hpp>
 
 //=======================================================================================
 // FSkookumScriptListenerAutoPtr
@@ -101,6 +113,20 @@ USkookumScriptListener::EventInfo * USkookumScriptListener::alloc_event()
 void USkookumScriptListener::free_event(EventInfo * event_p, bool free_arguments)
   {
   SkookumScriptListenerManager::get_singleton()->free_event(event_p, free_arguments ? m_num_arguments : 0);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptListener::push_event_and_resume(EventInfo * event_p, uint32_t num_arguments)
+  {
+  #if (SKOOKUM & SK_DEBUG)
+    for (uint32_t i = 0; i < num_arguments; ++i) SK_ASSERTX(event_p->m_argument_p[i], "All event arguments must be set.");
+    for (uint32_t i = num_arguments; i < A_COUNT_OF(event_p->m_argument_p); ++i) SK_ASSERTX(!event_p->m_argument_p[i], "Unused event arguments must be left alone.");
+    SK_ASSERTX(m_num_arguments == 0 || m_num_arguments == num_arguments, "All events must have same argument count.");
+  #endif
+  m_num_arguments = num_arguments;
+  m_event_queue.append(event_p);
+  if (m_coro_p.is_valid()) m_coro_p->resume();
   }
 
 //---------------------------------------------------------------------------------------
@@ -219,20 +245,6 @@ bool USkookumScriptListener::coro_wait_event(SkInvokedCoroutine * scope_p, tUnre
 
   // Ok done, return event parameters and quit
   return true;
-  }
-
-//---------------------------------------------------------------------------------------
-
-inline void USkookumScriptListener::push_event_and_resume(EventInfo * event_p, uint32_t num_arguments)
-  {
-  #if (SKOOKUM & SK_DEBUG)
-    for (uint32_t i = 0; i < num_arguments; ++i) SK_ASSERTX(event_p->m_argument_p[i], "All event arguments must be set.");
-    for (uint32_t i = num_arguments; i < A_COUNT_OF(event_p->m_argument_p); ++i) SK_ASSERTX(!event_p->m_argument_p[i], "Unused event arguments must be left alone.");
-    SK_ASSERTX(m_num_arguments == 0 || m_num_arguments == num_arguments, "All events must have same argument count.");
-  #endif
-  m_num_arguments = num_arguments;
-  m_event_queue.append(event_p);
-  if (m_coro_p.is_valid()) m_coro_p->resume();
   }
 
 //---------------------------------------------------------------------------------------

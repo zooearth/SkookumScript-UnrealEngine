@@ -1,15 +1,27 @@
 //=======================================================================================
-// SkookumScript Unreal Engine Editor Plugin
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Author: Markus Breyer
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// SkookumScript Plugin for Unreal Engine 4
 //=======================================================================================
 
 #include "SkookumScriptEditorGUIPrivatePCH.h"
-#include <ISkookumScriptRuntime.h>
-#include <K2Node_CallFunction.h>
-#include <K2Node_Event.h>
 
+#include "ISkookumScriptEditorGUI.h"
+#include "ISkookumScriptRuntime.h"
 
 #include "SkookumScriptEditorCommands.h"
 #include "SkookumStyles.h"
@@ -17,9 +29,14 @@
 #include "GraphEditor.h"
 #include "BlueprintEditor.h"
 #include "BlueprintEditorModule.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_Event.h"
 #include "MultiBoxExtender.h"
+#include "SlateStyleRegistry.h"
+#include "Misc/AssertionMacros.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
-DEFINE_LOG_CATEGORY(LogSkookumScriptEditorGUI);
+DEFINE_LOG_CATEGORY_STATIC(LogSkookumScriptEditorGUI, Log, All);
 
 //---------------------------------------------------------------------------------------
 
