@@ -1,10 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2015 Agog Labs Inc. All rights reserved.
 //
 // SkookumScript Remote Client
-// 
-// Author: Conan Reis
 //=======================================================================================
 
 #pragma once
@@ -13,8 +26,14 @@
 // Includes
 //=======================================================================================
 
-#include <SkookumScript/SkookumRemoteRuntimeBase.hpp>
-#include <Networking.h>
+#include "ISkookumScriptRuntime.h"
+
+#include "IPluginManager.h"
+#include "Networking.h"
+
+#include <AgogCore/ADatum.hpp>
+#include <AgogCore/AMath.hpp>
+#include <SkookumScript/SkRemoteRuntimeBase.hpp>
 
 //=======================================================================================
 // Global Structures
@@ -32,7 +51,7 @@ class FSkookumScriptRuntimeGenerator;
   
 //---------------------------------------------------------------------------------------
 // Communication commands that are specific to the SkookumIDE.
-class SkUERemote : public SkookumRemoteRuntimeBase
+class SkUERemote : public SkRemoteRuntimeBase
   {
   public:
 
@@ -67,7 +86,7 @@ class SkUERemote : public SkookumRemoteRuntimeBase
     //---------------------------------------------------------------------------------------
     // Supply information about current project
     // 
-    // See: SkookumRemoteRuntimeBase::cmd_compiled_state()
+    // See: SkRemoteRuntimeBase::cmd_compiled_state()
     virtual void get_project_info(SkProjectInfo * out_project_info_p) override;
 
     //---------------------------------------------------------------------------------------
@@ -82,9 +101,9 @@ class SkUERemote : public SkookumRemoteRuntimeBase
     // appropriate for current platform and project.
     //
     // Notes:
-    //   Should also update SkookumRemoteRuntimeBase derived objects if they aren't updated on
+    //   Should also update SkRemoteRuntimeBase derived objects if they aren't updated on
     //   one or more separate threads. This can be done by calling concurrent process updates
-    //   like message handlers or by calling a custom SkookumRemoteRuntimeBase object's update
+    //   like message handlers or by calling a custom SkRemoteRuntimeBase object's update
     //   method directly.
     virtual void wait_for_update() override;
 
@@ -101,7 +120,7 @@ class SkUERemote : public SkookumRemoteRuntimeBase
 
   // Events
 
-    virtual void              on_cmd_send(const ADatum & datum) override;
+    virtual eSendResponse     on_cmd_send(const ADatum & datum) override;
     virtual void              on_cmd_make_editable() override;
     virtual void              on_cmd_freshen_compiled_reply(eCompiledState state) override;
     virtual void              on_class_updated(SkClass * class_p) override;

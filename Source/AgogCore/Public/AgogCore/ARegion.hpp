@@ -1,18 +1,27 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2000 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  ARegion structure declaration header
-// Author(s):    Conan Reis
-// Create Date:   2000-02-17
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// ARegion structure declaration header
 // Notes:          Simple region structure.
 //=======================================================================================
 
-
-#ifndef __AREGION_HPP
-#define __AREGION_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -131,8 +140,3 @@ inline bool ARegion::is_hit(const ARegion & region) const
     ((m_y + m_height) >= region.m_y) && 
     ((region.m_y + region.m_height) >= m_y)); 
   }
-
-
-#endif // __AREGION_HPP
-
-

@@ -1,24 +1,33 @@
 //=======================================================================================
-// SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Data structures for abstract class descriptors
-// Author(s):   Conan Reis
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
+//=======================================================================================
+// SkookumScript C++ library.
+//
+// Data structures for abstract class descriptors
+//=======================================================================================
 
-#ifndef __SKCLASSDESCBASE_HPP
-#define __SKCLASSDESCBASE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
 //=======================================================================================
 
 #include <AgogCore/AMemory.hpp>
-#include <SkookumScript/SkookumScript.hpp>
+#include <SkookumScript/Sk.hpp>
 
 
 //=======================================================================================
@@ -125,6 +134,7 @@ class SK_API SkClassDescBase
     eAEquate         compare(const SkClassDescBase & type) const;
     static bool      equals(const SkClassDescBase & lhs, const SkClassDescBase & rhs)     { return lhs.compare(rhs) == AEquate_equal; }
     static ptrdiff_t comparison(const SkClassDescBase & lhs, const SkClassDescBase & rhs) { return ptrdiff_t(lhs.compare(rhs)); }
+    uint32_t         generate_crc32() const;
 
   // Methods
 
@@ -215,12 +225,12 @@ class SK_API SkClassUnaryBase : public SkClassDescBase
 
     // Method Member Methods
 
-      virtual void append_method(SkMethodBase * method_p) = 0;
+      virtual void append_method(SkMethodBase * method_p, bool * has_signature_changed_p = nullptr) = 0;
       virtual bool is_method_valid(const ASymbol & method_name) const = 0;
 
     // Coroutine Member Methods
 
-      virtual void append_coroutine(SkCoroutineBase * coroutine_p) = 0;
+      virtual void append_coroutine(SkCoroutineBase * coroutine_p, bool * has_signature_changed_p = nullptr) = 0;
       virtual bool is_coroutine_valid(const ASymbol & coroutine_name) const = 0;
       virtual bool is_coroutine_registered(const ASymbol & coroutine_name) const = 0;
 
@@ -239,7 +249,3 @@ class SK_API SkClassUnaryBase : public SkClassDescBase
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkClassDescBase.inl>
 #endif
-
-
-#endif  // __SKCLASSDESCBASE_HPP
-

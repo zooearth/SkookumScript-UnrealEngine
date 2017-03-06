@@ -1,19 +1,26 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2000 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  AVSizedArrayBase class template
-// Author(s):    Conan Reis
-// Create Date:   2000-05-30
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// AVSizedArrayBase class template
+//=======================================================================================
 
-#ifndef __AVSIZEDARRAYBASE_HPP
-#define __AVSIZEDARRAYBASE_HPP
 #pragma once
-
 
 //=======================================================================================
 // Includes
@@ -163,7 +170,7 @@ class AVSizedArrayBase : public AVArrayBase<_ElementType>
 template<class _ElementType>
 inline uint32_t AVSizedArrayBase<_ElementType>::get_size() const
   {
-  return m_size;
+  return this->m_size;
   }
 
 //---------------------------------------------------------------------------------------
@@ -175,7 +182,7 @@ inline uint32_t AVSizedArrayBase<_ElementType>::get_size() const
 template<class _ElementType>
 inline uint32_t AVSizedArrayBase<_ElementType>::get_size_buffer_bytes() const
   {
-  return sizeof(_ElementType) * m_size;
+  return sizeof(_ElementType) * this->m_size;
   }
 
 
@@ -254,7 +261,7 @@ void AVSizedArrayBase<_ElementType>::crop(
     {
     AVARRAY_BOUNDS_CHECK_SPAN(pos, elem_count);
 
-    dtor_elems(this->m_array_p, pos);
+    this->dtor_elems(this->m_array_p, pos);
     this->m_count = elem_count;
     ::memmove(this->m_array_p, this->m_array_p + pos, elem_count * sizeof(_ElementType));
     }
@@ -269,7 +276,7 @@ void AVSizedArrayBase<_ElementType>::crop(
 template<class _ElementType>
 inline void AVSizedArrayBase<_ElementType>::empty()
   {
-  dtor_elems(this->m_array_p, this->m_count);
+  this->dtor_elems(this->m_array_p, this->m_count);
   this->m_count = 0u;
   }
 
@@ -283,7 +290,7 @@ inline void AVSizedArrayBase<_ElementType>::empty()
 template<class _ElementType>
 void AVSizedArrayBase<_ElementType>::empty_compact()
   {
-  empty();
+  this->empty();
 
   tAVArrayBase::free_array(this->m_array_p);
   this->m_array_p = nullptr;
@@ -363,7 +370,7 @@ void AVSizedArrayBase<_ElementType>::ensure_size(
   {
   if (!keep_elems)
     {
-    empty();
+    this->empty();
     }
 
   if (this->m_size < needed)
@@ -400,7 +407,7 @@ void AVSizedArrayBase<_ElementType>::ensure_size(
 template<class _ElementType>
 inline void AVSizedArrayBase<_ElementType>::ensure_size_empty(uint32_t needed)
   {
-  empty();
+  this->empty();
 
   if (this->m_size < needed)
     {    
@@ -447,7 +454,7 @@ inline void AVSizedArrayBase<_ElementType>::free(
 template<class _ElementType>
 void AVSizedArrayBase<_ElementType>::free_all()
   {
-  empty();
+  this->empty();
   }
 
 //---------------------------------------------------------------------------------------
@@ -478,7 +485,7 @@ void AVSizedArrayBase<_ElementType>::free_all(
     AVARRAY_BOUNDS_CHECK_SPAN(pos, elem_count);
 
     _ElementType * elems_p = this->m_array_p + pos;
-    dtor_elems(elems_p, elem_count);
+    this->dtor_elems(elems_p, elem_count);
     this->m_count -= elem_count;
     ::memmove(elems_p, elems_p + elem_count, (this->m_count - pos) * sizeof(_ElementType));
     }
@@ -500,7 +507,7 @@ inline void AVSizedArrayBase<_ElementType>::free_all_last(uint32_t elem_count)
     AVARRAY_BOUNDS_LENGTH(elem_count);
 
     // Remove elements
-    dtor_elems(this->m_array_p + this->m_count - elem_count, elem_count);
+    this->dtor_elems(this->m_array_p + this->m_count - elem_count, elem_count);
     this->m_count -= elem_count;
     }
   }
@@ -515,7 +522,7 @@ inline void AVSizedArrayBase<_ElementType>::free_all_last(uint32_t elem_count)
 template<class _ElementType>
 void AVSizedArrayBase<_ElementType>::free_all_compact()
   {
-  empty_compact();
+  this->empty_compact();
   }
 
 //---------------------------------------------------------------------------------------
@@ -795,7 +802,7 @@ void AVSizedArrayBase<_ElementType>::remove_all(
     AVARRAY_BOUNDS_CHECK_SPAN(pos, elem_count);
 
     _ElementType * elems_p = this->m_array_p + pos;
-    dtor_elems(elems_p, elem_count);
+    this->dtor_elems(elems_p, elem_count);
     this->m_count -= elem_count;
     ::memmove(elems_p, elems_p + elem_count, (this->m_count - pos) * sizeof(_ElementType));
     }
@@ -815,7 +822,7 @@ inline void AVSizedArrayBase<_ElementType>::remove_all_last(uint32_t elem_count)
   AVARRAY_BOUNDS_LENGTH(elem_count);
 
   this->m_count -= elem_count;
-  dtor_elems(this->m_array_p + this->m_count, elem_count);
+  this->dtor_elems(this->m_array_p + this->m_count, elem_count);
   }
 
 //---------------------------------------------------------------------------------------
@@ -857,7 +864,7 @@ inline void AVSizedArrayBase<_ElementType>::set_size(
     // Delete before allocating more
     if (this->m_array_p)
       {
-      dtor_elems(this->m_array_p, this->m_count);
+      this->dtor_elems(this->m_array_p, this->m_count);
       tAVArrayBase::free_array(this->m_array_p);
       }
 
@@ -960,8 +967,3 @@ inline AVSizedArrayBase<_ElementType>::AVSizedArrayBase(AVSizedArrayBase * array
   array_p->m_size = 0u;
   array_p->m_array_p = nullptr;
   }
-
-
-#endif  // __AVSIZEDARRAYBASE_HPP
-
-

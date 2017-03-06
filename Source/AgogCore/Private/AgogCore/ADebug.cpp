@@ -1,11 +1,23 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2000 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  ADebug class definition module
-// Author(s):    Conan Reis
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// ADebug class definition module
 //=======================================================================================
 
 
@@ -22,6 +34,7 @@
 #include <exception>   // Uses: uncaught_exception()
 
 #if defined(A_PLAT_PC) && defined(A_EXTRA_CHECK)
+  #define WIN32_LEAN_AND_MEAN // Keep this define out of public header files
   #include <windows.h>  // Uses: IsDebuggerPresent(), OutputDebugStringA()
 #endif
 #if defined(A_PLAT_OSX) && defined(A_EXTRA_CHECK)
@@ -170,6 +183,30 @@ AErrorOutputBase::~AErrorOutputBase()
   // Does nothing
   }
 
+//=======================================================================================
+// AScopedDebugPrintPerfCounter
+//=======================================================================================
+
+#if defined(A_PLAT_PC) && defined(A_EXTRA_CHECK)
+
+//---------------------------------------------------------------------------------------
+AScopedDebugPrintPerfCounter::AScopedDebugPrintPerfCounter(const char * label_p)
+  : m_label_p(label_p)
+  {
+  static_assert(sizeof(m_start_time) == sizeof(LARGE_INTEGER), "Must match.");
+  ::QueryPerformanceCounter((LARGE_INTEGER *)&m_start_time);
+  }
+
+//---------------------------------------------------------------------------------------
+AScopedDebugPrintPerfCounter::~AScopedDebugPrintPerfCounter()
+  {
+  LARGE_INTEGER stop_time, ticks_per_second;
+  ::QueryPerformanceCounter(&stop_time);
+  ::QueryPerformanceFrequency(&ticks_per_second);
+  ADebug::print(a_str_format("%s = %fms\n", m_label_p, double(stop_time.QuadPart - ((LARGE_INTEGER &)m_start_time).QuadPart) * 1000.0 / double(ticks_per_second.QuadPart)), false);
+  }
+
+#endif
 
 //=======================================================================================
 // ADebug Class Data
@@ -434,7 +471,7 @@ void ADebug::print_args(
 
   if (func_num)
     {
-    AString        str(buffer_p, uint(length));
+    AString        str(buffer_p, uint(length), false);
     tAPrintFunc ** print_funcs_pp     = g_dprint_funcs.get_array();
     tAPrintFunc ** print_funcs_end_pp = print_funcs_pp + func_num;
 

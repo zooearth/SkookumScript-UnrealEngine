@@ -1,17 +1,26 @@
 //=======================================================================================
-// SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Base classes for executed/called/invoked objects declaration file
-// Author(s):   Conan Reis
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
+//=======================================================================================
+// SkookumScript C++ library.
+//
+// Base classes for executed/called/invoked objects declaration file
+//=======================================================================================
 
-#ifndef __SKINVOKEDBASE_HPP
-#define __SKINVOKEDBASE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -41,7 +50,6 @@ class SkList;
 enum eSkMember;
 
 class SkInvokedCoroutine;  // For circular reference
-
 
 // Used when specifying an argument by index - a simple integer could be used, but these
 // give a bit more context
@@ -129,6 +137,7 @@ class SK_API SkInvokedBase :
     SkInvokedBase * get_caller() const                    { return m_caller_p; }
     SkObjectBase *  get_scope() const                     { return m_scope_p; }
     void            set_caller(SkInvokedBase * caller_p)  { m_caller_p = caller_p; }
+    SkInvokedBase * get_topmost_caller() const;
 
     virtual SkInvokedContextBase *   get_caller_context() const;
     virtual const SkExpressionBase * get_expr() const     { return nullptr; }
@@ -141,8 +150,6 @@ class SK_API SkInvokedBase :
       virtual SkExpressionBase * get_caller_expr() const = 0;
       virtual SkDebugInfo        get_debug_info() const = 0;
       virtual bool               is_in_use() const        { return is_valid_id(); }
-
-      AString list_callstack_debug(uint32_t stack_flags = SkInvokeInfo__callstack_def) const;
 
     #endif
 
@@ -197,10 +204,11 @@ class SK_API SkInvokedBase :
 
 
 //---------------------------------------------------------------------------------------
-// Notes      Invoked Object to wrap around expressions that may not evaluate immediately
-//            - i.e. they take more than one frame to complete their invocation.  This
-//            currently includes the expressions SkCode, SkLoop, SkConcurrentRace and
-//            SkInvokeCascade.
+// Invoked object to wrap around expressions that are durational.
+// This includes code blocks `[ ]` SkCode, `loop` SkLoop, `race` SkConcurrentRace,
+// `sync` SkConcurrentSync, `divert` SkDivert, invoke sync calls `list%do_stuff`
+// SkInvokeSync, invoke race calls `list%do_stuff` SkInvokeRace and cascade calls
+// `obj.[do_this do_that do_other]` SkInvokeCascade
 // Author(s)  Conan Reis
 class SK_API SkInvokedExpression : public SkInvokedBase
   {
@@ -298,7 +306,6 @@ class SK_API SkInvokedContextBase : public SkInvokedBase
 
 
   // Common Methods
-
     
     SkInvokedContextBase(SkInvokedBase * caller_p = nullptr, SkObjectBase * scope_p = nullptr) : SkInvokedBase(caller_p, scope_p) {}
     ~SkInvokedContextBase();
@@ -542,5 +549,3 @@ inline _UserType * SkInvokedContextBase::get_user_data() const
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkInvokedBase.inl>
 #endif
-
-#endif  // __SKINVOKEDBASE_HPP

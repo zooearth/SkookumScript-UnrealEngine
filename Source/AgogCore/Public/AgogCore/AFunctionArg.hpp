@@ -1,18 +1,26 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2000 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  AFunctionArg and AFunctionArgRtn class templates
-// Author(s):    Conan Reis
-// Create Date:   2000-01-11
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// AFunctionArg and AFunctionArgRtn class templates
+//=======================================================================================
 
-#ifndef __AFUNCTIONARG_HPP
-#define __AFUNCTIONARG_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -64,6 +72,12 @@ class AFunctionArg : public AFunctionArgBase<_ArgType>
     AFunctionArg(const AFunctionArg & func);
     AFunctionArg & operator=(const AFunctionArg & func);
     
+    // Create/allocate a lambda-based function object with one argument
+    // Example AFunction::new_lambda([frank](){ int bob = frank; ADebug::print("Hello"); })
+    // Note that this does not actually create an AFunction object but rather an AFunctionLambda object
+    template<typename _FunctorType>
+    static AFunctionArgBase<_ArgType> * new_lambda(_FunctorType&& lambda_functor);
+
   // Accessor Methods
 
     void set_function(void (*function_p)(_ArgType arg));
@@ -148,6 +162,22 @@ class AFunctionArgRtn : public AFunctionArgRtnBase<_ArgType, _ReturnType>
 
   };  // AFunctionArgRtn
 
+//---------------------------------------------------------------------------------------
+// Function object based on lambda expression
+// Use AFunction::new_lambda() to create one
+template<typename _FunctorType, class _ArgType>
+class AFunctionArgLambda : public AFunctionArgBase<_ArgType>
+  {
+  public:
+
+    AFunctionArgLambda(_FunctorType && lambda_functor) : m_functor(lambda_functor) {}
+
+    virtual void invoke(_ArgType arg) override { m_functor(arg); }
+    virtual AFunctionArgBase<_ArgType> * copy_new() const { return new AFunctionArgLambda(*this); }
+
+  protected:
+    _FunctorType  m_functor;
+  };
 
 //=======================================================================================
 // AFunctionArg Methods
@@ -195,6 +225,16 @@ AFunctionArg<_ArgType> & AFunctionArg<_ArgType>::operator=(const AFunctionArg<_A
   {
   m_function_p = func.m_function_p;
   return *this;
+  }
+
+//---------------------------------------------------------------------------------------
+// Create/allocate a lambda-based function object
+// Example AFunctionArg<int>::new_lambda([frank](int jim){ int bob = frank + jim; ADebug::print("Hello"); })
+template<class _ArgType>
+template<typename _FunctorType>
+AFunctionArgBase<_ArgType> * AFunctionArg<_ArgType>::new_lambda(_FunctorType&& lambda_functor)
+  {
+  return new AFunctionArgLambda<_FunctorType, _ArgType>((_FunctorType &&)lambda_functor);
   }
 
 
@@ -357,8 +397,3 @@ AFunctionArgRtnBase<_ArgType, _ReturnType> * AFunctionArgRtn<_ArgType, _ReturnTy
 
   return func_p;
   } 
-
-
-#endif  // __AFUNCTIONARG_HPP
-
-

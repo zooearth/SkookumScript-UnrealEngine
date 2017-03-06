@@ -3,7 +3,7 @@
 // assert if no such actor is found.
 //
 // Params:
-//   name: name of the actor to search for
+//   name: name of the actor to search for (can be String or Name class type)
 //
 // Returns: Actor found (asserts if not found)
 //
@@ -22,5 +22,5 @@
 // See: find_named()
 //---------------------------------------------------------------------------------------
 
-(String name) ThisClass_
+(<Name|String> name) ThisClass_
 

@@ -1,11 +1,24 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2016 Agog Labs Inc. All rights reserved.
 //
 // Component to associate a SkookumScript class and data members with a UE4 actor
 // and allow SkookumScript ctors and dtors to be called when the actor (i.e. the component) gets created/destroyed
-// 
-// Author: Conan Reis, Markus Breyer
 //=======================================================================================
 
 
@@ -14,8 +27,12 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkookumScriptClassDataComponent.h"
 #include "Bindings/Engine/SkUEActor.hpp"
+
+#include "Engine/World.h"
+#include "Runtime/Launch/Resources/Version.h" // TEMP HACK for ENGINE_MINOR_VERSION
 
 //=======================================================================================
 // Class Data
@@ -34,7 +51,9 @@ USkookumScriptClassDataComponent::USkookumScriptClassDataComponent(const FObject
   bTickInEditor = false;
   bAutoActivate = true;
   bWantsInitializeComponent = true;
-  bWantsBeginPlay = true;
+  #if ENGINE_MINOR_VERSION < 14
+    bWantsBeginPlay = true;
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
@@ -58,23 +77,31 @@ void USkookumScriptClassDataComponent::create_sk_instance()
     if (!class_p) goto set_default_class; // Recover from bad user input
 
     // Do some extra checking in non-shipping builds
-    // Do some extra checking in non-shipping builds
     #if (SKOOKUM & SK_DEBUG)
-      SkClass * super_class_known_to_ue_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_ue(class_p);
-      SkClass * super_class_known_to_sk_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_sk(actor_p->GetClass());
-      SK_ASSERTX(super_class_known_to_sk_p && super_class_known_to_sk_p == super_class_known_to_ue_p, a_cstr_format(
-        "Owner Script Class Name '%s' in SkookumScriptClassDataComponent of '%S' is not properly related to Actor. "
-        "Both the Actor Script Class Name '%s' and the UE4 class of '%S' ('%S') must share the topmost ancestor class known to both SkookumScript and UE4. "
-        "Right now these ancestor classes are different ('%s' for '%s' and '%s' for '%S').",
+      UClass * known_ue_superclass_p;
+      SkClass * super_class_known_to_ue_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_ue(class_p, &known_ue_superclass_p);
+      UClass * allowed_ue_superclass_p = known_ue_superclass_p;
+      while (!actor_p->GetClass()->IsChildOf(allowed_ue_superclass_p))
+        {
+        allowed_ue_superclass_p = allowed_ue_superclass_p->GetSuperClass();
+        }
+      SK_ASSERTX(actor_p->GetClass()->IsChildOf(known_ue_superclass_p), a_cstr_format(
+        "Owner Script Class Name '%s' in SkookumScriptClassDataComponent of '%S' is derived from the UE4 class '%S', however '%S's class '%S' is not. "
+        "This can lead to problems since '%s' might try to use functionality of '%S' which '%S' does not have.\n\n"
+        "To fix this, either make sure that '%S' is derived from '%S', or change '%s' so that instead from '%S' it derives from just '%S' (or a superclass of it).",
         class_name_ascii.as_cstr(),
         *actor_p->GetName(),
-        class_name_ascii.as_cstr(),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(known_ue_superclass_p),
         *actor_p->GetName(),
-        *actor_p->GetClass()->GetName(),
-        super_class_known_to_ue_p ? super_class_known_to_ue_p->get_name_cstr_dbg() : "<none>",
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(actor_p->GetClass()),
         class_name_ascii.as_cstr(),
-        super_class_known_to_sk_p ? super_class_known_to_sk_p->get_name_cstr_dbg() : "<none>",
-        *actor_p->GetClass()->GetName()));
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(known_ue_superclass_p),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(actor_p->GetClass()),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(actor_p->GetClass()),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(known_ue_superclass_p),
+        class_name_ascii.as_cstr(),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(known_ue_superclass_p),
+        *SkUEClassBindingHelper::get_ue_class_name_sans_c(allowed_ue_superclass_p)));
     #endif
     }
   else
@@ -125,7 +152,8 @@ void USkookumScriptClassDataComponent::InitializeComponent()
   // Create SkookumScript instance, but only if we are located inside the game world
   if (GetOwner()->GetWorld()->IsGameWorld())
     {
-    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when InitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when InitializeComponent() is invoked.");
+
     create_sk_instance();
     m_actor_instance_p->get_class()->resolve_raw_data();
     m_actor_instance_p->call_default_constructor();
@@ -154,7 +182,8 @@ void USkookumScriptClassDataComponent::UninitializeComponent()
   // Delete SkookumScript instance if present
   if (m_actor_instance_p)
     {
-    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when UninitializeComponent() is invoked.");
+
     delete_sk_instance();
     }
 

@@ -1,16 +1,26 @@
 //=======================================================================================
-// SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Class wrapper for executed/called/invoked coroutines declaration file
-// Author(s):   Conan Reis
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
-#ifndef __SKINVOKEDCOROUTINE_HPP
-#define __SKINVOKEDCOROUTINE_HPP
+//=======================================================================================
+// SkookumScript C++ library.
+//
+// Class wrapper for executed/called/invoked coroutines declaration file
+//=======================================================================================
 
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -139,7 +149,7 @@ class SK_API SkInvokedCoroutine :
   // Pool Allocation Methods
 
     static SkInstance *                         new_instance(SkInvokedCoroutine * icoroutine_p);
-    static SkInvokedCoroutine *                 pool_new(SkCoroutineBase * coroutine_p);
+    static SkInvokedCoroutine *                 pool_new(const SkCoroutineBase * coroutine_p);
     static void                                 pool_delete(SkInvokedCoroutine * icoroutine_p);
     static AObjReusePool<SkInvokedCoroutine> &  get_pool();
 
@@ -199,6 +209,3 @@ template<> inline void                  SkUserDataBase::set(SkInvokedCoroutine *
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkInvokedCoroutine.inl>
 #endif
-
-
-#endif  // __SKINVOKEDCOROUTINE_HPP

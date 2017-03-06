@@ -10,6 +10,8 @@
 *.DS_Store
 *.uplugin-fullsource-mode
 CMakeLists.txt
+enable-mad-check.txt
+mad-define.txt
 force-lib-build.txt
 .hg/**
 .hgignore
@@ -24,10 +26,6 @@ force-lib-build.txt
 /Intermediate/**
 /Agog/**
 /Scripts/Engine-Generated/**
-/SkookumIDE/Skookum-user.ini
-/SkookumIDE/*.version
-/SkookumIDE/*.exe
-!/SkookumIDE/SkookumIDE.exe
 /Source/AgogCore/*2013*.*
 /Source/AgogCore/*2015*.*
 /Source/AgogCore/Lib/**/*.dll
@@ -40,10 +38,12 @@ force-lib-build.txt
 /Source/SkookumScript/Lib/**/VS2013/*
 /Source/SkookumScript/Private/**
 /Source/SkookumLibs*.*
-/Source/AgogIO**
-/Source/SkookumIDE**
+/SkookumIDE/*.*
+!/SkookumIDE/Skookum.ini
 /SkookumIDE/Source/**
-/SkookumIDE/*-Dev.*
-/SkookumIDE/*-Coder.*
-/SkookumIDE/*32.*
 /SkookumIDE/Scripts/workspace?.sk
+/SkookumIDE/Scripts/workbench*.sk
+/SkookumIDE/Engine/Saved/**
+/SkookumIDE/Engine/Programs/SkookumIDE/Intermediate/**
+/SkookumIDE/Engine/Programs/SkookumIDE/Saved/**
+/hooks/**

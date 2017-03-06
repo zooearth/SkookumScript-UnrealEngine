@@ -1,16 +1,26 @@
 //=======================================================================================
-// SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// SkookumScript Base Object declaration file
-// Author(s):   Conan Reis
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
-#ifndef __SKOBJECTBASE_HPP
-#define __SKOBJECTBASE_HPP
+//=======================================================================================
+// SkookumScript C++ library.
+//
+// SkookumScript Base Object declaration file
+//=======================================================================================
 
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -18,8 +28,9 @@
 
 #include <AgogCore/AIdPtr.hpp>
 #include <AgogCore/ANamed.hpp>
-#include <SkookumScript/SkookumScript.hpp>
-
+#include <AgogCore/APArray.hpp>
+#include <AgogCore/APSorted.hpp>
+#include <SkookumScript/Sk.hpp>
 
 //=======================================================================================
 // Global Structures
@@ -31,15 +42,6 @@ class  SkInvokedContextBase;
 
 template<class _ObjectType> class AObjBlock;
 template<class _ObjectType> class AObjReusePool;
-
-#ifdef A_PLAT_PC
-  template<class _ElementType, class _KeyType = _ElementType> class APArrayLogical;
-  template<class _ElementType, class _KeyType = _ElementType> class APSortedLogical;
-#else
-  #include <AgogCore/APArray.hpp>
-  #include <AgogCore/APSorted.hpp>
-#endif
-
 
 //---------------------------------------------------------------------------------------
 // Used by SkObjectBase::get_obj_type() which returns uint32_t rather than eSkObjectType so
@@ -125,7 +127,3 @@ class SK_API SkObjectBase
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkObjectBase.inl>
 #endif
-
-
-#endif  // __SKOBJECTBASE_HPP
-

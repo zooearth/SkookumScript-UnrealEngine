@@ -1,11 +1,23 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2000 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  Dynamic AString class definition module
-// Author(s):    Conan Reis
-// Create Date:   2000-01-06
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// Dynamic AString class definition module
 // Notes:          The AString class should be used in the place of standard
 //              C-String character array pointers. 
 //=======================================================================================
@@ -27,6 +39,7 @@
 #include <wchar.h>      // Uses:  wcslen
 
 #ifdef A_PLAT_PC
+  #define WIN32_LEAN_AND_MEAN // Keep this define out of public header files
   #include "windows.h"    // Uses:  WideCharToMultiByte()
 #endif
 
@@ -4729,7 +4742,7 @@ void AString::init_match_table()
   // #################### Negative Classifications #######################
 
   // Most of the negative classification tests return true
-  memset(ms_char_match_table[ACharMatch__not_start], true, bool_bytes * ACharMatch__not_start * AString_ansi_charset_length);
+  memset(ms_char_match_table[ACharMatch__not_start], true, bool_bytes * (ACharMatch__length - ACharMatch__not_start) * AString_ansi_charset_length);
 
   // Set alphabetic ACharMatch_not_alphabetic
   memset(&ms_char_match_table[ACharMatch_not_alphabetic]['A'], false, bool_bytes * ('Z' - 'A' + 1));
@@ -4798,8 +4811,12 @@ void AString::init_match_table()
   // Set white space ACharMatch_not_white_space
   // Horizontal Tab, Line Feed, Vertical Tab, Form Feed, Carriage Return
   memset(&ms_char_match_table[ACharMatch_not_white_space][9], false, bool_bytes * 5);
+  memset(&ms_char_match_table[ACharMatch_not_white_space_except_lf][9], false, bool_bytes * 5);
   // Space
   ms_char_match_table[ACharMatch_not_white_space][' '] = false;
+  ms_char_match_table[ACharMatch_not_white_space_except_lf][' '] = false;
+  // Line feed
+  ms_char_match_table[ACharMatch_not_white_space_except_lf]['\n'] = true;
   }
 
 

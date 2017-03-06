@@ -1,10 +1,23 @@
 //=======================================================================================
+// Copyright (c) 2001-2017 Agog Labs Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
 // SkookumScript Plugin for Unreal Engine 4
-// Copyright (c) 2016 Agog Labs Inc. All rights reserved.
 //
 // Component to associate a SkookumScript Mind with a UE4 actor
-// 
-// Author: Markus Breyer
 //=======================================================================================
 
 
@@ -13,7 +26,16 @@
 //=======================================================================================
 
 #include "SkookumScriptRuntimePrivatePCH.h"
+
 #include "SkookumScriptMindComponent.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Runtime/Launch/Resources/Version.h" // TEMP HACK for ENGINE_MINOR_VERSION
+
+#include <AgogCore/AString.hpp>
+#include <SkookumScript/SkBrain.hpp>
+#include <SkookumScript/SkClass.hpp>
+#include <SkookumScript/SkDebug.hpp>
 
 //=======================================================================================
 // Class Data
@@ -32,7 +54,9 @@ USkookumScriptMindComponent::USkookumScriptMindComponent(const FObjectInitialize
   bTickInEditor = false;
   bAutoActivate = true;
   bWantsInitializeComponent = true;
-  bWantsBeginPlay = true;
+  #if ENGINE_MINOR_VERSION < 14
+    bWantsBeginPlay = true;
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
@@ -87,7 +111,8 @@ void USkookumScriptMindComponent::InitializeComponent()
   // Create SkookumScript instance, but only if we are located inside the game world
   if (GetOwner()->GetWorld()->IsGameWorld())
     {
-    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when InitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when InitializeComponent() is invoked.");
+
     create_sk_instance();
     m_mind_instance_p->get_class()->resolve_raw_data();
     m_mind_instance_p->call_default_constructor();
@@ -116,7 +141,8 @@ void USkookumScriptMindComponent::UninitializeComponent()
   // Delete SkookumScript instance if present
   if (m_mind_instance_p)
     {
-    SK_ASSERTX(SkookumScript::is_flag_set(SkookumScript::Flag_evaluate), "SkookumScript must be in initialized state when UninitializeComponent() is invoked.");
+    SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when UninitializeComponent() is invoked.");
+
     delete_sk_instance();
     }
 

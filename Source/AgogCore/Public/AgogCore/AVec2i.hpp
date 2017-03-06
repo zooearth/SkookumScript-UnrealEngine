@@ -1,19 +1,29 @@
 //=======================================================================================
-// Agog Labs C++ library.
-// Copyright (c) 2005 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-//  AVec2i structure declaration header
-// Author(s):    Conan Reis
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//=======================================================================================
+
+//=======================================================================================
+// Agog Labs C++ library.
+//
+// AVec2i structure declaration header
 // Notes:          Simple 2D integer vector structure for user interface positions / areas.
 //              Declared here in AgogCore rather than AgogGUI since 2D integer
 //              co-ordinates are common across platforms.
 //=======================================================================================
 
-
-#ifndef __AVEC2I_HPP
-#define __AVEC2I_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -113,8 +123,3 @@ inline f32 a_dist_sqr(const AVec2i & va, const AVec2i & vb)
 
   return f32((dx * dx) + (dy * dy));
   }
-
-
-#endif // __AVEC2I_HPP
-
-

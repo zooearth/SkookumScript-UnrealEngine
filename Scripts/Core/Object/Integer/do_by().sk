@@ -1,6 +1,6 @@
 //---------------------------------------------------------------------------------------
-// Calls supplied immediate closure code with index 0 to n-1 where n is this Integer and
-// stepping by the supplied step value.
+// Loops/iterates calling supplied immediate closure code with index 0 to n-1 where n is
+// this Integer and stepping by the supplied step value.
 //
 // The index value is passed as an argument and is exclusive: 0..n-1
 //
@@ -14,7 +14,7 @@
 //   6
 //
 // # Notes:     Use _*() versions for durational iteration.
-// # See:       do(), _do(), do_reverse(), to()
+// # See:       do(), _do(), do_reverse(), to(), to_pre()
 // # Author(s): Conan Reis
 //---------------------------------------------------------------------------------------
 

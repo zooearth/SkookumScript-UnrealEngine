@@ -1,17 +1,26 @@
 //=======================================================================================
-// SkookumScript C++ library.
-// Copyright (c) 2001 Agog Labs Inc.,
-// All rights reserved.
+// Copyright (c) 2001-2017 Agog Labs Inc.
 //
-// Coroutine parameters & body classes
-// Author(s):   Conan Reis
-// Notes:          
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //=======================================================================================
 
+//=======================================================================================
+// SkookumScript C++ library.
+//
+// Coroutine parameters & body classes
+//=======================================================================================
 
-#ifndef __SKCOROUTINE_HPP
-#define __SKCOROUTINE_HPP
-
+#pragma once
 
 //=======================================================================================
 // Includes
@@ -86,41 +95,42 @@ class SK_API SkCoroutine : public SkCoroutineBase
 
     #if (SKOOKUM & SK_COMPILED_IN)
       SkCoroutine(const ASymbol & name, SkClass * scope_p, const void ** binary_pp);
-      virtual void assign_binary_no_name(const void ** binary_pp);
+      virtual void assign_binary_no_name(const void ** binary_pp, SkRoutineUpdateRecord * update_record_p) override;
+      virtual void copy_to_update_record(SkRoutineUpdateRecord * update_record_p) override;
     #endif
 
 
     #if (SKOOKUM & SK_COMPILED_OUT)
-      virtual void     as_binary(void ** binary_pp, bool include_name) const;
-      virtual uint32_t as_binary_length(bool include_name) const;
+      virtual void     as_binary(void ** binary_pp, bool include_name) const override;
+      virtual uint32_t as_binary_length(bool include_name) const override;
     #endif
 
 
     #if defined(SK_AS_STRINGS)
-      virtual AString as_code() const;
+      virtual AString as_code() const override;
     #endif
 
 
     // Debugging Methods
     #if (SKOOKUM & SK_DEBUG)
-      virtual SkExpressionBase * get_custom_expr() const;
+      virtual SkExpressionBase * get_custom_expr() const override;
     #endif
 
 
   // Methods
 
     SkCoroutine & assign_take(SkCoroutine * coroutine_p);
-    virtual bool  on_update(SkInvokedCoroutine * data_p) const;
+    virtual bool  on_update(SkInvokedCoroutine * data_p) const override;
     void          set_expression(SkExpressionBase * expr_p);
 
     // Overridden from SkMethodBase
 
-      virtual void    track_memory(AMemoryStats * mem_stats_p) const;
+      virtual void    track_memory(AMemoryStats * mem_stats_p) const override;
 
     // Overridden from SkInvokableBase
 
-      virtual eSkInvokable get_invoke_type() const;
-      virtual bool         is_bound() const;
+      virtual eSkInvokable get_invoke_type() const override;
+      virtual bool         is_bound() const override;
 
   protected:
 
@@ -274,7 +284,3 @@ class SK_API SkCoroutineFunc : public SkCoroutineBase
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkCoroutine.inl>
 #endif
-
-
-#endif  // __SKCOROUTINE_HPP
-
