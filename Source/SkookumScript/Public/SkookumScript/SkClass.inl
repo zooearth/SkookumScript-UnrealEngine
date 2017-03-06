@@ -952,6 +952,10 @@ A_INLINE SkClassUnion * SkClassUnion::get_or_create(const SkClassUnion & class_u
   if (union_p == nullptr)
     {
     union_p = SK_NEW(SkClassUnion)(class_union);
+    // All SkClassUnions stored in ms_shared_unions start out with 1 refcount
+    // so that ARefPtr can never free them
+    // They only ever get deleted in SkClassUnion::shared_ensure_references()
+    union_p->reference();
     ms_shared_unions.insert(*union_p, find_pos);
     }
 
