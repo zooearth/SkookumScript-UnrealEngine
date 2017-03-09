@@ -127,7 +127,7 @@ void USkookumScriptBehaviorComponent::create_sk_instance()
 void USkookumScriptBehaviorComponent::delete_sk_instance()
   {
   SK_ASSERTX(m_component_instance_p, "No Sk instance to delete!");
-  m_component_instance_p->clear_coroutines();
+  m_component_instance_p->abort_coroutines_on_this();
   m_component_instance_p->dereference();
   m_component_instance_p = nullptr;
   }

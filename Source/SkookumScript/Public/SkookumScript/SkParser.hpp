@@ -85,7 +85,7 @@ identifier       = variable-ident | class | reserved-ident | object-id
 variable-ident   = variable-name | ([expression ws '.' ws] data-name)
 variable-name    = name-predicate
 data-name        = '@' | '@@' variable-name
-reserved-ident   = 'nil' | 'this' | 'this_class' | 'this_code'
+reserved-ident   = 'nil' | 'this' | 'this_class' | 'this_code' | 'this_mind'
 object-id        = [class-name] '@' ['?' | '#'] symbol-literal
 method-name      = name-predicate | constructor-name | destructor-name | convert-name
 name-predicate   = instance-name ['?']
@@ -100,7 +100,7 @@ scope            = class '@'
 Primitives:
 ----------------------
 primitive        = bind | conditional | case | when | unless | loop | sync-block
-                   | race-block | branch-block | divert-block | class-conversion
+                   | race-block | branch-block | change-mind | class-conversion
                    | class-cast | code-block
 bind             = variable-ident ws binding
 binding          = ':' ws expression
@@ -113,7 +113,7 @@ loop-exit        = 'exit' [ws instance-name]
 sync-block       = 'sync' ws code-block
 race-block       = 'race' ws code-block
 branch-block     = 'branch' ws expression
-divert-block     = 'divert' ws code-block
+change-mind      = 'change' [ws expression] ws expression
 class-cast       = expression ws '<>' [class-desc]
 class-conversion = expression ws '>>' [convert-name]
 convert-name     = class
@@ -229,7 +229,7 @@ class SkConditional;
 class SkCoroutineBase;
 class SkCoroutineFunc;
 class SkCoroutineCall;
-class SkDivert;
+class SkChangeMind;
 class SkGroupParam;
 class SkIdentifierLocal;
 class SkIdentifierMember;
@@ -419,7 +419,6 @@ class SK_API SkParser : public AString
       Result_err_unexpected_class_pattern,    // The group parameter descriptor expected a class name or }
       Result_err_unexpected_cpp,              // C++ syntax used by mistake/assumption and equivalent syntax is different or not available in SkookumScript.
       Result_err_unexpected_deprecated,       // Deprecated syntax
-      Result_err_unexpected_divert_expr,      // "A divert only makes sense when used on expressions that are durational / non-immediate such as coroutine calls that may take more than one frame to execute and therefore require update calls.
       Result_err_unexpected_else,             // An else / default clause may not be the sole clause - there must be at least one more prior to it.
       Result_err_unexpected_else_statement,   // Found an 'else' without a matching 'if' or 'case'.
       Result_err_unexpected_eof,              // Hit end of file prior to the completion of a parse.
@@ -631,7 +630,7 @@ class SK_API SkParser : public AString
     // Used to simplify the arguments passed to the common parse methods
     // 
     // Author(s): Conan Reis
-    struct Args
+    struct SK_API Args
       {
       // Data Members
 
@@ -993,7 +992,7 @@ class SK_API SkParser : public AString
       SkConcurrentSync *   parse_concurrent_sync_block(Args & args) const;
       SkConcurrentRace *   parse_concurrent_race_block(Args & args) const;
       SkConcurrentBranch * parse_concurrent_branch_block(Args & args) const;
-      SkDivert *           parse_divert_block(Args & args) const;
+      SkChangeMind *       parse_change_mind(Args & args) const;
       SkObjectIDBase *     parse_object_id_tail(Args & args, SkClass * class_p = nullptr) const;
       SkInvocation *       parse_prefix_operator_expr(const ASymbol & op_name, Args & args) const;
       bool                 parse_statement_append(Args & args, eSkInvokeTime desired_exec_time = SkInvokeTime_any) const;

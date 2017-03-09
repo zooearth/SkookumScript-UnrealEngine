@@ -9,10 +9,13 @@
 //   str.as_crc32
 //
 // # Notes:
-//   To get hex version of this number you can use symbols -
+//   To get hex version of this number
 //   ```
+//   str.as_crc32.hex
+//   // Or use Symbol
+//   'SomeStr'.id_str
 //   str.Symbol.id_str
-//   'SomeStr".id_str
+//   str.Symbol.id.hex
 //   ```
 // # Author(s): Conan Reis
 //---------------------------------------------------------------------------------------
