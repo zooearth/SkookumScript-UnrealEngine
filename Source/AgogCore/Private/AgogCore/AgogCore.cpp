@@ -265,8 +265,8 @@ namespace AgogCore
     }
 
   //---------------------------------------------------------------------------------------
-
-  extern A_API void set_app_info(AAppInfoCore * app_info_p)
+  // Set app interface pointer
+  void set_app_info(AAppInfoCore * app_info_p)
     {
     s_app_info_p = app_info_p;
     }
@@ -427,6 +427,9 @@ void AAppInfoCoreDefault::on_error_post(eAErrAction action)
 
 void AAppInfoCoreDefault::on_error_quit()
   {
-  exit(EXIT_FAILURE);
+  if (!ADebug::is_debugging())
+    {
+    exit(EXIT_FAILURE);
+    }
   }
 

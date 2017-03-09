@@ -1,7 +1,9 @@
 //---------------------------------------------------------------------------------------
-// Abort all coroutines currently updated by this Mind
+// Get the mind that updates this invoked ojbect.
+// 
+// Returns: updater mind
 //
-// #Author(s)   Markus Breyer
+// See: change, this_mind      
 //---------------------------------------------------------------------------------------
 
-(Boolean success? : false)
+() Mind
