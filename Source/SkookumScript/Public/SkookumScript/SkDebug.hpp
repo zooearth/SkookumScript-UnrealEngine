@@ -709,7 +709,7 @@ struct SkWatch
 //---------------------------------------------------------------------------------------
 // Stores a SkookumScript call stack for printing and debugging
 // Derived from ARefCountMix so it can be optionally stashed away during processing calls
-struct SkCallStack : public ARefCountMix<SkCallStack>
+struct SK_API SkCallStack : public ARefCountMix<SkCallStack>
   {
 
   SkCallStack() : m_current_level_idx(0) {}

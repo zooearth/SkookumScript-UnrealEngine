@@ -68,12 +68,12 @@ enum eSkExprType
   SkExprType_identifier_raw_member,    // [03] SkIdentifierRawMember @value
   SkExprType_identifier_class_member,  // [04] SkIdentifierClassMember @@random
   SkExprType_raw_member_assignment,    // [05] SkRawMemberAssignment @bob := value
-  SkExprType_raw_member_invocation,    // [06] SkRawMemberModifyingInvocation @bob.negate()
+  SkExprType_raw_member_invocation,    // [06] SkRawMemberModifyingInvocation @bob.negate
   SkExprType_object_id,                // [07] SkObjectIDBase  MyClass@'some_name'
-  SkExprType_literal,                  // [08] SkLiteral (Boolean, Character, Integer, Real, String, Symbol, Class, nil, this, this_class, this_code)
+  SkExprType_literal,                  // [08] SkLiteral (Boolean, Character, Integer, Real, String, Symbol, Class, nil, this, this_class, this_code, this_mind)
   SkExprType_literal_list,             // [09] SkLiteralList {elem1, elem2}
-  SkExprType_closure_method,           // [10] SkLiteralClosure(Method)  ^[do_this() do_that()]
-  SkExprType_closure_coroutine,        // [11] SkLiteralClosure(Coroutine)  ^[_do_this() _do_that()]
+  SkExprType_closure_method,           // [10] SkLiteralClosure(Method)  ^[do_this do_that]
+  SkExprType_closure_coroutine,        // [11] SkLiteralClosure(Coroutine)  ^[_do_this _do_that]
   SkExprType_bind,                     // [12] SkBind - variable bind (both initial and re-bind) expression.  Could be a member variable, a parameter variable, or a temporary variable.
   SkExprType_cast,                     // [13] SkCast - expr<>Class
   SkExprType_conversion,               // [14] SkConversion - expr>>Class
@@ -82,20 +82,20 @@ enum eSkExprType
   SkExprType_case,                     // [17] SkCase - case compare test1 [clause1] test2 [clause2] else [else_clause]
   SkExprType_when,                     // [18] SkWhen - clause when test
   SkExprType_unless,                   // [19] SkUnless - clause unless test
-  SkExprType_loop,                     // [20] SkLoop - loop [ if loop_test() [exit] loop_code() ]
+  SkExprType_loop,                     // [20] SkLoop - loop [ if loop_test? [exit] loop_code ]
   SkExprType_loop_exit,                // [21] SkLoopExit - (valid only in the scope of the loop it references)
-  SkExprType_invoke,                   // [22] SkInvocation - receiver.call()
-  SkExprType_invoke_sync,              // [23] SkInvokeSync - receiver%call()
-  SkExprType_invoke_race,              // [24] SkInvokeRace - receiver%>call()
-  SkExprType_invoke_cascade,           // [25] SkInvokeCascade - receiver :call1() :call2() :call3()
+  SkExprType_invoke,                   // [22] SkInvocation - receiver.call
+  SkExprType_invoke_sync,              // [23] SkInvokeSync - receiver%call
+  SkExprType_invoke_race,              // [24] SkInvokeRace - receiver%>call
+  SkExprType_invoke_cascade,           // [25] SkInvokeCascade - receiver :call1 :call2 :call3
   SkExprType_invoke_closure_method,    // [26] SkInvokeClosureMethod - closure_expr()
   SkExprType_invoke_closure_coroutine, // [27] SkInvokeClosureCoroutine - closure_expr()
   SkExprType_instantiate,              // [28] SkInstantiate - Instantiates / allocates / creates an object and initializes its data members to nil - called just prior to a constructor
-  SkExprType_copy_invoke,              // [29] SkCopyInvoke - Instantiates object via !copy() and calls initial method on it - expr!method() -> ExprType!copy(expr).method() or ExprType!copy(expr).[method() self()]
-  SkExprType_concurrent_sync,          // [30] SkConcurrentSync - convergent concurrent threaded expressions - sync [ _expr1() _expr2() _expr3() ]
-  SkExprType_concurrent_race,          // [31] SkConcurrentRace - concurrent racing expressions - race [ _expr1() _expr2() _expr3() ]
-  SkExprType_concurrent_branch,        // [32] SkConcurrentBranch - branched concurrent expression - branch [ _expr() ]
-  SkExprType_divert,                   // [33] SkDivert - diverted expression - divert [ _expr() ]
+  SkExprType_copy_invoke,              // [29] SkCopyInvoke - Instantiates object via !copy and calls initial method on it - expr!method -> ExprType!copy(expr).method or ExprType!copy(expr).[method self]
+  SkExprType_concurrent_sync,          // [30] SkConcurrentSync - convergent concurrent threaded expressions - sync [ _expr1 _expr2 _expr3 ]
+  SkExprType_concurrent_race,          // [31] SkConcurrentRace - concurrent racing expressions - race [ _expr1 _expr2 _expr3 ]
+  SkExprType_concurrent_branch,        // [32] SkConcurrentBranch - branched concurrent expression - branch [ _expr ]
+  SkExprType_change,                   // [33] SkChangeMind - change mind - change [ws expression] ws expression
 
   SkExprType__max                            // Highest possible value + 1   
   };

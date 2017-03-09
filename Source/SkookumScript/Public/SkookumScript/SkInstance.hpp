@@ -82,6 +82,20 @@ enum eSkCodeFlag
   SkCodeFlag__default = SkCodeFlag__none
   };
 
+// Used with abort commands
+enum eSkNotify
+  {
+  SkNotify_ignore   = 0x0,  // Caller is not notified
+  SkNotify_fail     = 0x1,  // Caller notified that this sub-expression did not successfully complete
+  SkNotify_success  = 0x3   // Caller notified that this sub-expression successfully completed
+  };
+
+// Used with abort commands - also see eSkNotify 
+enum eSkNotifyChild
+  {
+  SkNotifyChild_detach  = 0x0,  // Child/sub calls ignore the fact that their caller is being aborted
+  SkNotifyChild_abort   = 0x1   // Abort child/sub calls
+  };
 
 //---------------------------------------------------------------------------------------
 // SkookumScript user/reusable instance object / class instance - simplest object without
@@ -285,7 +299,7 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
   // Coroutine related
 
   // Instances do not update coroutines though their subclasses `SkMind` do.
-  virtual void clear_coroutines();
+  void abort_coroutines_on_this(eSkNotify notify_caller = SkNotify_fail);
 
   //---------------------------------------------------------------------------------------
   // Evaluates the coroutine call with 0 or more arguments.

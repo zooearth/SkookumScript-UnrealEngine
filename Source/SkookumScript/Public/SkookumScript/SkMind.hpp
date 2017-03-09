@@ -122,8 +122,8 @@ class SK_API SkMind : public SkClassBindingAbstract<SkMind>, public SkDataInstan
 
       AList<SkInvokedCoroutine> & get_invoked_coroutines()         { return m_icoroutines_to_update; }
 
-      virtual void clear_coroutines() override;
-      void         clear_coroutines_on_object(SkObjectBase * object_p);
+      void         abort_coroutines(eSkNotify notify_caller = SkNotify_fail);
+      void         abort_coroutines_on_object(SkObjectBase * object_p, eSkNotify notify_caller = SkNotify_fail);
       void         suspend_coroutines();
       void         resume_coroutines();
 
@@ -147,8 +147,8 @@ class SK_API SkMind : public SkClassBindingAbstract<SkMind>, public SkDataInstan
 
     static const AList<SkMind> & get_updating_minds()    { return ms_minds_to_update; }
     static void                  update_all();
-    static void                  clear_all_coroutines();
-    static void                  clear_all_coroutines_on_object(SkObjectBase * object_p);
+    static void                  abort_all_coroutines();
+    static void                  abort_all_coroutines_on_object(SkObjectBase * object_p, eSkNotify notify_caller = SkNotify_fail);
 
  // SkookumScript Bindings
 
@@ -199,7 +199,7 @@ class SK_API SkMind : public SkClassBindingAbstract<SkMind>, public SkDataInstan
     // are suspended/waiting on operations are placed on the m_icoroutines_pending list.
     // ***Note that these invoked coroutines may have a different receiver than this mind
     // - sub-coroutines that are started by other coroutines in this update list use this
-    // mind as their updater by default unless they are called within a "divert" block.
+    // mind as their updater by default unless they are called within a `change` block.
     // This allows contextually similar coroutines to be grouped together under a single
     // updater mind for "group" management.
     // $Revisit - CReis This might be better as a intrusive list
