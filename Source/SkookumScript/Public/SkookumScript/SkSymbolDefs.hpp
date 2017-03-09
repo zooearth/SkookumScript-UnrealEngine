@@ -108,11 +108,11 @@ namespace SkSymbolDefs
   ASYM(at_set) \
   ASYM(branch) \
   ASYM(case) \
+  ASYM(change) \
   ASYM(closure) \
   ASYM(coin_toss) \
   ASYM(crop) \
   ASYM(decrement) \
-  ASYM(divert) \
   ASYM(divide) \
   ASYM(divide_assign) \
   ASYM(down_slope) \
@@ -184,6 +184,7 @@ namespace SkSymbolDefs
   ASYM(this) \
   ASYM(this_class) \
   ASYM(this_code) \
+  ASYM(this_mind) \
   ASYM(thorn) \
   ASYM(thorn_int) \
   ASYM(triangle) \
@@ -278,7 +279,7 @@ const uint32_t ASymbolId_Symbol             = 0xeb6433cf;
   // Reserved Words
 const uint32_t ASymbolId_branch             = 0xbb861b1f;
 const uint32_t ASymbolId_case               = 0x78089904;
-const uint32_t ASymbolId_divert             = 0xfcaca109;
+const uint32_t ASymbolId_change             = 0x4057fe20;
 const uint32_t ASymbolId_else               = 0x55bb558b;
 const uint32_t ASymbolId_exit               = 0x9409840e;
 const uint32_t ASymbolId_false              = 0x2bcd6830;
@@ -289,11 +290,11 @@ const uint32_t ASymbolId_race               = 0xda6fbbaf;
 const uint32_t ASymbolId_random             = 0x163bdad5;
 const uint32_t ASymbolId_rush               = 0xf533deef;
 const uint32_t ASymbolId_skip               = 0xf876557d;
-const uint32_t ASymbolId_split              = 0xb1f59a11;
 const uint32_t ASymbolId_sync               = 0x2c2bf57a;
 const uint32_t ASymbolId_this               = 0xfeee8227;
 const uint32_t ASymbolId_this_class         = 0x3f064bae;
 const uint32_t ASymbolId_this_code          = 0x37c2fcbe;
+const uint32_t ASymbolId_this_mind          = 0x5e782f23;
 const uint32_t ASymbolId_true               = 0xfdfc4c8d;
 const uint32_t ASymbolId_unless             = 0x3eddbf3e;
 const uint32_t ASymbolId_when               = 0x23e80e1c;
