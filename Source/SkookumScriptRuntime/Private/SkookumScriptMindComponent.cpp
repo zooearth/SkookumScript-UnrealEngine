@@ -34,6 +34,7 @@
 #include <SkookumScript/SkBrain.hpp>
 #include <SkookumScript/SkClass.hpp>
 #include <SkookumScript/SkDebug.hpp>
+#include <SkookumScript/SkMind.hpp>
 
 //=======================================================================================
 // Class Data
@@ -88,7 +89,8 @@ void USkookumScriptMindComponent::create_sk_instance()
 void USkookumScriptMindComponent::delete_sk_instance()
   {
   SK_ASSERTX(m_mind_instance_p, "No Sk instance to delete!");
-  m_mind_instance_p->clear_coroutines();
+  static_cast<SkMind *>(m_mind_instance_p.get_obj())->abort_coroutines();
+  m_mind_instance_p->abort_coroutines_on_this();
   m_mind_instance_p->dereference();
   m_mind_instance_p = nullptr;
   }

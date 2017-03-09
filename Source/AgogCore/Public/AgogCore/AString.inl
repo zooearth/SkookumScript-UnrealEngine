@@ -601,7 +601,7 @@ A_INLINE char * AString::as_cstr_writable()
 // See:        AChecksum
 // Author(s):   Conan Reis
 A_INLINE uint32_t AString::as_crc32(
-  uint32_t prev_crc // = UINT32_MAX
+  uint32_t prev_crc // = 0u
   ) const
   {
   return AChecksum::generate_crc32_cstr(m_str_ref_p->m_cstr_p, m_str_ref_p->m_length, prev_crc);
@@ -617,7 +617,7 @@ A_INLINE uint32_t AString::as_crc32(
 // See:        AChecksum
 // Author(s):   Conan Reis
 A_INLINE uint32_t AString::as_crc32_upper(
-  uint32_t prev_crc // = UINT32_MAX
+  uint32_t prev_crc // = 0u
   ) const
   {
   return AChecksum::generate_crc32_cstr_upper(m_str_ref_p->m_cstr_p, m_str_ref_p->m_length, prev_crc);

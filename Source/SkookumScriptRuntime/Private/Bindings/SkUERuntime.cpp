@@ -383,7 +383,10 @@ void SkUERuntime::set_project_generated_bindings(SkUEBindingsInterface * project
     m_have_game_module = true;
 
     // Now that bindings are known, bind the atomics
-    bind_compiled_scripts();
+    if (is_compiled_scripts_loaded())
+      {
+      bind_compiled_scripts();
+      }
     }
   }
 
