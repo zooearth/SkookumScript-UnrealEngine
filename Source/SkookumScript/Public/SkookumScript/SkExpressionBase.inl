@@ -231,7 +231,7 @@ A_INLINE bool SkExpressionBase::invoke_iterate(
   ) const
   {
   // This default invoked_iterate() is currently used by the expressions: SkInvokeSync,
-  // SkConcurrentSync and SkDivert.
+  // SkConcurrentSync and SkChangeMind.
   SkInvokedBase * caller_p = iexpr_p->get_caller();
 
   // If this is not the initial call, return to caller if one is waiting
