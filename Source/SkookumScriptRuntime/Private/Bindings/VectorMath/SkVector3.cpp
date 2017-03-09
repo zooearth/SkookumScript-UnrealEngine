@@ -324,14 +324,13 @@ namespace SkVector3_Impl
     }
 
   //---------------------------------------------------------------------------------------
-  // # Skookum:   Vector3@transform_by(Transform xform) Vector3
-  // # Author(s): Markus Breyer
+  // #Skookum Vector3@transform_by(Transform xform) Vector3
   static void mthd_transform_by(SkInvokedMethod * scope_p, SkInstance ** result_pp)
     {
     // Do nothing if result not desired
     if (result_pp)
       {
-      const FVector & vec = scope_p->this_as<SkVector3>();
+      const FVector &    vec   = scope_p->this_as<SkVector3>();
       const FTransform & xform = scope_p->get_arg<SkTransform>(SkArg_1);
 
       *result_pp = SkVector3::new_instance(xform.TransformPosition(vec));
