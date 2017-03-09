@@ -59,7 +59,8 @@ const FString FSkookumScriptGeneratorBase::ms_reserved_keywords[] =
   {
   TEXT("branch"),
   TEXT("case"),
-  TEXT("divert"),
+  TEXT("change"),
+  TEXT("eh"),
   TEXT("else"),
   TEXT("exit"),
   TEXT("false"),
@@ -70,11 +71,11 @@ const FString FSkookumScriptGeneratorBase::ms_reserved_keywords[] =
   TEXT("random"),
   TEXT("rush"),
   TEXT("skip"),
-  TEXT("split"),
   TEXT("sync"),
   TEXT("this"),
   TEXT("this_class"),
   TEXT("this_code"),
+  TEXT("this_mind"),
   TEXT("true"),
   TEXT("unless"),
   TEXT("when"),
@@ -170,7 +171,19 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
     {
     // Find the substring overlay_name|*|
     FString search_text = overlay_name + TEXT("|");
-    int32 pos = ini_file_text.Find(search_text, ESearchCase::CaseSensitive);
+    int32 pos = 0;
+    int32 lf_pos = 0;
+    // Skip commented out lines
+    do
+      {
+      pos = ini_file_text.Find(search_text, ESearchCase::CaseSensitive, ESearchDir::FromStart, pos + 1);
+      if (pos >= 0)
+        {
+        // Make sure we are not on a commented out line
+        lf_pos = ini_file_text.Find(TEXT("\n"), ESearchCase::CaseSensitive, ESearchDir::FromEnd, pos);
+        }
+      } while (pos >= 0 && lf_pos >= 0 && ini_file_text[lf_pos + 1] == ';');
+
     if (pos >= 0)
       {
       pos += search_text.Len();
