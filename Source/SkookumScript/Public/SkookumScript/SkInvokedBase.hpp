@@ -77,21 +77,6 @@ enum eSkArgNum
   SkArg_20,
   };
 
-// Used with abort commands
-enum eSkNotify
-  {
-  SkNotify_ignore   = 0x0,  // Caller is not notified
-  SkNotify_fail     = 0x1,  // Caller notified that this sub-expression did not successfully complete
-  SkNotify_success  = 0x3   // Caller notified that this sub-expression successfully completed
-  };
-
-// Used with abort commands - also see eSkNotify 
-enum eSkNotifyChild
-  {
-  SkNotifyChild_detach  = 0x0,  // Child/sub calls ignore the fact that their caller is being aborted
-  SkNotifyChild_abort   = 0x1   // Abort child/sub calls
-  };
-
 //---------------------------------------------------------------------------------------
 
 typedef APArray<SkInstance> tSkInvokedDataArray;
@@ -181,12 +166,13 @@ class SK_API SkInvokedBase :
       static void mthd_abort_subcalls(SkInvokedMethod * scope_p, SkInstance ** result_pp);
       static void mthd_detach(SkInvokedMethod * scope_p, SkInstance ** result_pp);
       static void mthd_detach_subcalls(SkInvokedMethod * scope_p, SkInstance ** result_pp);
-      static void mthd_op_equals(SkInvokedMethod * scope_p, SkInstance ** result_pp);
-      static void mthd_op_not_equal(SkInvokedMethod * scope_p, SkInstance ** result_pp);
+      static void mthd_mind(SkInvokedMethod * scope_p, SkInstance ** result_pp);
       static void mthd_pending_increment(SkInvokedMethod * scope_p, SkInstance ** result_pp);
       static void mthd_pending_count(SkInvokedMethod * scope_p, SkInstance ** result_pp);
       static void mthd_pending_decrement(SkInvokedMethod * scope_p, SkInstance ** result_pp);
       static void mthd_validQ(SkInvokedMethod * scope_p, SkInstance ** result_pp);
+      static void mthd_op_equals(SkInvokedMethod * scope_p, SkInstance ** result_pp);
+      static void mthd_op_not_equal(SkInvokedMethod * scope_p, SkInstance ** result_pp);
 
   protected:
 
@@ -206,7 +192,7 @@ class SK_API SkInvokedBase :
 //---------------------------------------------------------------------------------------
 // Invoked object to wrap around expressions that are durational.
 // This includes code blocks `[ ]` SkCode, `loop` SkLoop, `race` SkConcurrentRace,
-// `sync` SkConcurrentSync, `divert` SkDivert, invoke sync calls `list%do_stuff`
+// `sync` SkConcurrentSync, `change` SkChangeMind, invoke sync calls `list%do_stuff`
 // SkInvokeSync, invoke race calls `list%do_stuff` SkInvokeRace and cascade calls
 // `obj.[do_this do_that do_other]` SkInvokeCascade
 // Author(s)  Conan Reis

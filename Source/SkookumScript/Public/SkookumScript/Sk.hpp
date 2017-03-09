@@ -119,14 +119,14 @@
 #endif
 #define SK_API SKOOKUMSCRIPT_API
 #elif defined(SK_IS_DLL) // otherwise, DLL linkage control via SK_IS_DLL & SK_IS_BUILDING_SELF
-// Further down, we'll set A_DLLIMPORT and A_DLLEXPORT to platform-specific values
-#ifdef SK_IS_BUILDING_SELF
-#define SK_API A_DLLEXPORT
-#else
-#define SK_API A_DLLIMPORT
-#endif
+  // Further down, we'll set A_DLLIMPORT and A_DLLEXPORT to platform-specific values
+  #ifdef SK_IS_BUILDING_SELF
+    #define SK_API A_DLLEXPORT
+  #else
+    #define SK_API A_DLLIMPORT
+  #endif
 #else // SkookumScript is a static library
-#define SK_API
+  #define SK_API
 #endif
 
 //---------------------------------------------------------------------------------------
