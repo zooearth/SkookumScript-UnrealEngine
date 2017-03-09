@@ -23,7 +23,7 @@ namespace UnrealBuildTool.Rules
 {
   public class SkookumScriptEditorGUI : ModuleRules
   {
-    public SkookumScriptEditorGUI(TargetInfo Target)
+    public SkookumScriptEditorGUI(ReadOnlyTargetRules Target) : base(Target)
     {
       // NOTE: SkookumScriptEditorGUI does not use the AgogCore or SkookumScript libraries
 

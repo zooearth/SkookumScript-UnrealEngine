@@ -26,7 +26,7 @@ using UnrealBuildTool;
 
 public class AgogCore : ModuleRules
 {
-  public AgogCore(TargetInfo Target)
+  public AgogCore(ReadOnlyTargetRules Target) : base(Target)
   {
     // Check if Sk source code is present (Pro-RT license) 
     var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "..", "SkookumScript", "Private", "SkookumScript", "Sk.cpp"));
@@ -116,7 +116,7 @@ public class AgogCore : ModuleRules
         platPathSuffixes.Add(platformName);
         useDebugCRT = true;
         Definitions.Add("A_PLAT_LINUX64");
-        UEBuildConfiguration.bForceEnableExceptions = true;
+        //UEBuildConfiguration.bForceEnableExceptions = true;
         break;
     }
 
@@ -144,7 +144,7 @@ public class AgogCore : ModuleRules
     }
 
     // Determine if monolithic build
-    var bIsMonolithic = (!Target.bIsMonolithic.HasValue || (bool)Target.bIsMonolithic); // Assume monolithic if not specified
+    var bIsMonolithic = (Target.LinkType == TargetLinkType.Monolithic);
 
     if (!bIsMonolithic)
     {

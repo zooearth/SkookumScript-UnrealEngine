@@ -25,7 +25,7 @@ namespace UnrealBuildTool.Rules
 {
   public class SkookumScriptGenerator : ModuleRules
   {
-    public SkookumScriptGenerator(TargetInfo Target)
+    public SkookumScriptGenerator(ReadOnlyTargetRules Target) : base(Target)
     {			
       // Tell build system we're not using PCHs
       PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;

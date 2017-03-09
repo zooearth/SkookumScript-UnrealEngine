@@ -27,7 +27,7 @@ using UnrealBuildTool;
 
 public class SkookumScript : ModuleRules
 {
-  public SkookumScript(TargetInfo Target)
+  public SkookumScript(ReadOnlyTargetRules Target) : base(Target)
   { 
     // Check if Sk source code is present (Pro-RT license) 
     var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "Private", "SkookumScript", "Sk.cpp"));
@@ -89,7 +89,7 @@ public class SkookumScript : ModuleRules
         platformName = "Linux";
         platPathSuffixes.Add(platformName);
         useDebugCRT = true;
-        UEBuildConfiguration.bForceEnableExceptions = true;
+        //UEBuildConfiguration.bForceEnableExceptions = true;
         break;
     }
 
@@ -115,7 +115,7 @@ public class SkookumScript : ModuleRules
     }
 
     // Determine if monolithic build
-    var bIsMonolithic = (!Target.bIsMonolithic.HasValue || (bool)Target.bIsMonolithic); // Assume monolithic if not specified
+    var bIsMonolithic = (Target.LinkType == TargetLinkType.Monolithic);
 
     if (!bIsMonolithic)
     {

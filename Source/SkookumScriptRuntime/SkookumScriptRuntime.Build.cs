@@ -27,7 +27,7 @@ namespace UnrealBuildTool.Rules
 {
   public class SkookumScriptRuntime : ModuleRules
   {
-    public SkookumScriptRuntime(TargetInfo Target)
+    public SkookumScriptRuntime(ReadOnlyTargetRules Target) : base(Target)
     {
 
       // SkUEBindings.cpp takes a long time to compile due to auto-generated engine bindings
