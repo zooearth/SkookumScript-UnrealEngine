@@ -65,6 +65,7 @@ class SK_API SkInvokedMethod : public SkInvokedContextBase
 
       virtual eSkMember         get_invoke_type() const;
       virtual SkInvokableBase * get_invokable() const;
+      virtual SkMind *          get_updater() const;
 
       #if defined(SK_AS_STRINGS)
         virtual AString  as_string_debug() const;
