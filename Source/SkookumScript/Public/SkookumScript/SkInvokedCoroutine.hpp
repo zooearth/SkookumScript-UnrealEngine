@@ -118,7 +118,6 @@ class SK_API SkInvokedCoroutine :
     
     const ASymbol &         get_name() const;
     const SkCoroutineBase & get_coroutine() const;
-    virtual SkMind *        get_updater() const;
     void                    reset(f32 update_interval, SkInvokedBase * caller_p, SkInstance * scope_p, SkMind * updater_p = nullptr, const APCompactArray<SkIdentifierLocal> * rargs_p = nullptr);
     void                    set_coroutine(const SkCoroutineBase & coroutine);
 
@@ -130,6 +129,7 @@ class SK_API SkInvokedCoroutine :
     virtual void              pending_schedule(bool completed = true);
     virtual eSkMember         get_invoke_type() const;
     virtual SkInvokableBase * get_invokable() const;
+    virtual SkMind *          get_updater() const;
 
     #if (SKOOKUM & SK_DEBUG)
       virtual bool is_in_use() const                        { return is_valid_id() && ((m_flags & Flag_tracked_mask) != 0u); }
