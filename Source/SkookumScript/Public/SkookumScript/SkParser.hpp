@@ -113,7 +113,7 @@ loop-exit        = 'exit' [ws instance-name]
 sync-block       = 'sync' ws code-block
 race-block       = 'race' ws code-block
 branch-block     = 'branch' ws expression
-change-mind      = 'change' [ws expression] ws expression
+change-mind      = 'change' ws expression ws expression
 class-cast       = expression ws '<>' [class-desc]
 class-conversion = expression ws '>>' [convert-name]
 convert-name     = class
@@ -391,6 +391,7 @@ class SK_API SkParser : public AString
       Result_err_expected_meta_value,         // * Expected a particular type of class meta value and did not get it.
       Result_err_expected_method_ctor_name,   // A constructor method name must begin with an exclamation mark '!' and be optionally followed by an identifier starting with a lowercase letter.
       Result_err_expected_method_name,        // A method name must begin with a lowercase letter or an exclamation mark '!'
+      Result_err_expected_mind,               // Expected an expression of type Mind.
       Result_err_expected_named_arg,          // Expected a named argument specifier identifier# and did not find one.
       Result_err_expected_op_index_end,       // Expected index operator ending curly bracket/brace `}` and did not find one.
       Result_err_expected_operator,           // Expected an operator method call, but did not find one
