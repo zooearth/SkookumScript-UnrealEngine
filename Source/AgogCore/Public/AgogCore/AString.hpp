@@ -329,8 +329,8 @@ class A_API AString
     f32          as_float32(uint32_t start_pos = 0u, uint32_t * stop_pos_p = nullptr) const;
     int          as_int(uint32_t start_pos = 0u, uint32_t * stop_pos_p = nullptr, uint32_t base = AString_determine_base) const;
     uint         as_uint(uint32_t start_pos = 0u, uint32_t * stop_pos_p = nullptr, uint32_t base = AString_determine_base) const;
-    uint32_t     as_crc32(uint32_t prev_crc = UINT32_MAX) const;
-    uint32_t     as_crc32_upper(uint32_t prev_crc = UINT32_MAX) const;
+    uint32_t     as_crc32(uint32_t prev_crc = 0u) const;
+    uint32_t     as_crc32_upper(uint32_t prev_crc = 0u) const;
      
     AString &    operator=(const char * cstr_p);
 
