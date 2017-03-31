@@ -158,9 +158,10 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
   // So all we should have to do is loop forward and skip the occasional non-exported UE4 property
   UProperty * ue_var_p = nullptr;
   FString ue_var_name;
-  ASymbol ue_var_name_sk;
+  AString sk_var_name;
   TFieldIterator<UProperty> property_it(ue_struct_or_class_p, EFieldIteratorFlags::ExcludeSuper);
   tSkTypedNameRawArray & raw_data = class_p->get_instance_data_raw_for_resolving();
+  bool is_all_resolved = true;
   for (auto var_p : raw_data)
     {
     // Skip variable if already resolved
@@ -170,26 +171,26 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
       }
 
     // Try to find it in the UE4 reflection data
+    bool found_match = false;
     while (property_it)
       {
       ue_var_p = *property_it;
-      ue_var_name = ue_var_p->GetName();
-      bool is_boolean = ue_var_p->IsA(UBoolProperty::StaticClass());
-      ue_var_name_sk = ASymbol::create_existing(FStringToAString(FSkookumScriptGeneratorBase::skookify_var_name(ue_var_name, is_boolean, FSkookumScriptGeneratorBase::VarScope_instance)));
-      // If it's unknown it might be due to case insensitivity of FName - check if it's a boolean, and if so, swap case
-      if (ue_var_name_sk.is_null() && is_boolean && ue_var_name.Len() >= 2 && ue_var_name[0] == TCHAR('B'))
+      ++property_it;
+      ue_var_p->GetName(ue_var_name);
+      sk_var_name = var_p->get_name_str();
+      found_match = FSkookumScriptGeneratorBase::compare_var_name_skookified(*ue_var_name, sk_var_name.as_cstr());
+      // If it's unknown it might be due to case insensitivity of FName - e.g. "Blocked" might really be "bLocked"
+      if (!found_match && ue_var_p->IsA(UBoolProperty::StaticClass()) && ue_var_name.Len() >= 2 && ue_var_name[0] == 'B')
         {
-        // E.g. "Blocked" might really be "bLocked"
         ue_var_name[0] = FChar::ToLower(ue_var_name[0]);
         ue_var_name[1] = FChar::ToUpper(ue_var_name[1]);
-        ue_var_name_sk = ASymbol::create_existing(FStringToAString(FSkookumScriptGeneratorBase::skookify_var_name(ue_var_name, is_boolean, FSkookumScriptGeneratorBase::VarScope_instance)));
+        found_match = FSkookumScriptGeneratorBase::compare_var_name_skookified(*ue_var_name, sk_var_name.as_cstr());
         }
-      ++property_it;
-      if (var_p->get_name() == ue_var_name_sk) break;
+      if (found_match) break;
       }
 
     // Store raw data info in the raw data member object
-    if (var_p->get_name() == ue_var_name_sk)
+    if (found_match)
       {
       var_p->m_raw_data_info = compute_raw_data_info(ue_var_p);
       }
@@ -201,30 +202,19 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
       // Which means binaries would be recompiled and reloaded once more, fixing this issue
       // So make sure this assumption is true
       SK_ASSERTX(FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>("SkookumScriptRuntime")->is_freshen_binaries_pending(), a_str_format("Sk Variable '%s.%s' not found in UE4 reflection data.", class_p->get_name_cstr_dbg(), var_p->get_name_cstr()));
+      is_all_resolved = false;
       }
     }
+  // Remember if all raw data was resolved
+  class_p->set_raw_data_resolved(is_all_resolved);
   }
 
 //---------------------------------------------------------------------------------------
 // Resolve the raw data info of each raw data member of the given class
 bool SkUEClassBindingHelper::resolve_raw_data_static(SkClass * class_p)
   {
-  // By default, inherit raw pointer and accessor functions from super class
-  SkClass * super_class_p = class_p->get_superclass();
-  if (super_class_p)
-    {
-    if (!class_p->get_raw_pointer_func())
-      {
-      class_p->register_raw_pointer_func(super_class_p->get_raw_pointer_func());
-      }
-    if (!class_p->get_raw_accessor_func())
-      {
-      class_p->register_raw_accessor_func(super_class_p->get_raw_accessor_func());
-      }
-    }
-
-  // If there's nothing to resolve, we're done!
-  if (class_p->get_instance_data_raw().is_empty())
+  // Resolve function pointers and determine if there's anything to do
+  if (!resolve_raw_data_funcs(class_p))
     {
     return true;
     }
@@ -252,6 +242,26 @@ bool SkUEClassBindingHelper::resolve_raw_data_static(SkClass * class_p)
 void SkUEClassBindingHelper::resolve_raw_data_struct(SkClass * class_p, const TCHAR * ue_struct_name_p)
   {
   resolve_raw_data(class_p, FindObjectChecked<UScriptStruct>(UObject::StaticClass()->GetOutermost(), ue_struct_name_p, false));
+  }
+
+//---------------------------------------------------------------------------------------
+// Returns if there's anything to resolve
+bool SkUEClassBindingHelper::resolve_raw_data_funcs(SkClass * class_p)
+  {
+  // By default, inherit raw pointer and accessor functions from super class
+  if (!class_p->get_raw_pointer_func())
+    {
+    class_p->register_raw_pointer_func(class_p->get_raw_pointer_func_inherited());
+    }
+  if (!class_p->get_raw_accessor_func())
+    {
+    class_p->register_raw_accessor_func(class_p->get_raw_accessor_func_inherited());
+    }
+
+  // Return if there's anything to resolve
+  bool has_no_raw_data = class_p->get_instance_data_raw().is_empty();
+  class_p->set_raw_data_resolved(has_no_raw_data);
+  return !has_no_raw_data;
   }
 
 //---------------------------------------------------------------------------------------
@@ -302,6 +312,22 @@ tSkRawDataInfo SkUEClassBindingHelper::compute_raw_data_info(UProperty * ue_var_
 // Get a raw pointer to the underlying UObject of a Sk Entity
 void * SkUEClassBindingHelper::get_raw_pointer_entity(SkInstance * obj_p)
   {
+  #if WITH_EDITORONLY_DATA
+    // In editor, due to unreliable delegate callbacks, try a JIT resolve of unresolved classes
+    SkClass * sk_class_p = obj_p->get_class();
+    if (!sk_class_p->is_raw_data_resolved())
+      {
+      if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p))
+        {
+        UClass * ue_class_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(sk_class_p);
+        if (ue_class_p)
+          {
+          SkUEClassBindingHelper::resolve_raw_data(sk_class_p, ue_class_p);
+          }
+        }
+      }
+  #endif
+
   return obj_p->as<SkUEEntity>().get_obj();
   }
 

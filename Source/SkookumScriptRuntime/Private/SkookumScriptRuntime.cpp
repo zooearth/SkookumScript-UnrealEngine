@@ -526,28 +526,12 @@ void FSkookumScriptRuntime::PostLoadCallback()
 //---------------------------------------------------------------------------------------
 void FSkookumScriptRuntime::on_post_engine_init()
   {
-  #if !WITH_EDITOR
-    // If WITH_EDITOR is enabled, reexpose_all_to_blueprints() happens in on_editor_map_opened()
-    if (m_runtime.is_compiled_scripts_loaded())
-      {
-      // Expose to blueprints once more
-      // So exposed Sk routines can be attached to more derived static classes if applicable
-      // We do this here as the engine needs to be present for the graph nodes to be properly rebuilt
-      m_runtime.reexpose_all_to_blueprints(true);
-      }
-  #endif
   }
 
 //---------------------------------------------------------------------------------------
 void FSkookumScriptRuntime::on_world_init_pre(UWorld * world_p, const UWorld::InitializationValues init_vals)
   {
   //A_DPRINT("on_world_init_pre: %S %p\n", *world_p->GetName(), world_p);
-
-  // Make sure atomics are bound by now
-  if (m_runtime.is_compiled_scripts_loaded() && !m_runtime.is_compiled_scripts_bound())
-    {
-    m_runtime.bind_compiled_scripts();
-    }
 
   // Use this callback as an opportunity to take care of connecting to the IDE
   #ifdef SKOOKUM_REMOTE_UNREAL
@@ -556,6 +540,16 @@ void FSkookumScriptRuntime::on_world_init_pre(UWorld * world_p, const UWorld::In
       m_remote_client.attempt_connect(0.0, true, true);
       }
   #endif  
+
+  // When the first world is initialized, do some last minute binding
+  if (m_runtime.is_compiled_scripts_loaded() && !m_runtime.is_compiled_scripts_bound())
+    {
+    // Finish binding atomics now
+    m_runtime.bind_compiled_scripts();
+
+    // At this point, all bindings must be resolved
+    m_runtime.expose_all_blueprint_bindings(true);
+    }
 
   if (world_p->IsGameWorld())
     {
@@ -690,7 +684,7 @@ void FSkookumScriptRuntime::ShutdownModule()
 void FSkookumScriptRuntime::set_project_generated_bindings(SkUEBindingsInterface * project_generated_bindings_p)
   {
   // If we got bindings, make sure things are initialized
-  if (project_generated_bindings_p)
+  if (project_generated_bindings_p && !m_runtime.get_project_generated_bindings())
     {
     // Have we had any game bindings before?
     if (m_runtime.have_game_module())
@@ -704,11 +698,6 @@ void FSkookumScriptRuntime::set_project_generated_bindings(SkUEBindingsInterface
       // No, this is the first time bindings are set
       ensure_runtime_initialized();
       }
-
-    // Make sure the SkookumScriptEditor module is loaded at this point as it might need to update blueprint classes and recompile blueprints with errors
-    #if WITH_EDITORONLY_DATA
-      FModuleManager::Get().LoadModuleChecked<IModuleInterface>("SkookumScriptEditor");
-    #endif
     }
 
   // Now that binaries are loaded, point to the bindings to use
@@ -922,24 +911,6 @@ void FSkookumScriptRuntime::tick_remote()
         m_remote_client.cmd_incremental_update_reply(true, SkBrain::ms_session_guid, SkBrain::ms_revision);
         }
 
-      // After reloading, re-resolve the raw data of all dynamic classes
-      #if WITH_EDITORONLY_DATA
-        TArray<UObject*> blueprint_array;
-        GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array, true, RF_ClassDefaultObject);
-        for (UObject * obj_p : blueprint_array)
-          {
-          UBlueprint * blueprint_p = static_cast<UBlueprint *>(obj_p);
-          if (blueprint_p->GeneratedClass)
-            {
-            SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(blueprint_p->GeneratedClass);
-            if (sk_class_p)
-              {
-              SkUEClassBindingHelper::resolve_raw_data(sk_class_p, blueprint_p->GeneratedClass);
-              }
-            }
-          }
-      #endif
-
       if (is_first_time && is_skookum_initialized())
         {
         #if WITH_EDITOR
@@ -995,14 +966,6 @@ void FSkookumScriptRuntime::on_editor_map_opened()
 
   // When editor is present, initialize Sk here
   ensure_runtime_initialized();
-
-  if (m_runtime.is_compiled_scripts_loaded())
-    {
-    // Expose to blueprints once more
-    // So exposed Sk routines can be attached to more derived static classes if applicable
-    // We do this here as the engine needs to be present for the graph nodes to be properly rebuilt
-    m_runtime.reexpose_all_to_blueprints(true);
-    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -1109,7 +1072,10 @@ void FSkookumScriptRuntime::on_class_added_or_modified(UClass * ue_class_p, bool
   SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(ue_class_p);
   if (sk_class_p)
     {
-    SkUEClassBindingHelper::resolve_raw_data(sk_class_p, ue_class_p);
+    if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p))
+      {
+      SkUEClassBindingHelper::resolve_raw_data(sk_class_p, ue_class_p);
+      }
     }
   }
 

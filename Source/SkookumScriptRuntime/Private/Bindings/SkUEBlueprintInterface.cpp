@@ -57,7 +57,7 @@ SkUEBlueprintInterface::SkUEBlueprintInterface()
 
 SkUEBlueprintInterface::~SkUEBlueprintInterface()
   {
-  clear();
+  clear(nullptr);
 
   SK_ASSERTX_NO_THROW(ms_singleton_p == this, "There can be only one instance of this class.");
   ms_singleton_p = nullptr;
@@ -65,159 +65,441 @@ SkUEBlueprintInterface::~SkUEBlueprintInterface()
 
 //---------------------------------------------------------------------------------------
 
-void SkUEBlueprintInterface::clear()
+void SkUEBlueprintInterface::clear(tSkUEOnFunctionRemovedFromClassFunc * on_function_removed_from_class_f)
   {
+  #if WITH_EDITOR
+    // Remember affected classes
+    TArray<UClass *> affected_classes;
+    affected_classes.Reserve(m_binding_entry_array.get_length());
+  #endif
+
   // Destroy all UFunctions and UProperties we allocated
   for (uint32_t i = 0; i < m_binding_entry_array.get_length(); ++i)
     {
+    #if WITH_EDITOR
+      BindingEntry * binding_entry_p = m_binding_entry_array[i];
+      if (binding_entry_p)
+        {
+        UClass * ue_class_p = binding_entry_p->m_ue_class_p.Get();
+        if (ue_class_p)
+          {
+          affected_classes.AddUnique(ue_class_p);
+          }
+        }
+    #endif
     delete_binding_entry(i);
     }
 
-  // And forget pointers to them 
-  m_binding_entry_array.empty();
-  }
-
-//---------------------------------------------------------------------------------------
-
-void SkUEBlueprintInterface::clear_all_sk_invokables()
-  {
-  for (BindingEntry * binding_entry_p : m_binding_entry_array)
-    {
-    binding_entry_p->m_sk_invokable_p = nullptr;
-    }
-  }
-
-//---------------------------------------------------------------------------------------
-
-UClass * SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final)
-  {
-  UClass * ue_static_class_p = SkUEClassBindingHelper::get_static_ue_class_from_sk_class_super(sk_class_p);
-  bool anything_changed = false;
-  if (ue_static_class_p)
-    {
-    anything_changed = reexpose_class(sk_class_p, ue_static_class_p, on_class_updated_f, is_final);
-    }
-
-  // Clear parent class function cache if exists
-  // as otherwise it might have cached a nullptr which might cause it to never find newly added functions
-  #if WITH_EDITORONLY_DATA
-    if (anything_changed)
+  #if WITH_EDITOR
+    // Invoke callback for each affected class
+    if (on_function_removed_from_class_f)
       {
-      UClass * ue_class_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(sk_class_p);
-      if (ue_class_p)
+      for (UClass * ue_class_p : affected_classes)
         {
-        ue_class_p->ClearFunctionMapsCaches();
+        on_function_removed_from_class_f->invoke(ue_class_p);
         }
       }
   #endif
 
-  return ue_static_class_p;
+  // And forget pointers to them
+  m_binding_entry_array.empty();
   }
 
 //---------------------------------------------------------------------------------------
-
-bool SkUEBlueprintInterface::reexpose_class(SkClass * sk_class_p, UClass * ue_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final)
+// Build list of all &blueprint annotated routines, but do not bind them to UE4 yet
+bool SkUEBlueprintInterface::sync_all_bindings_from_binary(tSkUEOnFunctionRemovedFromClassFunc * on_function_removed_from_class_f)
   {
-  // Keep track of changes
-  int32_t change_count = 0;
-
-  // Find existing methods of this class and mark them for delete
-  for (uint32_t i = 0; i < m_binding_entry_array.get_length(); ++i)
+  // Mark all bindings for delete
+  for (BindingEntry * binding_entry_p : m_binding_entry_array)
     {
-    BindingEntry * binding_entry_p = m_binding_entry_array[i];
-    if (binding_entry_p && binding_entry_p->m_sk_invokable_p->get_scope() == sk_class_p)
+    if (binding_entry_p)
       {
-      binding_entry_p->m_marked_for_delete = true;
-      ++change_count;
+      binding_entry_p->m_marked_for_delete_all = true;
       }
     }
 
-  // Gather new methods/events
-  for (auto method_p : sk_class_p->get_instance_methods())
-    {
-    change_count += int32_t(try_add_binding_entry(ue_class_p, method_p, is_final) >= 0);
-    }
-  for (auto method_p : sk_class_p->get_class_methods())
-    {
-    change_count += int32_t(try_add_binding_entry(ue_class_p, method_p, is_final) >= 0);
-    }
-  for (auto coroutine_p : sk_class_p->get_coroutines())
-    {
-    change_count += int32_t(try_add_binding_entry(ue_class_p, coroutine_p, is_final) >= 0);
-    }
+  // Traverse Sk classes and gather methods that want to be exposed
+  bool anything_changed = sync_bindings_from_binary_recursively(SkUEEntity::get_class(), on_function_removed_from_class_f);
+
+  #if WITH_EDITOR
+    // Remember affected classes
+    TArray<UClass *> affected_classes;
+    affected_classes.Reserve(m_binding_entry_array.get_length());
+  #endif
 
   // Now go and delete anything still marked for delete
   for (uint32_t i = 0; i < m_binding_entry_array.get_length(); ++i)
     {
     BindingEntry * binding_entry_p = m_binding_entry_array[i];
-    if (binding_entry_p && binding_entry_p->m_marked_for_delete)
+    if (binding_entry_p && binding_entry_p->m_marked_for_delete_all)
       {
+      #if WITH_EDITOR
+        UClass * ue_class_p = binding_entry_p->m_ue_class_p.Get();
+        if (ue_class_p)
+          {
+          affected_classes.AddUnique(ue_class_p);
+          }
+      #endif
       delete_binding_entry(i);
+      anything_changed = true;
       }
     }
 
-  // Invoke callback if anything changed
-  if (on_class_updated_f && change_count > 0)
-    {
-    on_class_updated_f->invoke(ue_class_p);
-    }
-
-  return (change_count > 0);
-  }
-
-//---------------------------------------------------------------------------------------
-
-void SkUEBlueprintInterface::reexpose_class_recursively(SkClass * sk_class_p, tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final)
-  {
-  if (reexpose_class(sk_class_p, on_class_updated_f, is_final))
-    {
-    // Gather sub classes
-    const tSkClasses & sub_classes = sk_class_p->get_subclasses();
-    for (uint32_t i = 0; i < sub_classes.get_length(); ++i)
+  #if WITH_EDITOR
+    // Invoke callback for each affected class
+    if (on_function_removed_from_class_f)
       {
-      reexpose_class_recursively(sub_classes[i], on_class_updated_f, is_final);
+      for (UClass * ue_class_p : affected_classes)
+        {
+        on_function_removed_from_class_f->invoke(ue_class_p);
+        }
       }
-    }
+  #endif
+
+  return anything_changed;
   }
 
 //---------------------------------------------------------------------------------------
-
-void SkUEBlueprintInterface::reexpose_all(tSkUEOnClassUpdatedFunc * on_class_updated_f, bool is_final)
+// Bind all routines in the binding list to UE4 by generating UFunction objects
+bool SkUEBlueprintInterface::sync_bindings_from_binary(SkClass * sk_class_p, tSkUEOnFunctionRemovedFromClassFunc * on_function_removed_from_class_f)
   {
-  // Clear out old mappings
-  clear();
+  // Keep track of changes
+  int32_t change_count = 0;
 
-  // Traverse Sk classes and gather methods that want to be exposed
-  reexpose_class_recursively(SkUEEntity::get_class(), on_class_updated_f, is_final);
-  }
-
-//---------------------------------------------------------------------------------------
-
-void SkUEBlueprintInterface::rebind_all_sk_invokables()
-  {
+  // Find existing methods of this class and mark them for delete
   for (BindingEntry * binding_entry_p : m_binding_entry_array)
     {
-    SkClass * sk_class_p = SkBrain::get_class(binding_entry_p->m_sk_class_name);
-    SK_ASSERTX(sk_class_p, a_str_format("Could not find class `%s` while rebinding Blueprint exposed routines to new compiled binary.", binding_entry_p->m_sk_class_name.as_cstr()));
-    if (sk_class_p)
+    if (binding_entry_p && binding_entry_p->m_sk_class_name == sk_class_p->get_name())
       {
-      SkInvokableBase * sk_invokable_p;
-      if (binding_entry_p->m_is_class_member)
+      binding_entry_p->m_marked_for_delete_class = true;
+      }
+    }
+
+  // Gather new functions/events
+  for (auto method_p : sk_class_p->get_instance_methods())
+    {
+    change_count += (int32_t)try_add_binding_entry(method_p);
+    }
+  for (auto method_p : sk_class_p->get_class_methods())
+    {
+    change_count += (int32_t)try_add_binding_entry(method_p);
+    }
+  for (auto coroutine_p : sk_class_p->get_coroutines())
+    {
+    change_count += (int32_t)try_add_binding_entry(coroutine_p);
+    }
+
+  // Now go and delete anything still marked for delete
+  uint32_t delete_count = 0;
+  #if WITH_EDITOR
+    UClass * ue_class_p = nullptr;
+  #endif
+  for (uint32_t i = 0; i < m_binding_entry_array.get_length(); ++i)
+    {
+    BindingEntry * binding_entry_p = m_binding_entry_array[i];
+    if (binding_entry_p && binding_entry_p->m_marked_for_delete_class)
+      {
+      #if WITH_EDITOR
+        if (binding_entry_p->m_ue_class_p.IsValid())
+          {
+          ue_class_p = binding_entry_p->m_ue_class_p.Get();
+          }
+      #endif
+      delete_binding_entry(i);
+      ++delete_count;
+      }
+    }
+
+  #if WITH_EDITOR
+    if (ue_class_p && on_function_removed_from_class_f)
+      {
+      on_function_removed_from_class_f->invoke(ue_class_p);
+      }
+  #endif
+
+  return (change_count + delete_count > 0);
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool SkUEBlueprintInterface::sync_bindings_from_binary_recursively(SkClass * sk_class_p, tSkUEOnFunctionRemovedFromClassFunc * on_function_removed_from_class_f)
+  {
+  // Sync this class
+  bool anything_changed = sync_bindings_from_binary(sk_class_p, on_function_removed_from_class_f);
+
+  // Gather sub classes
+  for (SkClass * sk_subclass_p : sk_class_p->get_subclasses())
+    {
+    anything_changed |= sync_bindings_from_binary_recursively(sk_subclass_p, on_function_removed_from_class_f);
+    }
+
+  return anything_changed;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool SkUEBlueprintInterface::try_add_binding_entry(SkInvokableBase * sk_invokable_p)
+  {
+  // Only look at methods that are annotated as blueprint
+  if (sk_invokable_p->get_annotation_flags() & SkAnnotation_ue4_blueprint)
+    {
+    // If it's a method with no body...
+    if (sk_invokable_p->get_invoke_type() == SkInvokable_method_func
+     || sk_invokable_p->get_invoke_type() == SkInvokable_method_mthd)
+      { // ...it's an event
+      return add_event_entry(static_cast<SkMethodBase *>(sk_invokable_p));
+      }
+    else if (sk_invokable_p->get_invoke_type() == SkInvokable_method
+          || sk_invokable_p->get_invoke_type() == SkInvokable_coroutine)
+      { // ...otherwise it's a function/coroutine
+      return add_function_entry(sk_invokable_p);
+      }
+    else
+      {
+      SK_ERRORX(a_str_format("Trying to export coroutine %s to Blueprints which is atomic. Currently only scripted coroutines can be invoked via Blueprints.", sk_invokable_p->get_name_cstr()));
+      }
+    }
+
+  // Nothing changed
+  return false;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool SkUEBlueprintInterface::try_update_binding_entry(SkInvokableBase * sk_invokable_p, int32_t * out_binding_index_p)
+  {
+  SK_ASSERTX(out_binding_index_p, "Must be non-null");
+
+  const tSkParamList & param_list = sk_invokable_p->get_params().get_param_list();
+
+  // See if we find any compatible entry already present:  
+  for (int32_t binding_index = 0; binding_index < (int32_t)m_binding_entry_array.get_length(); ++binding_index)
+    {
+    BindingEntry * binding_entry_p = m_binding_entry_array[binding_index];
+    if (binding_entry_p
+     && binding_entry_p->m_sk_invokable_name == sk_invokable_p->get_name()
+     && binding_entry_p->m_sk_class_name     == sk_invokable_p->get_scope()->get_name()
+     && binding_entry_p->m_is_class_member   == sk_invokable_p->is_class_member())
+      {
+      // There is no overloading in SkookumScript
+      // Therefore if the above matches we found our slot
+      *out_binding_index_p = binding_index;
+
+      // Can't update if signatures don't match
+      if (binding_entry_p->m_num_params != param_list.get_length())
         {
-        sk_invokable_p = sk_class_p->get_class_methods().get(binding_entry_p->m_sk_invokable_name);
+        return false;
+        }
+      if (binding_entry_p->m_type == BindingType_Function)
+        {
+        FunctionEntry * function_entry_p = static_cast<FunctionEntry *>(binding_entry_p);
+        if (!have_identical_signatures(param_list, function_entry_p->get_param_entry_array())
+         || function_entry_p->m_result_type.m_sk_class_name != sk_invokable_p->get_params().get_result_class()->get_key_class()->get_name())
+          {
+          return false;
+          }
         }
       else
         {
-        sk_invokable_p = sk_class_p->get_instance_methods().get(binding_entry_p->m_sk_invokable_name);
-        if (!sk_invokable_p)
+        if (!have_identical_signatures(param_list, static_cast<EventEntry *>(binding_entry_p)->get_param_entry_array()))
           {
-          sk_invokable_p = sk_class_p->get_coroutines().get(binding_entry_p->m_sk_invokable_name);
+          return false;
           }
+
+        // For events, remember which binding index to invoke...
+        sk_invokable_p->set_user_data(binding_index);
+        // ...and which atomic function to use
+        bind_event_method(static_cast<SkMethodBase *>(sk_invokable_p));
         }
-      SK_ASSERTX(sk_invokable_p, a_str_format("Could not find routine `%s@%s` while rebinding Blueprint exposed routines to new compiled binary.", binding_entry_p->m_sk_invokable_name.as_cstr(), binding_entry_p->m_sk_class_name.as_cstr()));
-      binding_entry_p->m_sk_invokable_p = sk_invokable_p;
+
+      // We're good to update
+      binding_entry_p->m_sk_invokable_p = sk_invokable_p; // Update Sk method pointer
+      binding_entry_p->m_marked_for_delete_class = false; // Keep around
+      binding_entry_p->m_marked_for_delete_all = false; // Keep around
+      return true; // Successfully updated
       }
     }
+
+  // No matching entry found at all
+  *out_binding_index_p = -1;
+  return false;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool SkUEBlueprintInterface::add_function_entry(SkInvokableBase * sk_invokable_p)
+  {
+  // Check if this binding already exists, and if so, just update it
+  int32_t binding_index;
+  if (try_update_binding_entry(sk_invokable_p, &binding_index))
+    {
+    return false; // Nothing changed
+    }
+  if (binding_index >= 0)
+    {
+    delete_binding_entry(binding_index);
+    }
+
+  // Parameters of the method we are creating
+  const SkParameters & params = sk_invokable_p->get_params();
+  const tSkParamList & param_list = params.get_param_list();
+  uint32_t num_params = param_list.get_length();
+
+  // Allocate binding entry
+  FunctionEntry * function_entry_p = new(FMemory::Malloc(sizeof(FunctionEntry) + num_params * sizeof(SkParamEntry))) FunctionEntry(sk_invokable_p, num_params, params.get_result_class()->get_key_class());
+
+  // Initialize parameters
+  for (uint32_t i = 0; i < num_params; ++i)
+    {
+    const SkParameterBase * input_param = param_list[i];
+    new (&function_entry_p->get_param_entry_array()[i]) SkParamEntry(input_param->get_name(), input_param->get_expected_type()->get_key_class());
+    }
+
+  // Store binding entry in array
+  store_binding_entry(function_entry_p, binding_index);
+
+  // This entry changed
+  return true;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool SkUEBlueprintInterface::add_event_entry(SkMethodBase * sk_method_p)
+  {
+  // Check if this binding already exists, and if so, just update it
+  int32_t binding_index;
+  if (try_update_binding_entry(sk_method_p, &binding_index))
+    {
+    return false; // Nothing changed
+    }
+  if (binding_index >= 0)
+    {
+    delete_binding_entry(binding_index);
+    }
+
+  // Parameters of the method we are creating
+  const SkParameters & params = sk_method_p->get_params();
+  const tSkParamList & param_list = params.get_param_list();
+  uint32_t num_params = param_list.get_length();
+
+  // Bind Sk method
+  bind_event_method(sk_method_p);
+
+  // Allocate binding entry
+  EventEntry * event_entry_p = new(FMemory::Malloc(sizeof(EventEntry) + num_params * sizeof(K2ParamEntry))) EventEntry(sk_method_p, num_params);
+
+  // Initialize parameters
+  for (uint32_t i = 0; i < num_params; ++i)
+    {
+    const SkParameterBase * input_param = param_list[i];
+    new (&event_entry_p->get_param_entry_array()[i]) K2ParamEntry(input_param->get_name(), input_param->get_expected_type()->get_key_class());
+    }
+
+  // Store binding entry in array
+  store_binding_entry(event_entry_p, binding_index);
+
+  // This entry changed
+  return true;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool SkUEBlueprintInterface::expose_binding_entry(uint32_t binding_index, tSkUEOnFunctionUpdatedFunc * on_function_updated_f, bool is_final)
+  {
+  bool anything_changed = false;
+
+  BindingEntry * binding_entry_p = m_binding_entry_array[binding_index];
+  if (binding_entry_p)
+    {
+    // Only expose entries that have not already been exposed
+    if (!binding_entry_p->m_ue_function_p.IsValid())
+      {
+      // Find static UE class that we can attach this binding to
+      UClass * ue_static_class_p = SkUEClassBindingHelper::get_static_ue_class_from_sk_class_super(binding_entry_p->m_sk_invokable_p->get_scope());
+      if (ue_static_class_p)
+        {
+        anything_changed = true;
+
+        binding_entry_p->m_ue_class_p = ue_static_class_p;
+
+        // Now build UFunction
+        ParamInfo * param_info_array_p = a_stack_allocate(binding_entry_p->m_num_params + 1, ParamInfo);
+        UFunction * ue_function_p = build_ue_function(ue_static_class_p, binding_entry_p->m_sk_invokable_p, binding_entry_p->m_type, binding_index, param_info_array_p, is_final);
+
+        // Fill in the parameter information
+        if (ue_function_p)
+          {
+          binding_entry_p->m_ue_function_p = ue_function_p;
+
+          if (binding_entry_p->m_type == BindingType_Function)
+            {
+            FunctionEntry * function_entry_p = static_cast<FunctionEntry *>(binding_entry_p);
+
+            // Initialize parameters
+            for (uint32_t i = 0; i < binding_entry_p->m_num_params; ++i)
+              {
+              const ParamInfo & param_info = param_info_array_p[i];
+              SkParamEntry & param_entry = function_entry_p->get_param_entry_array()[i];
+              param_entry.m_byte_size = param_info.m_ue_param_p->GetSize();
+              param_entry.m_fetcher_p = param_info.m_k2_param_fetcher_p;
+              }
+
+            // And return parameter
+            const ParamInfo & return_info = param_info_array_p[binding_entry_p->m_num_params];
+            function_entry_p->m_result_type.m_byte_size = return_info.m_ue_param_p ? return_info.m_ue_param_p->GetSize() : 0;
+            function_entry_p->m_result_getter = return_info.m_sk_value_getter_p;
+            }
+          else
+            {
+            EventEntry * event_entry_p = static_cast<EventEntry *>(binding_entry_p);
+
+            // Initialize parameters
+            for (uint32_t i = 0; i < binding_entry_p->m_num_params; ++i)
+              {
+              const ParamInfo & param_info = param_info_array_p[i];
+              K2ParamEntry & param_entry = event_entry_p->get_param_entry_array()[i];
+              param_entry.m_byte_size = param_info.m_ue_param_p->GetSize();
+              param_entry.m_getter_p = param_info.m_sk_value_getter_p;
+              param_entry.m_offset = param_info.m_ue_param_p->GetOffset_ForUFunction();
+              }
+            }
+
+          // Clear parent class function cache if exists
+          // as otherwise it might have cached a nullptr which might cause it to never find newly added functions
+          #if WITH_EDITORONLY_DATA
+            UClass * ue_class_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(binding_entry_p->m_sk_invokable_p->get_scope());
+            if (ue_class_p)
+              {
+              ue_class_p->ClearFunctionMapsCaches();
+              }
+          #endif
+
+          // Invoke update callback if any
+          if (on_function_updated_f)
+            {
+            on_function_updated_f->invoke(ue_function_p, binding_entry_p->m_type == BindingType_Event);
+            }
+          }
+        }
+      }
+    }
+
+  return anything_changed;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool SkUEBlueprintInterface::expose_all_bindings(tSkUEOnFunctionUpdatedFunc * on_function_updated_f, bool is_final)
+  {
+  bool anything_changed = false;
+
+  // Loop through all bindings and generate their UFunctions
+  for (uint32_t binding_index = 0; binding_index < m_binding_entry_array.get_length(); ++binding_index)
+    {
+    anything_changed |= expose_binding_entry(binding_index, on_function_updated_f, is_final);
+    }
+
+  return anything_changed;
   }
 
 //---------------------------------------------------------------------------------------
@@ -424,192 +706,13 @@ bool SkUEBlueprintInterface::have_identical_signatures(const tSkParamList & para
     const TypedName & typed_name = param_array_p[i];
     const SkParameterBase * param_p = param_list[i];
     if (typed_name.m_name != param_p->get_name()
-     || typed_name.m_sk_class_p != param_p->get_expected_type()->get_key_class())
+     || typed_name.m_sk_class_name != param_p->get_expected_type()->get_key_class()->get_name())
       {
       return false;
       }
     }
 
   return true;
-  }
-
-//---------------------------------------------------------------------------------------
-
-bool SkUEBlueprintInterface::try_update_binding_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, int32_t * out_binding_index_p)
-  {
-  SK_ASSERTX(out_binding_index_p, "Must be non-null");
-
-  const tSkParamList & param_list = sk_invokable_p->get_params().get_param_list();
-
-  // See if we find any compatible entry already present:  
-  for (int32_t binding_index = 0; binding_index < (int32_t)m_binding_entry_array.get_length(); ++binding_index)
-    {
-    BindingEntry * binding_entry_p = m_binding_entry_array[binding_index];
-    if (binding_entry_p
-      && binding_entry_p->m_sk_invokable_name == sk_invokable_p->get_name()
-      && binding_entry_p->m_sk_class_name == sk_invokable_p->get_scope()->get_name()
-      && binding_entry_p->m_is_class_member == sk_invokable_p->is_class_member())
-      {
-      // There is no overloading in SkookumScript
-      // Therefore if the above matches we found our slot
-      *out_binding_index_p = binding_index;
-
-      // Don't update if UFunction is invalid or UClass no longer valid
-      if (!binding_entry_p->m_ue_function_p.IsValid() || binding_entry_p->m_ue_function_p.Get()->GetOwnerClass() != ue_class_p)
-        {
-        return false;
-        }
-
-      // Can't update if signatures don't match
-      if (binding_entry_p->m_num_params != param_list.get_length())
-        {
-        return false;
-        }
-      if (binding_entry_p->m_type == BindingType_Function)
-        {
-        FunctionEntry * function_entry_p = static_cast<FunctionEntry *>(binding_entry_p);
-        if (!have_identical_signatures(param_list, function_entry_p->get_param_entry_array())
-         || function_entry_p->m_result_type.m_sk_class_p != sk_invokable_p->get_params().get_result_class()->get_key_class())
-          {
-          return false;
-          }
-        }
-      else
-        {
-        if (!have_identical_signatures(param_list, static_cast<EventEntry *>(binding_entry_p)->get_param_entry_array()))
-          {
-          return false;
-          }
-
-        // For events, remember which binding index to invoke
-        sk_invokable_p->set_user_data(binding_index);
-        }
-
-      // We're good to update
-      binding_entry_p->m_sk_invokable_p = sk_invokable_p; // Update Sk method pointer
-      binding_entry_p->m_marked_for_delete = false; // Keep around
-      return true; // Successfully updated
-      }
-    }
-
-  // No matching entry found at all
-  *out_binding_index_p = -1;
-  return false;
-  }
-
-//---------------------------------------------------------------------------------------
-
-int32_t SkUEBlueprintInterface::try_add_binding_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, bool is_final)
-  {
-  // Only look at methods that are annotated as blueprint
-  if (sk_invokable_p->get_annotation_flags() & SkAnnotation_Blueprint)
-    {
-    // If it's a method with no body...
-    if (sk_invokable_p->get_invoke_type() == SkInvokable_method_func
-     || sk_invokable_p->get_invoke_type() == SkInvokable_method_mthd)
-      { // ...it's an event
-      return add_event_entry(ue_class_p, static_cast<SkMethodBase *>(sk_invokable_p), is_final);
-      }
-    else if (sk_invokable_p->get_invoke_type() == SkInvokable_method
-          || sk_invokable_p->get_invoke_type() == SkInvokable_coroutine)
-      { // ...otherwise it's a function/coroutine
-      return add_function_entry(ue_class_p, sk_invokable_p, is_final);
-      }
-    else
-      {
-      SK_ERRORX(a_str_format("Trying to export coroutine %s to Blueprints which is atomic. Currently only scripted coroutines can be invoked via Blueprints.", sk_invokable_p->get_name_cstr()));
-      }
-    }
-
-  return -1;
-  }
-
-//---------------------------------------------------------------------------------------
-
-int32_t SkUEBlueprintInterface::add_function_entry(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, bool is_final)
-  {
-  // Check if this binding already exists, and if so, just update it
-  int32_t binding_index;
-  if (try_update_binding_entry(ue_class_p, sk_invokable_p, &binding_index))
-    {
-    return binding_index;
-    }
-  if (binding_index >= 0)
-    {
-    delete_binding_entry(binding_index);
-    }
-
-  // Parameters of the method we are creating
-  const SkParameters & params = sk_invokable_p->get_params();
-  const tSkParamList & param_list = params.get_param_list();
-  uint32_t num_params = param_list.get_length();
-
-  // Create new UFunction
-  ParamInfo * param_info_array_p = a_stack_allocate(num_params + 1, ParamInfo);
-  UFunction * ue_function_p = build_ue_function(ue_class_p, sk_invokable_p, BindingType_Function, param_info_array_p, is_final);
-  if (!ue_function_p) return -1;
-
-  // Allocate binding entry
-  const ParamInfo & return_info = param_info_array_p[num_params];
-  bool has_return = return_info.m_ue_param_p != nullptr;
-  FunctionEntry * function_entry_p = new(FMemory::Malloc(sizeof(FunctionEntry) + num_params * sizeof(SkParamEntry)))
-    FunctionEntry(sk_invokable_p, ue_function_p, num_params, params.get_result_class()->get_key_class(), has_return ? return_info.m_ue_param_p->GetSize() : 0, return_info.m_sk_value_getter_p);
-
-  // Initialize parameters
-  for (uint32_t i = 0; i < num_params; ++i)
-    {
-    const SkParameterBase * input_param = param_list[i];
-    const ParamInfo & param_info = param_info_array_p[i];
-    new (&function_entry_p->get_param_entry_array()[i]) SkParamEntry(input_param->get_name(), param_info.m_ue_param_p->GetSize(), input_param->get_expected_type()->get_key_class(), param_info_array_p[i].m_k2_param_fetcher_p);
-    }
-
-  // Store binding entry in array
-  binding_index = store_binding_entry(function_entry_p, binding_index);
-  ue_function_p->RepOffset = uint16(binding_index); // Remember array index of method to call
-  return binding_index;
-  }
-
-//---------------------------------------------------------------------------------------
-
-int32_t SkUEBlueprintInterface::add_event_entry(UClass * ue_class_p, SkMethodBase * sk_method_p, bool is_final)
-  {
-  // Check if this binding already exists, and if so, just update it
-  int32_t binding_index;
-  if (try_update_binding_entry(ue_class_p, sk_method_p, &binding_index))
-    {
-    return binding_index;
-    }
-  if (binding_index >= 0)
-    {
-    delete_binding_entry(binding_index);
-    }
-
-  // Parameters of the method we are creating
-  const SkParameters & params = sk_method_p->get_params();
-  const tSkParamList & param_list = params.get_param_list();
-  uint32_t num_params = param_list.get_length();
-
-  // Create new UFunction
-  ParamInfo * param_info_array_p = a_stack_allocate(num_params + 1, ParamInfo);
-  UFunction * ue_function_p = build_ue_function(ue_class_p, sk_method_p, BindingType_Event, param_info_array_p, is_final);
-  if (!ue_function_p) return -1;
-
-  // Bind Sk method
-  bind_event_method(sk_method_p);
-
-  // Allocate binding entry
-  EventEntry * event_entry_p = new(FMemory::Malloc(sizeof(EventEntry) + num_params * sizeof(K2ParamEntry))) EventEntry(sk_method_p, ue_function_p, num_params);
-
-  // Initialize parameters
-  for (uint32_t i = 0; i < num_params; ++i)
-    {
-    const SkParameterBase * input_param = param_list[i];
-    const ParamInfo & param_info = param_info_array_p[i];
-    new (&event_entry_p->get_param_entry_array()[i]) K2ParamEntry(input_param->get_name(), param_info.m_ue_param_p->GetSize(), input_param->get_expected_type()->get_key_class(), param_info.m_sk_value_getter_p, static_cast<UProperty *>(param_info.m_ue_param_p)->GetOffset_ForUFunction());
-    }
-
-  // Store binding entry in array
-  return store_binding_entry(event_entry_p, binding_index);
   }
 
 //---------------------------------------------------------------------------------------
@@ -682,7 +785,7 @@ void SkUEBlueprintInterface::delete_binding_entry(uint32_t binding_index)
 //---------------------------------------------------------------------------------------
 // Params:
 //   out_param_info_array_p: Storage for info on each parameter, return value is stored behind the input parameters, and is zeroed if there is no return value
-UFunction * SkUEBlueprintInterface::build_ue_function(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, eBindingType binding_type, ParamInfo * out_param_info_array_p, bool is_final)
+UFunction * SkUEBlueprintInterface::build_ue_function(UClass * ue_class_p, SkInvokableBase * sk_invokable_p, eBindingType binding_type, uint32_t binding_index, ParamInfo * out_param_info_array_p, bool is_final)
   {
   // Build name of method including scope
   const char * invokable_name_p = sk_invokable_p->get_name_cstr();
@@ -695,7 +798,15 @@ UFunction * SkUEBlueprintInterface::build_ue_function(UClass * ue_class_p, SkInv
   FName qualified_invokable_fname(qualified_invokable_name.as_cstr());
 
   // Must not be already present
-  check(!ue_class_p->FindFunctionByName(qualified_invokable_fname));
+  #if WITH_EDITORONLY_DATA
+    UFunction * old_ue_function_p = ue_class_p->FindFunctionByName(qualified_invokable_fname);
+    if (old_ue_function_p)
+      {
+      ue_class_p->ClearFunctionMapsCaches();
+      old_ue_function_p = ue_class_p->FindFunctionByName(qualified_invokable_fname);
+      }
+    check(!old_ue_function_p);
+  #endif
 
   // Make UFunction object
   UFunction * ue_function_p = NewObject<UFunction>(ue_class_p, qualified_invokable_fname, RF_Public);
@@ -718,6 +829,7 @@ UFunction * SkUEBlueprintInterface::build_ue_function(UClass * ue_class_p, SkInv
         sk_invokable_p->get_scope()->get_name_cstr(), 
         sk_invokable_p->get_name_cstr()));
     #endif
+    ue_function_p->RepOffset = (uint16_t)binding_index; // Remember binding index here for later lookup
     }
   else // binding_type == BindingType_Event
     {
@@ -837,46 +949,25 @@ UProperty * SkUEBlueprintInterface::build_ue_param(UFunction * ue_function_p, Sk
     }
   else if (sk_parameter_class_p->get_key_class()->is_class(*SkUEEntity::get_class()))
     {
-    // Crawl up class hierarchy from current class to Entity and look for a match
-    UClass * uclass_p = nullptr;
-    bool is_superclass = false;
-    while (sk_parameter_class_p)
-      {
-      uclass_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(sk_parameter_class_p);
-      if (uclass_p || sk_parameter_class_p == SkUEEntity::get_class()) break;
-      SK_ASSERTX(!is_final || is_superclass, a_cstr_format("Class '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints is not a known engine class. Maybe it is the class of a Blueprint that is not loaded yet?", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
-      // If not final, keep looking for existing super classes as temp replacement just to get the Blueprint to compile
-      sk_parameter_class_p = sk_parameter_class_p->get_key_class()->get_superclass();
-      is_superclass = true;
-      }
-    if (uclass_p)
+    UClass * ue_class_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(sk_parameter_class_p);
+    SK_ASSERTX(ue_class_p || !is_final, a_cstr_format("Class '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints is not a known engine class. Maybe it is the class of a Blueprint that is not loaded yet?", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
+    if (ue_class_p)
       {
       property_p = NewObject<UObjectProperty>(ue_function_p, param_name, RF_Public);
-      static_cast<UObjectProperty *>(property_p)->PropertyClass = uclass_p;
+      static_cast<UObjectProperty *>(property_p)->PropertyClass = ue_class_p;
       k2_param_fetcher_p = &fetch_k2_param_entity;
       sk_value_getter_p = &get_sk_value_entity;
       }
     }
   else
     {
-    // Crawl up class hierarchy and look for a match
-    UStruct * ustruct_p = nullptr;
-    bool is_superclass = false;
-    while (sk_parameter_class_p)
-      {
-      ustruct_p = SkUEClassBindingHelper::get_static_ue_struct_from_sk_class(sk_parameter_class_p);    
-      if (ustruct_p) break;
-      // In final run we must have found the struct above, assert only once and keep looking for a super class
-      SK_ASSERTX(!is_final || is_superclass, a_cstr_format("Class '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints can not be mapped to a Blueprint-compatible type.", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
-      // If not final, keep looking for existing super classes as temp replacement just to get the Blueprint to compile
-      sk_parameter_class_p = sk_parameter_class_p->get_key_class()->get_superclass();
-      is_superclass = true;
-      }
-    if (ustruct_p)
+    UStruct * ue_struct_p = SkUEClassBindingHelper::get_static_ue_struct_from_sk_class(sk_parameter_class_p);
+    SK_ASSERTX(ue_struct_p || !is_final, a_cstr_format("Class '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints can not be mapped to a Blueprint-compatible type.", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
+    if (ue_struct_p)
       {
       property_p = NewObject<UStructProperty>(ue_function_p, param_name);
-      static_cast<UStructProperty *>(property_p)->Struct = CastChecked<UScriptStruct>(ustruct_p);
-      if (SkInstance::is_data_stored_by_val(ustruct_p->GetStructureSize()))
+      static_cast<UStructProperty *>(property_p)->Struct = CastChecked<UScriptStruct>(ue_struct_p);
+      if (SkInstance::is_data_stored_by_val(ue_struct_p->GetStructureSize()))
         {
         k2_param_fetcher_p = &fetch_k2_param_struct_val;
         sk_value_getter_p = &get_sk_value_struct_val;
@@ -1090,4 +1181,54 @@ uint32_t SkUEBlueprintInterface::get_sk_value_entity(void * const result_p, SkIn
   {
   *((UObject **)result_p) = value_p->as<SkUEEntity>();
   return sizeof(UObject *);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUEBlueprintInterface::BindingEntry::rebind_sk_invokable()
+  {
+  // Restore the invokable
+  SkClass * sk_class_p = SkBrain::get_class(m_sk_class_name);
+  SK_ASSERTX(sk_class_p, a_str_format("Could not find class `%s` while rebinding Blueprint exposed routines to new compiled binary.", m_sk_class_name.as_cstr()));
+  if (sk_class_p)
+    {
+    SkInvokableBase * sk_invokable_p;
+    if (m_is_class_member)
+      {
+      sk_invokable_p = sk_class_p->get_class_methods().get(m_sk_invokable_name);
+      }
+    else
+      {
+      sk_invokable_p = sk_class_p->get_instance_methods().get(m_sk_invokable_name);
+      if (!sk_invokable_p)
+        {
+        sk_invokable_p = sk_class_p->get_coroutines().get(m_sk_invokable_name);
+        }
+      }
+    SK_ASSERTX(sk_invokable_p, a_str_format("Could not find routine `%s@%s` while rebinding Blueprint exposed routines to new compiled binary.", m_sk_invokable_name.as_cstr(), m_sk_class_name.as_cstr()));
+    if (m_type == BindingType_Event)
+      {
+      SkUEBlueprintInterface::bind_event_method(static_cast<SkMethodBase *>(sk_invokable_p));
+      }
+    m_sk_invokable_p = sk_invokable_p;
+    }
+
+  // Restore the parameter class pointers
+  if (m_type == BindingType_Function)
+    {
+    SkParamEntry * param_array_p = static_cast<FunctionEntry *>(this)->get_param_entry_array();
+    for (uint32_t i = 0; i < m_num_params; ++i)
+      {
+      param_array_p[i].rebind_sk_class();
+      }
+    static_cast<FunctionEntry *>(this)->m_result_type.rebind_sk_class();
+    }
+  else
+    {
+    K2ParamEntry * param_array_p = static_cast<EventEntry *>(this)->get_param_entry_array();
+    for (uint32_t i = 0; i < m_num_params; ++i)
+      {
+      param_array_p[i].rebind_sk_class();
+      }
+    }
   }

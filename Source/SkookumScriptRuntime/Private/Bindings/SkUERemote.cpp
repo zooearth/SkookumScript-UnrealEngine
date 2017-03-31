@@ -420,12 +420,16 @@ void SkUERemote::on_class_updated(SkClass * class_p)
   SkRemoteBase::on_class_updated(class_p);
 
   #if WITH_EDITOR
-    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
-    tSkUEOnClassUpdatedFunc * on_class_updated_f = &editor_on_class_updated_f;
+    AMethodArg2<ISkookumScriptRuntimeEditorInterface, UFunction*, bool> editor_on_function_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_function_updated);
+    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*>           editor_on_function_removed_from_class_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_function_removed_from_class);
+    tSkUEOnFunctionUpdatedFunc *          on_function_updated_f            = &editor_on_function_updated_f;
+    tSkUEOnFunctionRemovedFromClassFunc * on_function_removed_from_class_f = &editor_on_function_removed_from_class_f;
   #else
-    tSkUEOnClassUpdatedFunc * on_class_updated_f = nullptr;
+    tSkUEOnFunctionUpdatedFunc *          on_function_updated_f            = nullptr;
+    tSkUEOnFunctionRemovedFromClassFunc * on_function_removed_from_class_f = nullptr;
   #endif
-  SkUEBlueprintInterface::get()->reexpose_class(class_p, on_class_updated_f, true);
+  SkUEBlueprintInterface::get()->sync_bindings_from_binary(class_p, on_function_removed_from_class_f);
+  SkUEBlueprintInterface::get()->expose_all_bindings(on_function_updated_f, true);
   }
 
 //---------------------------------------------------------------------------------------
