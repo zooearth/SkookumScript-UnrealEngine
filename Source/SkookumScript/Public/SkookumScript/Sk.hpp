@@ -277,18 +277,21 @@ enum eSkScope
 enum eSkAnnotation
   {
   // Annotations just used by the parser
-  SkAnnotation_Raw        = 1 << 0, // Used to denote a raw data member
+  SkAnnotation_raw              = 1 << 0, // Used to denote a raw data member
 
   // Annotations used at runtime
-  SkAnnotation_Blueprint  = 1 << 1, // Expose this method to the UE4 Blueprint system
+  SkAnnotation_reflected_cpp    = 1 << 1, // This class was auto-generated via reflection from C++ code
+  SkAnnotation_reflected_data   = 1 << 2, // This class was auto-generated from data (e.g. a Blueprint class)
+  SkAnnotation_ue4_blueprint    = 1 << 3, // $UE4-specific Expose this method to the UE4 Blueprint system
   };
 
 // What we are applying annotations to
 enum eSkAnnotationTarget
   {
   SkAnnotationTarget__any,
+  SkAnnotationTarget_class,
   SkAnnotationTarget_invokable,
-  SkAnnotationTarget_instanceDataMember,
+  SkAnnotationTarget_instance_data,
   };
 
 //---------------------------------------------------------------------------------------

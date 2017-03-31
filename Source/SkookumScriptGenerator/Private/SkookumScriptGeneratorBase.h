@@ -110,8 +110,9 @@ class FSkookumScriptGeneratorBase
     static UEnum *        get_enum(UField * field_p); // Returns the Enum if it is an enum, nullptr otherwise
 
     static FString        skookify_class_name(const FString & name);
-    static FString        skookify_var_name(const FString & name, bool append_question_mark, eVarScope scope);
     static FString        skookify_method_name(const FString & name, UProperty * return_property_p = nullptr);
+    static FString        skookify_var_name(const FString & name, bool append_question_mark, eVarScope scope);
+    static bool           compare_var_name_skookified(const TCHAR * ue_var_name_p, const ANSICHAR * sk_var_name_p);
     static bool           is_skookum_reserved_word(const FString & name);
     static FString        get_skookum_class_name(UField * type_p);
     FString               get_skookum_parent_name(UField * type_p, int32 include_priority, uint32 referenced_flags, UStruct ** out_parent_pp = nullptr);

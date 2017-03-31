@@ -17,7 +17,7 @@
 //=======================================================================================
 // Agog Labs C++ library.
 //
-// AMethodArg and AMethodArgRtn class templates
+// AMethodArg, AMethodArgRtn and AMethodArg2 class templates
 //=======================================================================================
 
 #pragma once
@@ -85,11 +85,11 @@ class AMethodArg : public AFunctionArgBase<_ArgType>
 
   // Modifying Methods
 
-    virtual void invoke(_ArgType arg);  // Calls the function
+    virtual void invoke(_ArgType arg) override;  // Calls the function
 
   // Non-Modifying Methods
 
-    virtual AFunctionArgBase<_ArgType> * copy_new() const override;
+    virtual tAFunctionArgBase * copy_new() const override;
 
   protected:
   // Data Members
@@ -152,11 +152,11 @@ class AMethodArgRtn : public AFunctionArgRtnBase<_ArgType, _ReturnType>
 
   // Modifying Methods
 
-    virtual _ReturnType invoke(_ArgType arg);  // Calls the function
+    virtual _ReturnType invoke(_ArgType arg) override;  // Calls the function
 
   // Non-Modifying Methods
 
-    virtual AFunctionArgRtnBase<_ArgType, _ReturnType> * copy_new() const;
+    virtual tAFunctionArgRtnBase * copy_new() const;
 
 	virtual bool is_invokable() const  { return m_owner_p && m_method_p; }
 
@@ -171,6 +171,47 @@ class AMethodArgRtn : public AFunctionArgRtnBase<_ArgType, _ReturnType>
 
   };  // AMethodArgRtn
 
+
+//---------------------------------------------------------------------------------------
+// Same as AMethodArg, except taking two arguments
+template<class _OwnerType, class _ArgType1, class _ArgType2>
+class AMethodArg2 : public AFunctionArgBase2<_ArgType1, _ArgType2>
+  {
+  public:
+  // Common types
+
+    // Local shorthand
+    typedef AMethodArg2<_OwnerType, _ArgType1, _ArgType2> tAMethodArg2;
+    typedef AFunctionArgBase2<_ArgType1, _ArgType2>       tAFunctionArgBase2;
+
+  // Common Methods
+
+    AMethodArg2(_OwnerType * owner_p = nullptr, void (_OwnerType::* method_p)(_ArgType1 arg1, _ArgType2 arg2) = nullptr);
+    AMethodArg2(const AMethodArg2 & method);
+    AMethodArg2 & operator=(const AMethodArg2 & method);
+    
+  // Accessor Methods
+
+    _OwnerType * get_owner() const;
+    void         set_method(void (_OwnerType::* method_p)(_ArgType1 arg1, _ArgType2 arg2));
+    void         set_owner(_OwnerType * owner_p);
+    //void (_OwnerType::*)() get_method() const;
+
+  // Modifying Methods
+
+    virtual void invoke(_ArgType1 arg1, _ArgType2 arg2) override;  // Calls the function
+
+  // Non-Modifying Methods
+
+    virtual tAFunctionArgBase2 * copy_new() const override;
+
+  protected:
+  // Data Members
+
+    void (_OwnerType::* m_method_p)(_ArgType1 arg1, _ArgType2 arg2); // pointer to method to call
+    _OwnerType *        m_owner_p;  // pointer to owner of method to call
+
+  };  // AMethodArg
 
 //=======================================================================================
 // AMethodArg Methods
@@ -440,3 +481,106 @@ AFunctionArgRtnBase<_ArgType, _ReturnType> * AMethodArgRtn<_OwnerType, _ArgType,
 
   return method_p;
   } 
+
+//=======================================================================================
+// AMethodArg2 Methods
+//=======================================================================================
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Common Methods
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//---------------------------------------------------------------------------------------
+//  Default constructor
+template<class _OwnerType, class _ArgType1, class _ArgType2>
+inline AMethodArg2<_OwnerType, _ArgType1, _ArgType2>::AMethodArg2(
+  _OwnerType *        owner_p,                     // = nullptr
+  void (_OwnerType::* method_p)(_ArgType1 arg1, _ArgType2 arg2) // = nullptr
+  ) :
+  m_method_p(method_p),
+  m_owner_p(owner_p)
+  {
+  }
+
+//---------------------------------------------------------------------------------------
+//  Copy Constructor
+template<class _OwnerType, class _ArgType1, class _ArgType2>
+inline AMethodArg2<_OwnerType, _ArgType1, _ArgType2>::AMethodArg2(const tAMethodArg2 & method) :
+  m_method_p(method.m_method_p),
+  m_owner_p(method.m_owner_p)
+  {
+  }
+
+//---------------------------------------------------------------------------------------
+//  Assignment operator
+template<class _OwnerType, class _ArgType1, class _ArgType2>
+inline AMethodArg2<_OwnerType, _ArgType1, _ArgType2> & AMethodArg2<_OwnerType, _ArgType1, _ArgType2>::operator=(const tAMethodArg2 & method)
+  {
+  m_method_p = method.m_method_p;
+  m_owner_p  = method.m_owner_p;
+  return *this;
+  }
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Accessor Methods
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//---------------------------------------------------------------------------------------
+//  Gets the pointer to the owner object for the method.
+template<class _OwnerType, class _ArgType1, class _ArgType2>
+inline _OwnerType * AMethodArg2<_OwnerType, _ArgType1, _ArgType2>::get_owner() const
+  {
+  return m_owner_p;
+  }
+
+//---------------------------------------------------------------------------------------
+//  Sets the method pointer.
+template<class _OwnerType, class _ArgType1, class _ArgType2>
+inline void AMethodArg2<_OwnerType, _ArgType1, _ArgType2>::set_method(void (_OwnerType::* method_p)(_ArgType1 arg1, _ArgType2 arg2))
+  {
+  m_method_p = method_p;
+  }
+
+//---------------------------------------------------------------------------------------
+//  Sets the owner object for the method.
+template<class _OwnerType, class _ArgType1, class _ArgType2>
+inline void AMethodArg2<_OwnerType, _ArgType1, _ArgType2>::set_owner(_OwnerType * owner_p)
+  {
+  m_owner_p = owner_p;
+  }
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Modifying Methods
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//---------------------------------------------------------------------------------------
+//  Invokes the stored method on the stored owner object.
+template<class _OwnerType, class _ArgType1, class _ArgType2>
+void AMethodArg2<_OwnerType, _ArgType1, _ArgType2>::invoke(_ArgType1 arg1, _ArgType2 arg2)
+  {
+  if (m_owner_p && m_method_p)
+    {
+    (m_owner_p->*m_method_p)(arg1, arg2);
+    }
+  }
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Non-Modifying Methods
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//---------------------------------------------------------------------------------------
+//  Returns a new dynamic copy of itself.
+template<class _OwnerType, class _ArgType1, class _ArgType2>
+AFunctionArgBase2<_ArgType1, _ArgType2> * AMethodArg2<_OwnerType, _ArgType1, _ArgType2>::copy_new() const
+  {
+  tAMethodArg2 * method_p = new tAMethodArg2(*this);
+
+  A_VERIFY_MEMORY(method_p != nullptr, tAMethodArg2);
+
+  return method_p;
+  } 
+
+
