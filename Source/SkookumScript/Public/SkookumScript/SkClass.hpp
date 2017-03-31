@@ -64,7 +64,7 @@ struct SkRoutineUpdateRecord
   {
   SK_NEW_OPERATORS(SkRoutineUpdateRecord);
 
-  SkInvokableBase *     m_routine_p;
+  SkInvokableBase *     m_routine_p;          // Current version of routine, nullptr if it was deleted
   SkInvokableBase *     m_previous_routine_p; // If it was deleted, this is the old routine
   ARefPtr<SkParameters> m_previous_params_p;
   uint16_t              m_previous_invoked_data_array_size;
@@ -370,19 +370,20 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
       Flag_is_mind          = 1 << 5,  // For fast lookup if this class is derived from SkMind
       Flag_is_actor         = 1 << 6,  // For fast lookup if this class is derived from the (custom or built-in) actor class
-      Flag_is_component     = 1 << 7,  // For fast lookup if this class is derived from a component (custom for each engine)
+      Flag_is_entity        = 1 << 7,  // For fast lookup if this class is derived from the (custom or built-in) actor class
+      Flag_is_component     = 1 << 8,  // For fast lookup if this class is derived from a component (custom for each engine)
 
       // Object ID flags - look-up/validate for this class - i.e. Class@'name'
-        Flag_object_id_lookup = 1 << 8,
 
         // Validation flags - use masks below
-          Flag_object_id_parse_any   = 1 << 9,
-          Flag_object_id_parse_list  = 1 << 10,
-          Flag_object_id_parse_defer = 1 << 11,
+        // These are inherited setting that propagate to all subclasses
+          Flag_object_id_parse_any   = 1 << 10,
+          Flag_object_id_parse_list  = 1 << 11,
+          Flag_object_id_parse_defer = 1 << 12,
 
         // Object ID validation setting (masks):
           // Accept none during compile
-          Flag__id_valid_none  = Flag_none,
+          Flag__id_valid_none  = Flag_none,  // Inherit setting from superclass or no ObjectIDs
           // Accept any during compile
           Flag__id_valid_any   = Flag_object_id_parse_any,
           // Validate using list during compile (include list as compile dependency)
@@ -394,13 +395,11 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
           Flag__id_valid_mask = Flag_object_id_parse_any | Flag_object_id_parse_list | Flag_object_id_parse_defer,
 
-        Flag__id_mask = Flag_object_id_lookup | Flag__id_valid_mask,
-
       // Defaults and masks
         Flag__default         = Flag_none,
-        Flag__default_actor   = Flag__default | Flag_object_id_lookup | Flag_object_id_parse_any | Flag_is_actor,
+        Flag__default_actor   = Flag__default | Flag_is_actor,
         Flag__demand_loaded   = Flag_loaded | Flag_demand_load,
-        Flag__mask_binary     = Flag_demand_load | Flag__id_mask
+        Flag__mask_binary     = Flag_demand_load | Flag__id_valid_mask
       };
 
   // Public Types
@@ -492,8 +491,12 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
     SK_NEW_OPERATORS(SkClass);
 
-    explicit SkClass(const ASymbol & name, SkClass * superclass_p = nullptr, uint32_t flags = Flag__default);
+    explicit SkClass(const ASymbol & name, SkClass * superclass_p = nullptr, uint32_t flags = Flag__default, uint32_t annotation_flags = 0);
     ~SkClass();
+
+    void  clear_meta_info();
+    void  clear_members();
+    void  clear_members_compact();
 
   // Converter Methods
 
@@ -525,7 +528,9 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
     void                 register_raw_accessor_func(tSkRawAccessorFunc raw_member_accessor_f);
     void                 register_raw_pointer_func(tSkRawPointerFunc raw_pointer_func_f);
     tSkRawAccessorFunc   get_raw_accessor_func() const  { return m_raw_member_accessor_f; }
+    tSkRawAccessorFunc   get_raw_accessor_func_inherited() const;
     tSkRawPointerFunc    get_raw_pointer_func() const   { return m_raw_pointer_f; }
+    tSkRawPointerFunc    get_raw_pointer_func_inherited() const;
     SkInstance *         new_instance_from_raw_data(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p) const;
     void                 assign_raw_data(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p) const;
     void *               get_raw_pointer(SkInstance * obj_p) const;
@@ -538,13 +543,13 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       void             as_binary_group(void ** binary_pp, bool skip_demand_loaded) const;
       uint32_t         as_binary_group_length(bool skip_demand_loaded) const;
       void             as_binary_placeholder_recurse(void ** binary_pp) const;
-      static uint32_t  as_binary_placeholder_recurse_length_all();
+      uint32_t         as_binary_placeholder_recurse_length();
       virtual void     as_binary_ref(void ** binary_pp) const;
     #endif
 
 
     #if (SKOOKUM & SK_COMPILED_IN)
-      void             assign_binary(const void ** binary_pp, bool append_super_members = true, bool include_routines = true);
+      void             assign_binary(const void ** binary_pp, bool include_routines = true);
       static SkClass * from_binary_ref(const void ** binary_pp);
       static void      from_binary_group(const void ** binary_pp);
       void             append_instance_method(const void ** binary_pp, SkRoutineUpdateRecord * update_record_p = nullptr);
@@ -567,9 +572,8 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
     virtual SkMetaClass & get_metaclass() const;
 
     uint32_t     get_flags() const                                      { return m_flags; }
-
-    virtual void clear_members();
-    virtual void clear_members_compact();
+    uint32_t     get_annotation_flags() const                           { return m_annotation_flags; }
+    void         set_annotation_flags(uint32_t flags)                   { m_annotation_flags = flags; }
 
     virtual void track_memory(AMemoryStats * mem_stats_p, bool skip_demand_loaded) const;
     virtual void track_memory(AMemoryStats * mem_stats_p) const         { track_memory(mem_stats_p, true); }
@@ -578,15 +582,14 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
     // Validated Object ID methods
 
-      void                 enable_object_id_lookup(bool enable = true);
-      bool                 is_object_id_lookup() const                    { return (m_flags & Flag_object_id_lookup) != 0u; }
+      bool                 is_object_id_lookup() const;
       void                 set_object_id_lookup_func(tSkObjectIdLookupFunc object_id_lookup_f);
       virtual SkInstance * object_id_lookup(SkObjectIDBase * obj_id_p, SkInvokedBase * caller_p = nullptr) const;
       void                 object_id_lookup_clear_cache()                 { m_object_id_lookup_p = nullptr; }
 
       #if (SKOOKUM & SK_CODE_IN)
         void              clear_object_id_valid_list();
-        uint32_t          get_object_id_validate() const                  { return m_flags & Flag__id_valid_mask; }
+        uint32_t          get_object_id_validate() const;
         ASymbolTable *    get_object_id_valid_list() const                { return m_object_ids_p; }
         ASymbolTable *    get_object_id_valid_list_merge();
         void              set_object_id_validate(uint32_t validate_mask = Flag__id_valid_any);
@@ -615,6 +618,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       AString                    get_class_path_str(int32_t scripts_path_depth) const;
       bool                       is_actor_class() const                 { return (m_flags & Flag_is_actor) != 0; }
       bool                       is_mind_class() const                  { return (m_flags & Flag_is_mind) != 0; }
+      bool                       is_entity_class() const                { return (m_flags & Flag_is_entity) != 0; }
       bool                       is_component_class() const             { return (m_flags & Flag_is_component) != 0; }
       bool                       is_class(const SkClass & cls) const;
       bool                       is_subclass(const SkClass & superclass) const;
@@ -624,6 +628,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       void                       iterate_recurse(AFunctionArgBase<SkClass *> * apply_class_p, eAHierarchy hierarchy = AHierarchy__all);
       SkClass *                  next_class(SkClass * root_p) const;
       SkClass *                  next_sibling() const;
+      void                       remove_subclass(SkClass * subclass_p);
 
 
     // Method Methods
@@ -659,6 +664,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
         SkMethodBase *         find_instance_method_overridden(const ASymbol & method_name) const;
         SkMethodBase *         find_instance_method_scoped_inherited(const SkQualifier & method_qual) const;
         bool                   remove_instance_method(const ASymbol & method_name)           { return m_methods.free(method_name); }
+        bool                   unlink_instance_method(const ASymbol & method_name)           { return m_methods.remove(method_name); }
         const tSkMethodTable & get_instance_methods() const                                  { return m_methods; }
         bool                   is_instance_method_valid(const ASymbol & method_name) const   { return (m_methods.get(method_name) != nullptr); }
         virtual SkInstance *   new_instance();
@@ -671,6 +677,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
         SkMethodBase *         find_class_method_inherited(const ASymbol & method_name, bool * is_class_member_p = nullptr) const;
         SkMethodBase *         find_class_method_overridden(const ASymbol & method_name) const;
         bool                   remove_class_method(const ASymbol & method_name)                     { return m_class_methods.free(method_name); }
+        bool                   unlink_class_method(const ASymbol & method_name)                     { return m_class_methods.remove(method_name); }
         const tSkMethodTable & get_class_methods() const                                            { return m_class_methods; }
         void                   invoke_class_ctor();
         void                   invoke_class_ctor_recurse();
@@ -696,6 +703,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       void                 register_coroutine_mthd_bulk(const CoroutineInitializerMthd   * bindings_p, uint32_t count, eSkBindFlag flags);
       void                 register_coroutine_mthd_bulk(const CoroutineInitializerMthdId * bindings_p, uint32_t count, eSkBindFlag flags);
       bool                 remove_coroutine(const ASymbol & coroutine_name)          { return m_coroutines.free(coroutine_name); }
+      bool                 unlink_coroutine(const ASymbol & coroutine_name)          { return m_coroutines.remove(coroutine_name); }
       const tSkCoroutines & get_coroutines() const                                   { return m_coroutines; }
 
     // Data Methods
@@ -708,6 +716,8 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       SkTypedNameRaw *          get_instance_data_type_raw(const ASymbol & data_name, uint32_t * data_idx_p = nullptr, SkClass ** data_owner_class_pp = nullptr) const;
       SkTypedName *             get_class_data_type(const ASymbol & data_name, uint32_t * data_idx_p = nullptr, SkClass ** data_owner_class_pp = nullptr) const;
       uint32_t                  get_inherited_instance_data_count() const;
+      bool                      is_raw_data_resolved() const           { return (m_flags & Flag_raw_resolved); }
+      void                      set_raw_data_resolved(bool is_resolved);
       bool                      resolve_raw_data(const ASymbol & name, tSkRawDataInfo raw_data_info);
       bool                      resolve_raw_data(const char * name_p, tSkRawDataInfo raw_data_info);
       void                      resolve_raw_data();
@@ -715,11 +725,11 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
       // Instance Methods
 
-        SkTypedName *                 append_instance_data(const ASymbol & name, SkClassDescBase * type_p, eSubclass subclasses = Subclass_recurse);
+        SkTypedName *                 append_instance_data(const ASymbol & name, SkClassDescBase * type_p, bool increment_total_data_count);
         const tSkTypedNameArray &     get_instance_data() const        { return m_data; }
         uint32_t                      get_total_data_count() const     { return m_total_data_count; }
 
-        SkTypedNameRaw *              append_instance_data_raw(const ASymbol & name, SkClassDescBase * type_p, eSubclass subclasses = Subclass_recurse);
+        SkTypedNameRaw *              append_instance_data_raw(const ASymbol & name, SkClassDescBase * type_p);
         const tSkTypedNameRawArray &  get_instance_data_raw() const { return m_data_raw; }
         tSkTypedNameRawArray &        get_instance_data_raw_for_resolving() { return m_data_raw; }
         uint32_t                      compute_total_raw_data_count() const;
@@ -733,7 +743,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
       // Class Methods
 
-        SkTypedName *             append_class_data(const ASymbol & name, SkClassDescBase * type_p, eSubclass subclasses = Subclass_recurse);
+        SkTypedName *             append_class_data(const ASymbol & name, SkClassDescBase * type_p, bool increment_total_data_count);
         void                      fill_class_data_names(APSortedLogical<ASymbol> * target_p);
         const tSkTypedNameArray & get_class_data() const             { return m_class_data; }
         uint32_t                  get_total_class_data_count() const { return m_total_class_data_count; }
@@ -798,6 +808,9 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
     // Class Flags - see eFlags
     uint32_t m_flags;
+
+    // Class annotations
+    uint32_t m_annotation_flags;
 
     // Parent of this class [Single inheritance only - at least in first pass]
     SkClass * m_superclass_p;

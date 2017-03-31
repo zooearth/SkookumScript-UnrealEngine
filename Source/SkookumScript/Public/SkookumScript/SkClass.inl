@@ -206,7 +206,7 @@ A_INLINE SkTypedName * SkMetaClass::append_data_member(
   SkClassDescBase * type_p
   )
   {
-  return m_class_info_p->append_class_data(name, type_p);
+  return m_class_info_p->append_class_data(name, type_p, true);
   }
 
 
@@ -288,7 +288,14 @@ A_INLINE void SkClass::set_flag_load(
 
 A_INLINE SkInstance * SkClass::new_instance_from_raw_data(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p) const
   {
-  SK_ASSERTX(raw_data_info != SkRawDataInfo_Invalid, a_str_format("Tried to access invalid raw data member of class '%s'", get_name_cstr_dbg()));
+  #if (SKOOKUM & SK_DEBUG)
+    if (raw_data_info == SkRawDataInfo_Invalid)
+      {
+      // Report error unless we are already in the process of reporting an error (and likely are gathering a callstack)
+      SK_ASSERTX(ADebug::is_nested_error(), a_str_format("Tried to access invalid raw data member of class '%s'", get_name_cstr_dbg()));
+      return SkBrain::ms_nil_p;
+      }
+  #endif
   return (*m_raw_member_accessor_f)(obj_p, raw_data_info, data_type_p, nullptr);
   }
 
@@ -297,7 +304,14 @@ A_INLINE SkInstance * SkClass::new_instance_from_raw_data(void * obj_p, tSkRawDa
 
 A_INLINE void SkClass::assign_raw_data(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p) const
   {
-  SK_ASSERTX(raw_data_info != SkRawDataInfo_Invalid, a_str_format("Tried to access invalid raw data member of class '%s'", get_name_cstr_dbg()));
+  #if (SKOOKUM & SK_DEBUG)
+    if (raw_data_info == SkRawDataInfo_Invalid)
+      {
+      // Report error unless we are already in the process of reporting an error (and likely are gathering a callstack)
+      SK_ASSERTX(ADebug::is_nested_error(), a_str_format("Tried to access invalid raw data member of class '%s'", get_name_cstr_dbg()));
+      return;
+      }
+  #endif
   (*m_raw_member_accessor_f)(obj_p, raw_data_info, data_type_p, value_p);
   }
 
@@ -332,19 +346,6 @@ A_INLINE ASymbolTable * SkClass::get_object_id_valid_list_merge()
   }
 
 #endif  // (SKOOKUM & SK_CODE_IN)
-
-
-//---------------------------------------------------------------------------------------
-// Appends the specified subclass to this class
-// Arg         subclass_p - pointer to subclass to append
-// Author(s):   Conan Reis
-A_INLINE void SkClass::append_subclass(SkClass * subclass_p)
-  {
-  m_subclasses.append_absent(*subclass_p);
-
-  // CReis Append data and method tables if they exist.  This isn't implemented since this
-  // is currently only called before any members have been added.
-  }
 
 //---------------------------------------------------------------------------------------
 // Determines the closest superclass that this class and cls share.
@@ -808,7 +809,7 @@ A_INLINE SkTypedName * SkClass::append_data_member(
   SkClassDescBase * type_p
   )
   {
-  return append_instance_data(name, type_p);
+  return append_instance_data(name, type_p, true);
   }
 
 //---------------------------------------------------------------------------------------

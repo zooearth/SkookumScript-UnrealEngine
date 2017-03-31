@@ -41,11 +41,12 @@
 //              have no superclass.
 // Author(s):    Conan Reis
 A_INLINE SkActorClass::SkActorClass(
-  const ASymbol & name,         // = ASymbol::ms_null
-  SkClass *       superclass_p, // = nullptr
-  uint32_t        flags         // = Flag__default_actor
+  const ASymbol & name,             // = ASymbol::ms_null
+  SkClass *       superclass_p,     // = nullptr
+  uint32_t        flags,            // = Flag__default_actor
+  uint32_t        annotation_flags  // = 0
   ) :
-  SkClass(name, superclass_p, flags)
+  SkClass(name, superclass_p, flags, annotation_flags)
   {
   }
 
