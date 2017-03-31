@@ -58,13 +58,11 @@ class SK_API SkActorClass : public SkClass
 
     SK_NEW_OPERATORS(SkActorClass);
 
-    explicit SkActorClass(const ASymbol & name = ASymbol::get_null(), SkClass * superclass_p = nullptr, uint32_t flags = Flag__default_actor);
+    explicit SkActorClass(const ASymbol & name = ASymbol::get_null(), SkClass * superclass_p = nullptr, uint32_t flags = Flag__default_actor, uint32_t annotation_flags = 0);
     virtual ~SkActorClass();
 
   // Methods
 
-    //virtual void clear_members();
-    //virtual void clear_members_compact();
     virtual bool is_builtin_actor_class() const override;
     virtual void track_memory(AMemoryStats * mem_stats_p, bool skip_demand_loaded) const override;
 

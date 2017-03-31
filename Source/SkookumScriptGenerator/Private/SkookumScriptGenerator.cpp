@@ -79,6 +79,7 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
     ModuleInfo(const FString & name) : m_name(name), m_scope(ClassScope_engine) { m_classes_to_export.Reserve(250); }
     bool operator == (const FString & module_name) const { return m_name == module_name; } // For using the TArray::FindByKey function
     bool operator == (const TCHAR * module_name_p) const { return m_name == module_name_p; } // For using the TArray::FindByKey function
+    bool operator == (eClassScope scope) const { return m_scope == scope; } // For using the TArray::FindByKey function
     };
 
   // Information for engine/project code generation
@@ -1878,6 +1879,7 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
     "\r\n"
     "#include \"Engine/SkUEName.hpp\"\r\n"
     "\r\n"
+    "#include \"ISkookumScriptRuntime.h\"\r\n"
     "#include \"SkookumScriptListener.h\"\r\n"
     "\r\n"), engine_project_p);
 
@@ -1939,13 +1941,82 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
   // Disable pesky deprecation warnings
   binding_code += TEXT(
     "// Generated code will use some deprecated functions - that's ok don't tell me about it\r\n"
-    "#if defined _MSC_VER\r\n"
-    "#pragma warning(push)\r\n"
-    "#pragma warning(disable: 4996) // Disable deprecation warnings\r\n"
-    "#elif defined __clang__\r\n"
-    "#pragma clang diagnostic push\r\n"
-    "#pragma clang diagnostic ignored \"-Wdeprecated-declarations\"\r\n"
-    "#endif\r\n\r\n");
+    "PRAGMA_DISABLE_DEPRECATION_WARNINGS\r\n\r\n");
+
+  // Generate initialization code for project module
+  if (class_scope == ClassScope_project)
+    {
+    binding_code += FString::Printf(TEXT(
+      "static struct InitializationHelper : FFieldCompiledInInfo\r\n"
+      "  {\r\n"
+      "  // Step 1: This gets invoked during module static initialization to add this object to the class initialization queue\r\n"
+      "  InitializationHelper() \r\n"
+      "    : FFieldCompiledInInfo(0, 0)\r\n"
+      "    , m_sk_module_name(TEXT(\"SkookumScriptRuntime\"))\r\n"
+      "	   , m_game_module_name_p(TEXT(\"/Script/%s\"))\r\n"
+      "    {\r\n"
+      "    UClassCompiledInDefer(this, nullptr, 0, 0);\r\n"
+      "    }\r\n"
+      "\r\n"
+      "  // Step 2: This gets invoked when UCLASSES are registered, which is before UENUMS or USTRUCTS are registered\r\n"
+      "  virtual UClass * Register() const override\r\n"
+      "    {\r\n"
+      "    #if IS_MONOLITHIC\r\n"
+      "	     // Queue up another callback which will fire right after the SkookumScriptRuntime modules is initialized\r\n"
+      "      m_handle = FModuleManager::Get().OnModulesChanged().AddRaw(this, &InitializationHelper::on_modules_changed);\r\n"
+      "    #else\r\n"
+      "      // The struct initialization queue has been filled by now (since it is filled during module static initialization)\r\n"
+      "      // Queue up another callback which will end up at the very end of the struct initialization queue\r\n"
+      "      static FCompiledInDeferStruct OnAllModuleTypesRegistered(on_all_module_types_registered, m_game_module_name_p, TEXT(\"OnAllModuleTypesRegistered\"), false, nullptr, nullptr);\r\n"
+      "    #endif\r\n"
+      "    // The registration process does not actually care what we return so return nullptr\r\n"
+      "    return nullptr;\r\n"
+      "    }\r\n"
+      "\r\n"
+      "  // Step 3: This gets invoked after all other USTRUCTS in this module have been registered\r\n"
+      "  // And as USTRUCTS get registered after UENUMS and UCLASSES, this means all UCLASSES, UENUMS and USTRUCTS have been registered at this point\r\n"
+      "  static class UScriptStruct * on_all_module_types_registered()\r\n"
+      "    {\r\n"
+      "    ISkookumScriptRuntime * sk_module_p = FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>(_initialization_helper.m_sk_module_name);\r\n"
+      "    if (sk_module_p)\r\n"
+      "      {\r\n"
+      "      static SkUEProjectGeneratedBindings bindings;\r\n"
+      "      sk_module_p->set_project_generated_bindings(&bindings);\r\n"
+      "      }\r\n"
+      "    // The registration process does not actually care what we return so return nullptr\r\n"
+      "    return nullptr;\r\n"
+      "    }\r\n"
+      "\r\n"
+      "#if IS_MONOLITHIC\r\n"
+      "  void on_modules_changed(FName module_name, EModuleChangeReason change_reason)\r\n"
+      "    {\r\n"
+      "    if (module_name == m_sk_module_name && change_reason == EModuleChangeReason::ModuleLoaded)\r\n"
+      "      {\r\n"
+      "      on_all_module_types_registered();\r\n"
+      "      FModuleManager::Get().OnModulesChanged().Remove(m_handle);\r\n"
+      "      }\r\n"
+      "    }\r\n"
+      "#endif\r\n"
+      "\r\n"
+      "  // Step 4: When this module goes away, unregister us with the Sk module\r\n"
+      "  ~InitializationHelper()\r\n"
+      "    {\r\n"
+      "    ISkookumScriptRuntime * sk_module_p = FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>(m_sk_module_name);\r\n"
+      "    if (sk_module_p)\r\n"
+      "      {\r\n"
+      "      sk_module_p->set_project_generated_bindings(nullptr);\r\n"
+      "      }\r\n"
+      "    }\r\n"
+      "\r\n"
+      "  virtual const TCHAR * ClassPackage() const { return m_game_module_name_p; }\r\n"
+      "\r\n"
+      "  mutable FDelegateHandle m_handle;\r\n"
+      "  const FName             m_sk_module_name;\r\n"
+      "  TCHAR const * const     m_game_module_name_p;\r\n"
+      "\r\n"
+      "  } _initialization_helper;\r\n\r\n"), 
+      *m_targets[ClassScope_project].m_script_supported_modules.FindByKey(ClassScope_project)->m_name);
+    }
 
   // Insert generate binding code of all generated classes
   // And count types while we are at it
@@ -2028,12 +2099,7 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
   binding_code += TEXT("  }\r\n\r\n");
 
   // Re-enable clang warnings
-  binding_code += TEXT(
-    "#if defined _MSC_VER\r\n"
-    "#pragma warning(pop)\r\n"
-    "#elif defined __clang__\r\n"
-    "#pragma clang diagnostic pop\r\n"
-    "#endif\r\n\r\n");
+  binding_code += TEXT("PRAGMA_ENABLE_DEPRECATION_WARNINGS\r\n\r\n");
 
   // Save to disk
   save_text_file_if_changed(binding_code_directory_path / FString::Printf(TEXT("SkUE%sGeneratedBindings.generated.inl"), engine_project_p), binding_code);

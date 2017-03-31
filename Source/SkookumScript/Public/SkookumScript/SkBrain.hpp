@@ -49,6 +49,7 @@ class SkInstance;
 
 // Shorthand
 typedef APSortedLogical<SkClass, ASymbol> tSkClasses;
+typedef APArrayFree<AFunctionBase>        tSkBindFuncs;
 
 // For revisioning the program in memory
 typedef uint64_t tSkSessionGUID;
@@ -128,6 +129,7 @@ class SK_API SkBrain
     // Names of special classes
 
       static ASymbol   ms_actor_class_name;
+      static ASymbol   ms_entity_class_name;
       static ASymbol   ms_component_class_name;
       static SkClass * ms_engine_actor_class_p;
 
@@ -163,8 +165,8 @@ class SK_API SkBrain
 
   // Class Methods
 
-    static SkClass * create_class(const ASymbol & class_name, SkClass * superclass_p = ms_object_class_p, uint32_t flags = ADef_uint32, bool append_super_members = false);
-    static SkClass * create_class(const ASymbol & class_name, const ASymbol & superclass_name, uint32_t flags = ADef_uint32, bool append_super_members = false);
+    static SkClass * create_class(const ASymbol & class_name, SkClass * superclass_p = ms_object_class_p, uint32_t flags = ADef_uint32, uint32_t annotation_flags = 0);
+    static SkClass * create_class(const ASymbol & class_name, const ASymbol & superclass_name, uint32_t flags = ADef_uint32, uint32_t annotation_flags = 0);
     static SkClass * get_class(const ASymbol & class_name);
     static SkClass * get_class(const char * class_name_p);
     static SkClass * get_class_actor();
@@ -176,6 +178,7 @@ class SK_API SkBrain
     // Initialization
 
     static void register_bind_atomics_func(void (*bind_atomics_f)());
+    static void unregister_bind_atomics_func(void(*bind_atomics_f)());
     static void unregister_all_bind_atomics_funcs();
     static void initialize();
     static void initialize_core_classes(uint32_t ensure_class_count);
@@ -199,7 +202,7 @@ class SK_API SkBrain
 
   // Internal Class Methods
 
-    static APArrayFree<AFunctionBase> * get_bind_funcs();
+    static tSkBindFuncs * get_bind_funcs();
 
     #if (SKOOKUM & SK_DEBUG)
 
