@@ -41,7 +41,7 @@
 // Returns a new dynamic copy of a class instance that is or is derived from the class
 // specified by _BaseClass.  Used virtually when a dynamic copy is needed, but the class
 // is unknown.
-#define AFUNC_COPY_NEW_DEF(_BaseClass) public: virtual _BaseClass * copy_new() const;
+#define AFUNC_COPY_NEW_DEF(_BaseClass) public: virtual _BaseClass * copy_new() const override;
 
 //---------------------------------------------------------------------------------------
 //  Returns a new dynamic copy of itself.  Used virtually when a dynamic copy
@@ -100,7 +100,7 @@ class AFunctionArgBase
 
   // Common Methods
 
-    virtual ~AFunctionArgBase();
+    virtual ~AFunctionArgBase() {}
 
   // Modifying Methods
 
@@ -108,9 +108,9 @@ class AFunctionArgBase
 
   // Non-Modifying Methods
 
-    virtual AFunctionArgBase * copy_new() const = 0;
+    virtual tAFunctionArgBase * copy_new() const = 0;
 
-	  virtual bool               is_invokable() const  { return true; }
+	  virtual bool                is_invokable() const  { return true; }
 
   };  // AFunctionArgBase
 
@@ -152,7 +152,7 @@ class AFunctionArgRtnBase
 
   // Common Methods
 
-    virtual ~AFunctionArgRtnBase();
+    virtual ~AFunctionArgRtnBase() {}
 
   // Modifying Methods
 
@@ -164,47 +164,34 @@ class AFunctionArgRtnBase
 
   };  // AFunctionArgRtnBase
 
-
-//=======================================================================================
-// AFunctionArgBase Methods
-//=======================================================================================
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Common Methods
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 //---------------------------------------------------------------------------------------
-//  virtual Destructor - Ensures that the proper destructor call is made for
-//              derived classes.
-// Examples:    called by system
-// Author(s):    Conan Reis
-template<class _ArgType>
-AFunctionArgBase<_ArgType>::~AFunctionArgBase()
+// Same as AFunctionArgBase, but taking two arguments
+template<class _ArgType1, class _ArgType2>
+class AFunctionArgBase2
   {
-  // Does nothing
-  }
+  public:
 
+    A_NEW_OPERATORS(AFunctionArgBase2);
 
-//=======================================================================================
-// AFunctionArgRtnBase Methods
-//=======================================================================================
+  // Common types
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Common Methods
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    typedef AFunctionArgBase2<_ArgType1, _ArgType2> tAFunctionArgBase2;  // Local shorthand for AFunctionArgBase template
 
-//---------------------------------------------------------------------------------------
-//  virtual Destructor - Ensures that the proper destructor call is made for
-//              derived classes.
-// Examples:    called by system
-// Author(s):    Conan Reis
-template<class _ArgType, class _ReturnType>
-AFunctionArgRtnBase<_ArgType, _ReturnType>::~AFunctionArgRtnBase()
-  {
-  // Does nothing
-  }
+  // Common Methods
 
+    virtual ~AFunctionArgBase2() {}
+
+  // Modifying Methods
+
+    virtual void invoke(_ArgType1 arg1, _ArgType2 arg2) = 0;
+
+  // Non-Modifying Methods
+
+    virtual tAFunctionArgBase2 * copy_new() const = 0;
+
+	  virtual bool                 is_invokable() const  { return true; }
+
+  };  // AFunctionArgBase2
 
 #endif  // __AFUNCTIONARGBASE_HPP
-
 

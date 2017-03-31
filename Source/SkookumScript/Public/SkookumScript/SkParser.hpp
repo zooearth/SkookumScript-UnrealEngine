@@ -502,6 +502,7 @@ class SK_API SkParser : public AString
       Result_err_typecheck_rparam_retype,     // * Invalid return parameter type change.  A return argument can only be rebound to objects of the type specified in the parameter interface.
       Result_err_typecheck_scope,             // The specified class scope qualifier is not the same class or a superclass of the class of the receiver expression (or implied 'this').  Note that a NilClass may only have a scope qualifier of "Object".
       Result_err_typecheck_test,              // The result type of a test expression for an if/when/unless must be a Boolean class.
+      Result_err_typecheck_ue4_blueprint_param, // A routine annotated with &blueprint cannot take a parameter or return a value that is a Blueprint-generated class.
       Result_err_typecheck_union_trivial,     // This class union descriptor is trivial.  It is lexically correct, but it can be represented more simply as a single class instance or metaclass.
 
       Result__max
@@ -968,17 +969,17 @@ class SK_API SkParser : public AString
 
     // Internal Interface/Parameter Methods
 
-      eResult parse_parameters(           uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkParameters * params_p = nullptr, uint32_t flags = ParamFlag__default) const;
-      eResult parse_parameter(            uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkParameterBase ** param_new_pp = nullptr) const;
-      eResult parse_parameter_specifier(  uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkTypedName * tname_p = nullptr, uint32_t param_flags = ParamFlag__default) const;
-      eResult parse_parameter_unary(      uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkUnaryParam * uparam_p = nullptr) const;
-      eResult parse_parameter_group(      uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkGroupParam * vparam_p = nullptr) const;
-      eResult parse_param_append(         uint32_t start_pos, uint32_t * end_pos_p, SkParameters * params_p, uint32_t param_flags) const;
-      eResult parse_param_return_append(  uint32_t start_pos, uint32_t * end_pos_p, SkParameters * params_p, uint32_t param_flags) const;
+      eResult parse_parameters(           uint32_t start_pos, uint32_t * end_pos_p, SkParameters * params_p, uint32_t flags, uint32_t annotation_flags) const;
+      eResult parse_parameter(            uint32_t start_pos, uint32_t * end_pos_p, SkParameterBase ** param_new_pp, uint32_t annotation_flags) const;
+      eResult parse_parameter_specifier(  uint32_t start_pos, uint32_t * end_pos_p, SkTypedName * tname_p, uint32_t param_flags, uint32_t annotation_flags) const;
+      eResult parse_parameter_unary(      uint32_t start_pos, uint32_t * end_pos_p, SkUnaryParam * uparam_p, uint32_t annotation_flags) const;
+      eResult parse_parameter_group(      uint32_t start_pos, uint32_t * end_pos_p, SkGroupParam * vparam_p, uint32_t annotation_flags) const;
+      eResult parse_param_append(         uint32_t start_pos, uint32_t * end_pos_p, SkParameters * params_p, uint32_t param_flags, uint32_t annotation_flags) const;
+      eResult parse_param_return_append(  uint32_t start_pos, uint32_t * end_pos_p, SkParameters * params_p, uint32_t param_flags, uint32_t annotation_flags) const;
 
-      eResult preparse_param_append(      uint32_t start_pos, uint32_t * end_pos_p, SkParameters * params_p, uint32_t param_flags) const;
-      eResult preparse_parameter(uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkParameterBase ** param_new_pp = nullptr) const;
-      eResult preparse_parameter_unary(SkUnaryParam * uparam_p, uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr) const;
+      eResult preparse_param_append(      uint32_t start_pos, uint32_t * end_pos_p, SkParameters * params_p, uint32_t param_flags, uint32_t annotation_flags) const;
+      eResult preparse_parameter(         uint32_t start_pos, uint32_t * end_pos_p, SkParameterBase ** param_new_pp, uint32_t annotation_flags) const;
+      eResult preparse_parameter_unary(   SkUnaryParam * uparam_p, uint32_t start_pos, uint32_t * end_pos_p, uint32_t annotation_flags) const;
 
       void    parameters_context(const SkParameters & params, Args * result_type_p = nullptr) const;
       bool    parameters_typecheck(Args & args, SkParameters * params_p, bool check_result = true) const;

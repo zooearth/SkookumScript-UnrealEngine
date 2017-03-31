@@ -68,7 +68,11 @@ class A_API AFunction : public AFunctionBase
 
   // Modifying Methods
 
-    void invoke();
+    virtual void invoke() override;
+
+  // Comparison
+
+    virtual bool operator == (void (*function_f)()) const override;
 
   protected:
   // Data Members
@@ -89,7 +93,7 @@ class AFunctionLambda : public AFunctionBase
     AFunctionLambda(_FunctorType && lambda_functor) : m_functor(lambda_functor) {}
 
     virtual void invoke() override { m_functor(); }
-    virtual AFunctionBase * copy_new() const { return new AFunctionLambda(*this); }
+    virtual AFunctionBase * copy_new() const override { return new AFunctionLambda(*this); }
 
   protected:
     _FunctorType  m_functor;
