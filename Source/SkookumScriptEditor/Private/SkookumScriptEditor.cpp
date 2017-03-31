@@ -59,6 +59,8 @@ protected:
 
   virtual void  recompile_blueprints_with_errors() const override;
   virtual void  on_class_updated(UClass * ue_class_p) override;
+  virtual void  on_function_updated(UFunction * ue_function_p, bool is_event) override;
+  virtual void  on_function_removed_from_class(UClass * ue_class_p) override;
   virtual bool  check_out_file(const FString & file_path) const override;
 
   //---------------------------------------------------------------------------------------
@@ -258,6 +260,70 @@ void FSkookumScriptEditor::on_class_updated(UClass * ue_class_p)
       FKismetEditorUtilities::CompileBlueprint(blueprint_p);
       }
     }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptEditor::on_function_updated(UFunction * ue_function_p, bool is_event)
+  {
+  // Nothing to do if no engine
+  if (!GEngine) return;
+
+  // 1) Refresh actions (in Blueprint editor drop down menu)
+  FBlueprintActionDatabase::Get().RefreshClassActions(ue_function_p->GetOwnerClass());
+
+  // Remember affected Blueprints here
+  TArray<UBlueprint *> affected_blueprints;
+
+  // 2) Refresh node display of all nodes using this function
+  if (is_event)
+    {
+    TArray<UObject*> obj_array;
+    GetObjectsOfClass(UK2Node_Event::StaticClass(), obj_array, true, RF_ClassDefaultObject);
+    for (auto obj_p : obj_array)
+      {
+      UK2Node_Event * event_node_p = Cast<UK2Node_Event>(obj_p);
+      // Since Blueprint exposed function names are fully qualified, a plain name check should suffice
+      if (event_node_p->EventReference.GetMemberName() == ue_function_p->GetFName())
+        {
+        event_node_p->ReconstructNode();
+        affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(event_node_p));
+        }
+      }
+    }
+  else
+    {
+    TArray<UObject*> obj_array;
+    GetObjectsOfClass(UK2Node_CallFunction::StaticClass(), obj_array, true, RF_ClassDefaultObject);
+    for (auto obj_p : obj_array)
+      {
+      UK2Node_CallFunction * function_node_p = Cast<UK2Node_CallFunction>(obj_p);
+      // Since Blueprint exposed function names are fully qualified, a plain name check should suffice
+      if (function_node_p->FunctionReference.GetMemberName() == ue_function_p->GetFName())
+        {
+        function_node_p->ReconstructNode();
+        affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(function_node_p));
+        break;
+        }
+      }
+    }
+
+  // 3) Try recompiling any affected Blueprint that previously had errors
+  for (UBlueprint * blueprint_p : affected_blueprints)
+    {
+    if (blueprint_p && blueprint_p->Status == BS_Error)
+      {
+      FKismetEditorUtilities::CompileBlueprint(blueprint_p);
+      }
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptEditor::on_function_removed_from_class(UClass * ue_class_p)
+  {
+  // Refresh actions (in Blueprint editor drop down menu)
+  FBlueprintActionDatabase::Get().RefreshClassActions(ue_class_p);
   }
 
 //---------------------------------------------------------------------------------------

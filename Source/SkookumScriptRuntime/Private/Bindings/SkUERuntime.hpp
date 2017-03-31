@@ -75,7 +75,8 @@ class SkUERuntime :
       bool load_compiled_scripts();
       void bind_compiled_scripts(bool is_hot_reload = false, bool ensure_atomics = true, SkClass ** ignore_classes_pp = nullptr, uint32_t ignore_count = 0u);
 
-      void reexpose_all_to_blueprints(bool is_final);
+      void sync_all_blueprint_bindings_from_binary();
+      void expose_all_blueprint_bindings(bool is_final);
 
     // Overridden from SkRuntimeBase
 
@@ -112,10 +113,11 @@ class SkUERuntime :
         bool                                   is_compiled_scripts_loaded() const { return m_is_compiled_scripts_loaded; }
         bool                                   have_game_module() const           { return m_have_game_module; }
 
-        SkookumScriptListenerManager *         get_listener_manager()          { return &m_listener_manager; }
-        SkUEBlueprintInterface *               get_blueprint_interface()       { return &m_blueprint_interface; }
-        const SkUEBlueprintInterface *         get_blueprint_interface() const { return &m_blueprint_interface; }
-        ISkookumScriptRuntimeEditorInterface * get_editor_interface() const    { return m_editor_interface_p; }
+        SkookumScriptListenerManager *         get_listener_manager()                 { return &m_listener_manager; }
+        SkUEBlueprintInterface *               get_blueprint_interface()              { return &m_blueprint_interface; }
+        const SkUEBlueprintInterface *         get_blueprint_interface() const        { return &m_blueprint_interface; }
+        ISkookumScriptRuntimeEditorInterface * get_editor_interface() const           { return m_editor_interface_p; }
+        SkUEBindingsInterface *                get_project_generated_bindings() const { return m_project_generated_bindings_p; }
 
         void                                   set_project_generated_bindings(SkUEBindingsInterface * game_bindings_p);
         void                                   set_editor_interface(ISkookumScriptRuntimeEditorInterface * editor_interface_p)  { m_editor_interface_p = editor_interface_p; }
