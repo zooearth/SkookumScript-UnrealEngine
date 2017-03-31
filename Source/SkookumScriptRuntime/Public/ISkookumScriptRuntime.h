@@ -42,6 +42,8 @@ class ISkookumScriptRuntimeEditorInterface
 
     virtual void  recompile_blueprints_with_errors() const = 0;
     virtual void  on_class_updated(UClass * ue_class_p) = 0;
+    virtual void  on_function_updated(UFunction * ue_function_p, bool is_event) = 0;
+    virtual void  on_function_removed_from_class(UClass * ue_class_p) = 0;
     virtual bool  check_out_file(const FString & file_path) const = 0;
 
   #endif
