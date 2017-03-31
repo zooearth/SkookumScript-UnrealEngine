@@ -76,13 +76,13 @@ void USkookumScriptMindComponent::create_sk_instance()
   AString class_name_ascii(*class_name, class_name.Len());
   class_p = SkBrain::get_class(class_name_ascii.as_cstr());
   SK_ASSERTX(class_p, a_cstr_format("Cannot find Script Class Name '%s' specified in SkookumScriptMindComponent of '%S'. Misspelled?", class_name_ascii.as_cstr(), *actor_p->GetName()));
-  if (!class_p)
+  SK_ASSERTX(!class_p || class_p->is_mind_class(), a_str_format("Trying to create a SkookumScriptMindComponent of class '%s' which is not a Mind.", class_p->get_name_cstr_dbg()));
+  if (!class_p || !class_p->is_mind_class())
     {
-    class_p = SkBrain::ms_master_class_p; // Recover from bad user input
+    class_p = SkBrain::ms_mind_class_p; // Recover from bad user input
     }
 
   // Based on the desired class, create SkInstance or SkDataInstance
-  SK_ASSERTX(class_p->is_mind_class(), a_str_format("Trying to create a SkookumScriptMindComponent of class '%s' which is not a Mind.", class_p->get_name_cstr_dbg()));
   m_mind_instance_p = class_p->new_instance();
   }
 

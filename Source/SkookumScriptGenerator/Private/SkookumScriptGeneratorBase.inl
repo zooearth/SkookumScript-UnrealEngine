@@ -405,6 +405,65 @@ FString FSkookumScriptGeneratorBase::skookify_class_name(const FString & name)
 
 //---------------------------------------------------------------------------------------
 
+FString FSkookumScriptGeneratorBase::skookify_method_name(const FString & name, UProperty * return_property_p)
+  {
+  FString method_name = skookify_var_name(name, false, VarScope_local);
+  bool is_boolean = false;
+
+  // Remove K2 (Kismet 2) prefix if present
+  if (method_name.Len() > 3 && !method_name.Mid(3, 1).IsNumeric())
+    {
+    if (method_name.RemoveFromStart(TEXT("k2_"), ESearchCase::CaseSensitive))
+      {
+      // Check if removing the k2_ turned it into a Sk reserved word
+      if (is_skookum_reserved_word(method_name))
+        {
+        method_name.AppendChar('_');
+        }
+      }
+    }
+
+  if (method_name.Len() > 4 && !method_name.Mid(4, 1).IsNumeric())
+    {
+    // If name starts with "get_", remove it
+    if (method_name.RemoveFromStart(TEXT("get_"), ESearchCase::CaseSensitive))
+      {
+      // Check if removing the get_ turned it into a Sk reserved word
+      if (is_skookum_reserved_word(method_name))
+        {
+        method_name.AppendChar('_');
+        }
+
+      // Allow question mark
+      is_boolean = true;
+      }
+    // If name starts with "set_", remove it and append "_set" instead
+    else if (method_name.RemoveFromStart(TEXT("set_"), ESearchCase::CaseSensitive))
+      {
+      method_name.Append(TEXT("_set"));
+      }
+    }
+
+  // If name starts with "is_", "has_" or "can_" also append question mark
+  if ((name.Len() > 2 && name[0] == 'b' && isupper(name[1]))
+   || method_name.Find(TEXT("is_"), ESearchCase::CaseSensitive) == 0
+   || method_name.Find(TEXT("has_"), ESearchCase::CaseSensitive) == 0
+   || method_name.Find(TEXT("can_"), ESearchCase::CaseSensitive) == 0)
+    {
+    is_boolean = true;
+    }
+
+  // Append question mark if determined to be boolean
+  if (is_boolean && return_property_p && return_property_p->IsA(UBoolProperty::StaticClass()))
+    {
+    method_name += TEXT("?");
+    }
+
+  return method_name;
+  }
+
+//---------------------------------------------------------------------------------------
+
 FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, bool append_question_mark, eVarScope scope)
   {
   if (name.IsEmpty()) return name;
@@ -488,61 +547,35 @@ FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, boo
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::skookify_method_name(const FString & name, UProperty * return_property_p)
+bool FSkookumScriptGeneratorBase::compare_var_name_skookified(const TCHAR * ue_var_name_p, const ANSICHAR * sk_var_name_p)
   {
-  FString method_name = skookify_var_name(name, false, VarScope_local);
-  bool is_boolean = false;
+  uint32_t ue_len = FCString::Strlen(ue_var_name_p);
+  uint32_t sk_len = FCStringAnsi::Strlen(sk_var_name_p);
 
-  // Remove K2 (Kismet 2) prefix if present
-  if (method_name.Len() > 3 && !method_name.Mid(3, 1).IsNumeric())
+  // Check if there's an MD5 checksum appended to the name - if so, leave only first four digits
+  if (ue_len > 33 && ue_var_name_p[ue_len - 33] == '_')
     {
-    if (method_name.RemoveFromStart(TEXT("k2_"), ESearchCase::CaseSensitive))
+    for (int32 i = 0; i < 32; ++i)
       {
-      // Check if removing the k2_ turned it into a Sk reserved word
-      if (is_skookum_reserved_word(method_name))
-        {
-        method_name.AppendChar('_');
-        }
+      uint32_t c = ue_var_name_p[ue_len - 32 + i];
+      if ((c - '0') > 9u && (c - 'A') > 5u) goto no_md5;
       }
+      // We chop off most digits of the MD5 and leave only the first four, 
+      // assuming that that's distinctive enough for just a few of them at a time
+      ue_len -= 28;
+    no_md5:;
     }
 
-  if (method_name.Len() > 4 && !method_name.Mid(4, 1).IsNumeric())
+  uint32_t ue_i = uint32_t(ue_len >= 2 && ue_var_name_p[0] == 'b' && FChar::IsUpper(ue_var_name_p[1])); // Skip Boolean `b` prefix if present
+  uint32_t sk_i = 0;
+  do
     {
-    // If name starts with "get_", remove it
-    if (method_name.RemoveFromStart(TEXT("get_"), ESearchCase::CaseSensitive))
-      {
-      // Check if removing the get_ turned it into a Sk reserved word
-      if (is_skookum_reserved_word(method_name))
-        {
-        method_name.AppendChar('_');
-        }
-
-      // Allow question mark
-      is_boolean = true;
-      }
-    // If name starts with "set_", remove it and append "_set" instead
-    else if (method_name.RemoveFromStart(TEXT("set_"), ESearchCase::CaseSensitive))
-      {
-      method_name.Append(TEXT("_set"));
-      }
-    }
-
-  // If name starts with "is_", "has_" or "can_" also append question mark
-  if ((name.Len() > 2 && name[0] == 'b' && isupper(name[1]))
-   || method_name.Find(TEXT("is_"), ESearchCase::CaseSensitive) == 0
-   || method_name.Find(TEXT("has_"), ESearchCase::CaseSensitive) == 0
-   || method_name.Find(TEXT("can_"), ESearchCase::CaseSensitive) == 0)
-    {
-    is_boolean = true;
-    }
-
-  // Append question mark if determined to be boolean
-  if (is_boolean && return_property_p && return_property_p->IsA(UBoolProperty::StaticClass()))
-    {
-    method_name += TEXT("?");
-    }
-
-  return method_name;
+    // Skip non-alphanumeric characters
+    while (ue_i < ue_len && !FChar::IsAlnum(ue_var_name_p[ue_i])) ++ue_i;
+    while (sk_i < sk_len && !FChar::IsAlnum(sk_var_name_p[sk_i])) ++sk_i;
+    } while (ue_i < ue_len && sk_i < sk_len && FChar::ToLower(ue_var_name_p[ue_i++]) == FChar::ToLower(sk_var_name_p[sk_i++]));
+  // Did we find a match?
+  return (ue_i == ue_len && sk_i == sk_len);
   }
 
 //---------------------------------------------------------------------------------------
@@ -857,6 +890,7 @@ FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type
   FString meta_body = get_comment_block(type_p);
 
   // Add name and file name of package where it came from if applicable
+  bool is_blueprint_class = false;
   #if WITH_EDITOR
     UClass * class_p = Cast<UClass>(type_p);
     if (class_p)
@@ -864,6 +898,8 @@ FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type
       UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(class_p);
       if (blueprint_p)
         {
+        is_blueprint_class = true;
+
         meta_body += ms_asset_name_key + blueprint_p->GetName() + TEXT("\r\n");
         UPackage * blueprint_package_p = Cast<UPackage>(blueprint_p->GetOuter());
         if (blueprint_package_p)
@@ -871,9 +907,13 @@ FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type
           meta_body += ms_package_name_key + blueprint_package_p->GetName() + TEXT("\"\r\n");
           meta_body += ms_package_path_key + blueprint_package_p->FileName.ToString() + TEXT("\"\r\n");
           }
+        meta_body += TEXT("\r\n");
         }
       }
   #endif
+
+  // Also add annotations
+  meta_body += is_blueprint_class ? TEXT("annotations: &reflected_data\r\n") : TEXT("annotations: &reflected_cpp\r\n");
 
   return meta_body;
   }
