@@ -56,3 +56,10 @@ void AFunction::invoke()
     }
   }
 
+//---------------------------------------------------------------------------------------
+
+bool AFunction::operator == (void (*function_f)()) const
+  {
+  return m_function_f == function_f;
+  }
+

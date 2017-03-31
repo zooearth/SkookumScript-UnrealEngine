@@ -36,7 +36,7 @@
 // Returns a new dynamic copy of a class instance that is or is derived from the class
 // specified by _BaseClass.  Used virtually when a dynamic copy is needed, but the class
 // is unknown.
-#define AFUNC_COPY_NEW_DEF(_BaseClass) public: virtual _BaseClass * copy_new() const;
+#define AFUNC_COPY_NEW_DEF(_BaseClass) public: virtual _BaseClass * copy_new() const override;
 
 //---------------------------------------------------------------------------------------
 //  Returns a new dynamic copy of itself.  Used virtually when a dynamic copy
@@ -88,6 +88,10 @@ class A_API AFunctionBase
   // Non-Modifying Methods
 
     virtual AFunctionBase * copy_new() const = 0;
+
+  // Comparison
+
+    virtual bool operator == (void (*function_f)()) const { return false; }
 
   };  // AFunctionBase
 

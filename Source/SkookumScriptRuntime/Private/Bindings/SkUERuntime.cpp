@@ -272,6 +272,7 @@ void SkUERuntime::startup()
     SkDebug::register_print_with_agog();
   #endif
 
+  SkBrain::ms_entity_class_name    = ASymbol::create("Entity");
   SkBrain::ms_component_class_name = ASymbol::create("SkookumScriptBehaviorComponent");
 
   SkBrain::register_bind_atomics_func(SkRuntimeBase::bind_routines);
@@ -300,14 +301,18 @@ void SkUERuntime::shutdown()
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Clears out Blueprint interface mappings
-  SkUEBlueprintInterface::get()->clear();
+  SkUEBlueprintInterface::get()->clear(nullptr);
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Unloads SkookumScript and cleans-up
   if (SkookumScript::get_initialization_level() > SkookumScript::InitializationLevel_none)
     {
-    SkookumScript::deinitialize_sim();
-    SkookumScript::deinitialize_program();
+    // In Commandlet mode, sim might not be running
+    if (SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_sim)
+      {
+      SkookumScript::deinitialize_sim();
+      SkookumScript::deinitialize_program();
+      }
     SkookumScript::deinitialize();
     }
 
@@ -319,6 +324,7 @@ void SkUERuntime::shutdown()
   SkBrain::unregister_all_bind_atomics_funcs();
 
   // Get rid of symbol so references are released
+  SkBrain::ms_entity_class_name    = ASymbol::get_null();
   SkBrain::ms_component_class_name = ASymbol::get_null();
 
   // Deinitialize custom UE4 classes
@@ -360,17 +366,6 @@ void SkUERuntime::on_bind_routines()
 
 void SkUERuntime::on_initialization_level_changed(SkookumScript::eInitializationLevel from_level, SkookumScript::eInitializationLevel to_level)
   {
-  // Invalidate all invokable pointers if a program was just deleted
-  if (from_level == SkookumScript::InitializationLevel_program && to_level < from_level)
-    {
-    m_blueprint_interface.clear_all_sk_invokables();
-    }
-  
-  // Re-resolve invokable pointers if a program has just been loaded
-  if (to_level == SkookumScript::InitializationLevel_program && from_level < to_level)
-    {
-    m_blueprint_interface.rebind_all_sk_invokables();
-    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -378,31 +373,46 @@ void SkUERuntime::on_initialization_level_changed(SkookumScript::eInitialization
 void SkUERuntime::set_project_generated_bindings(SkUEBindingsInterface * project_generated_bindings_p)
   {
   SK_ASSERTX(!m_is_compiled_scripts_bound || !project_generated_bindings_p, "Tried to set project bindings but routines have already been bound to the default generated bindings. You need to call this function earlier in the initialization sequence.");
-  m_project_generated_bindings_p = project_generated_bindings_p;
 
-  if (project_generated_bindings_p)
+  // Change only if switching from nullptr to something or vice versa (i.e. ignore duplicate attempts to set it)
+  if (!project_generated_bindings_p != !m_project_generated_bindings_p)
     {
-    m_have_game_module = true;
+    m_project_generated_bindings_p = project_generated_bindings_p;
 
-    // Now that bindings are known, bind the atomics
-    if (is_compiled_scripts_loaded())
+    if (project_generated_bindings_p)
       {
-      bind_compiled_scripts();
+      m_have_game_module = true;
+
+      // Now all blueprint bindings should be known
+      expose_all_blueprint_bindings(true);
       }
     }
   }
 
 //---------------------------------------------------------------------------------------
-
-void SkUERuntime::reexpose_all_to_blueprints(bool is_final)
+// Build list of all &blueprint annotated routines, but do not bind them to UE4 yet
+void SkUERuntime::sync_all_blueprint_bindings_from_binary()
   {
   #if WITH_EDITOR
-    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_class_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_class_updated);
-    tSkUEOnClassUpdatedFunc * on_class_updated_f = &editor_on_class_updated_f;
+    AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_function_removed_from_class_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_function_removed_from_class);
+    tSkUEOnFunctionRemovedFromClassFunc * on_function_removed_from_class_f = &editor_on_function_removed_from_class_f;
   #else
-    tSkUEOnClassUpdatedFunc * on_class_updated_f = nullptr;
+    tSkUEOnFunctionRemovedFromClassFunc * on_function_removed_from_class_f = nullptr;
   #endif
-  m_blueprint_interface.reexpose_all(on_class_updated_f, is_final); // Hook up Blueprint functions and events for static classes
+  m_blueprint_interface.sync_all_bindings_from_binary(on_function_removed_from_class_f);
+  }
+
+//---------------------------------------------------------------------------------------
+// Bind all routines in the binding list to UE4 by generating UFunction objects
+void SkUERuntime::expose_all_blueprint_bindings(bool is_final)
+  {
+  #if WITH_EDITOR
+    AMethodArg2<ISkookumScriptRuntimeEditorInterface, UFunction*, bool> editor_on_function_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_function_updated);
+    tSkUEOnFunctionUpdatedFunc * on_function_updated_f = &editor_on_function_updated_f;
+  #else
+    tSkUEOnFunctionUpdatedFunc * on_function_updated_f = nullptr;
+  #endif
+  m_blueprint_interface.expose_all_bindings(on_function_updated_f, is_final); // Hook up Blueprint functions and events for static classes
   }
 
 //---------------------------------------------------------------------------------------
@@ -490,11 +500,11 @@ bool SkUERuntime::load_compiled_scripts()
   // After loading, hook up a few things right away
   ensure_static_ue_types_registered();
   SkUEBindings::begin_register_bindings();
-  // In commandlet mode, expose here, even if types cannot be fully resolved, to avoid compile errors
-  if (IsRunningCommandlet())
-    {
-    reexpose_all_to_blueprints(false);
-    }
+
+  // Immediately expose blueprint bindings here to make them available for Blueprint compilation
+  // Downside: Game classes and Blueprint generated classes cannot be used as parameters
+  sync_all_blueprint_bindings_from_binary();
+  expose_all_blueprint_bindings(false);
 
   return true;
   }
@@ -532,10 +542,33 @@ void SkUERuntime::bind_compiled_scripts(
   // with the compiled binary that was just loaded.
   SkookumScript::initialize_program();
 
-  // On hot reload, expose here again
+  // Did we just hot reload?
   if (is_hot_reload)
     {
-    reexpose_all_to_blueprints(true);
+    // Yes, re-expose to all blueprints
+    sync_all_blueprint_bindings_from_binary();
+    expose_all_blueprint_bindings(true);
+    
+    // Also re-resolve the raw data of all dynamic classes
+    #if WITH_EDITORONLY_DATA
+      TArray<UObject*> blueprint_array;
+      GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array, true, RF_ClassDefaultObject);
+      for (UObject * obj_p : blueprint_array)
+        {
+        UBlueprint * blueprint_p = static_cast<UBlueprint *>(obj_p);
+        if (blueprint_p->GeneratedClass)
+          {
+          SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(blueprint_p->GeneratedClass);
+          if (sk_class_p)
+            {
+            if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p))
+              {
+              SkUEClassBindingHelper::resolve_raw_data(sk_class_p, blueprint_p->GeneratedClass);
+              }
+            }
+          }
+        }
+    #endif
     }
 
   #if (SKOOKUM & SK_DEBUG)

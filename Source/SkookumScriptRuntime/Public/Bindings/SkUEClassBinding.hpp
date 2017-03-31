@@ -106,6 +106,7 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
     static bool           resolve_raw_data_static(SkClass * class_p);
     static void           resolve_raw_data(SkClass * class_p, UStruct * ue_struct_or_class_p);
     static void           resolve_raw_data_struct(SkClass * class_p, const TCHAR * ue_struct_name_p);
+    static bool           resolve_raw_data_funcs(SkClass * class_p);
 
     static void *         get_raw_pointer_entity(SkInstance * obj_p);
     static SkInstance *   access_raw_data_entity(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);

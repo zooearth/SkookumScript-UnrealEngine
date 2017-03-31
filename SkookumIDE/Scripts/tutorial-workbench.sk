@@ -51,15 +51,15 @@ bob : "Hello World!"
 !var: if @@random.coin_toss [42] else ["stuff"] 
 
 // Lists of stuff
-{1 2 3 4 5}.reverse                // Reverses the order of this list's elements
-{1 -2 3 -4}%negate                 // Applies the method 'negate' to all elements of the list, returns the result
-{1 -2 3 -4}.do[item.negate]        // Runs some code - a 'closure' - on each element of the list
+{1 2 3 4 5}.reverse                // Reverses the order of this list's items
+{1 -2 3 -4}%negate                 // Applies the method 'negate' to all items of the list, returns the result
+{1 -2 3 -4}.do[item.negate]        // Runs some code - a 'closure' - on each item of the list
 {1 2 3}.do[item++ unless item = 2] // unless is short for 'if not'
 {3 4 5 8}.select[item.pow2?]       // Make new list based on a selection criteria (again that code in square brackets is a closure)
-{3 4 5 8}.reject[item.pow2?]       // Make new list by rejecting some elements of the original list
-{"A" "B" "C" "D"}.any              // Select random element from list
-{3 4 5}.any?[item.pow2?]           // Test if _any_ element from list satisfies a condition
-{3 4 5}.all?[item.pow2?]           // Test if _all_ element from list satisfies a condition, false here
+{3 4 5 8}.reject[item.pow2?]       // Make new list by rejecting some items of the original list
+{"A" "B" "C" "D"}.any              // Select random item from list
+{3 4 5}.any?[item.pow2?]           // Test if _any_ item from list satisfies a condition
+{3 4 5}.all?[item.pow2?]           // Test if _all_ item from list satisfies a condition, false here
 {2 4 8}.all?[item.pow2?]           // Same, true in this case
 
 
@@ -164,13 +164,14 @@ not @@world.nil?
 player_pawn
 
 // Instruct RoboChar1 to path towards the player
-Pawn.named("RoboChar1")._path_to_actor(player_pawn)
+Enemy@'RoboChar1'._path_to_actor(player_pawn)
 
 // Get an actor by name, and find something out about it
-Actor.named("RoboChar1").transform
+// Note that if a class is not used before @ it assumes class Actor
+@'RoboChar1'.transform
 
 // Play explosion sound at a given actor location
-Actor.named("TargetPoint1")._play_sound("/Game/ScriptLoaded/Audio/Explosion01.Explosion01")
+@'TargetPoint1'._play_sound("/Game/ScriptLoaded/Audio/Explosion01.Explosion01")
 
 // Draw text above player
 player_pawn._draw_text("Play me!")
@@ -181,8 +182,8 @@ Enemy.instances.any._path_to_actor(player_pawn)
 // Play _boom effect on random enemy
 Enemy.instances.any._boom
 
-// Then select and reset when complete
-robo_reset  // Reset the robots
+// Reset the robots to their corners
+robo_reset  
 
 
 // ====================================
@@ -197,9 +198,9 @@ robo_reset  // Reset the robots
 // Have each robot path to player one after the other
 // then have player go boom.
 // Select and run the next four lines
-Pawn.named("RoboChar1")._path_to_actor(player_pawn)
-Pawn.named("RoboChar2")._path_to_actor(player_pawn)
-Pawn.named("RoboChar3")._path_to_actor(player_pawn)
+Enemy@'RoboChar1'._path_to_actor(player_pawn)
+Enemy@'RoboChar2'._path_to_actor(player_pawn)
+Enemy@'RoboChar3'._path_to_actor(player_pawn)
 player_pawn._boom
 
 // Then select and reset when complete
@@ -213,9 +214,9 @@ robo_reset
 // Select and run the next seven lines
 sync
   [
-  Pawn.named("RoboChar1")._path_to_actor(player_pawn)
-  Pawn.named("RoboChar2")._path_to_actor(player_pawn)
-  Pawn.named("RoboChar3")._path_to_actor(player_pawn)
+  Enemy@'RoboChar1'._path_to_actor(player_pawn)
+  Enemy@'RoboChar2'._path_to_actor(player_pawn)
+  Enemy@'RoboChar3'._path_to_actor(player_pawn)
   ]
 player_pawn._boom
 
@@ -229,9 +230,9 @@ robo_reset  // Reset the robots
 // Select and run the next eight lines
 race
   [
-  Pawn.named("RoboChar1")._path_to_actor(player_pawn)
-  Pawn.named("RoboChar2")._path_to_actor(player_pawn)
-  Pawn.named("RoboChar3")._path_to_actor(player_pawn)
+  Enemy@'RoboChar1'._path_to_actor(player_pawn)
+  Enemy@'RoboChar2'._path_to_actor(player_pawn)
+  Enemy@'RoboChar3'._path_to_actor(player_pawn)
   ]
 Enemy.instances%path_stop // Stop movement of other robots
 player_pawn._boom
@@ -248,10 +249,11 @@ robo_reset  // Reset the robots
 race
   [
   _wait(1.5)
-  Pawn.named("RoboChar1")._path_to_actor(player_pawn)
-  Pawn.named("RoboChar2")._path_to_actor(player_pawn)
-  Pawn.named("RoboChar3")._path_to_actor(player_pawn)
+  Enemy@'RoboChar1'._path_to_actor(player_pawn)
+  Enemy@'RoboChar2'._path_to_actor(player_pawn)
+  Enemy@'RoboChar3'._path_to_actor(player_pawn)
   ]
+Enemy.instances%path_stop // Stop movement of other robots
 player_pawn._boom
 
 robo_reset  // Reset the robots
