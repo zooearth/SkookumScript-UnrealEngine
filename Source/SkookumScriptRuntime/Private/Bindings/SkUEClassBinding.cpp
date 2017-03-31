@@ -20,6 +20,8 @@
 // Binding classes for UE4 
 //=======================================================================================
 
+#include "../SkookumScriptRuntimePrivatePCH.h"
+
 #include "Bindings/SkUEClassBinding.hpp"
 #include "ISkookumScriptRuntime.h"
 #include "SkUERuntime.hpp"
