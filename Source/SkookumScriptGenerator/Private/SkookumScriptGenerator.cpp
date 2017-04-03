@@ -1206,16 +1206,16 @@ FString FSkookumScriptGenerator::generate_event_binding_code(const FString & cla
     FString param_name = TEXT("Z_Param_") + param_p->GetName();
     FString eval_parameter_text = FString::Printf(TEXT("(%s%s)"), *type_text, *param_name);
     generated_code += FString::Printf(TEXT("        %s%s;\r\n"), *eval_base_text, *eval_parameter_text);
-    UByteProperty * byte_property_p = Cast<UByteProperty>(param_p);
-    if (byte_property_p && byte_property_p->Enum)
+    UEnum * enum_p = get_enum(param_p);
+    if (enum_p)
       {
-      if (byte_property_p->Enum->GetCppForm() == UEnum::ECppForm::EnumClass)
+      if (enum_p->GetCppForm() == UEnum::ECppForm::EnumClass)
         {
-        param_name = FString::Printf(TEXT("(%s&)(%s)"), *byte_property_p->Enum->CppType, *param_name);
+        param_name = FString::Printf(TEXT("(%s&)(%s)"), *enum_p->CppType, *param_name);
         }
       else
         {
-        param_name = FString::Printf(TEXT("(TEnumAsByte<%s>&)(%s)"), *byte_property_p->Enum->CppType, *param_name);
+        param_name = FString::Printf(TEXT("(TEnumAsByte<%s>&)(%s)"), *enum_p->CppType, *param_name);
         }
       }
     param_list += separator_p + param_name;
@@ -2260,9 +2260,8 @@ FString FSkookumScriptGenerator::get_cpp_property_type_name(UProperty * property
   FString property_type_name = property_p->GetCPPType(NULL, CPPF_ArgumentOrReturnValue);
 
   // Check for enum
-  UByteProperty * byte_property_p = Cast<UByteProperty>(property_p);
-  if (byte_property_p && byte_property_p->Enum && (is_array_element
-       || byte_property_p->GetName() == TEXT("PathEvent"))) // HACK MJB I see no proper way to detect this from the UProperty
+  UEnum * enum_p = get_enum(property_p);
+  if (enum_p && (is_array_element || property_p->GetName() == TEXT("PathEvent"))) // HACK MJB I see no proper way to detect this from the UProperty
     {
     property_type_name = TEXT("TEnumAsByte<") + property_type_name + TEXT(">");
     }
@@ -2295,10 +2294,10 @@ FString FSkookumScriptGenerator::get_cpp_property_type_name(UProperty * property
 
 FString FSkookumScriptGenerator::get_cpp_property_cast_name(UProperty * property_p)
   {
-  UByteProperty * byte_property_p = Cast<UByteProperty>(property_p);
-  if (byte_property_p && byte_property_p->Enum && byte_property_p->Enum->GetCppForm() == UEnum::ECppForm::Regular)
+  UEnum * enum_p = get_enum(property_p);
+  if (enum_p && enum_p->GetCppForm() == UEnum::ECppForm::Regular)
     {
-    return byte_property_p->Enum->GetName();
+    return enum_p->GetName();
     }
 
   return get_cpp_property_type_name(property_p);
