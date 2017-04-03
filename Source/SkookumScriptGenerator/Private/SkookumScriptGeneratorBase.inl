@@ -326,6 +326,11 @@ bool FSkookumScriptGeneratorBase::does_class_have_static_class(UClass * class_p)
 
 UEnum * FSkookumScriptGeneratorBase::get_enum(UField * field_p)
   {
+  const UEnumProperty * enum_property_p = Cast<UEnumProperty>(field_p);
+  if (enum_property_p)
+    {
+    return enum_property_p->GetEnum();
+    }
   const UByteProperty * byte_property_p = Cast<UByteProperty>(field_p);
   return byte_property_p ? byte_property_p->Enum : nullptr;
   }
