@@ -757,7 +757,7 @@ int32 FSkookumScriptGenerator::generate_enum(UEnum * enum_p, int32 include_prior
       {
       for (int32 enum_index = 0; enum_index < enum_p->NumEnums() - 1; ++enum_index)
         {
-        FString enum_val_name = enum_p->GetEnumName(enum_index);
+        FString enum_val_name = enum_p->GetNameStringByIndex(enum_index);
         FString enum_val_full_name = enum_p->GenerateFullEnumName(*enum_val_name);
         FString skookified_val_name = skookify_var_name(enum_val_name, false, VarScope_class);
 
@@ -1201,16 +1201,16 @@ FString FSkookumScriptGenerator::generate_event_binding_code(const FString & cla
     FString param_name = TEXT("Z_Param_") + param_p->GetName();
     FString eval_parameter_text = FString::Printf(TEXT("(%s%s)"), *type_text, *param_name);
     generated_code += FString::Printf(TEXT("        %s%s;\r\n"), *eval_base_text, *eval_parameter_text);
-    UByteProperty * byte_property_p = Cast<UByteProperty>(param_p);
-    if (byte_property_p && byte_property_p->Enum)
+    UEnum * enum_p = get_enum(param_p);
+    if (enum_p)
       {
-      if (byte_property_p->Enum->GetCppForm() == UEnum::ECppForm::EnumClass)
+      if (enum_p->GetCppForm() == UEnum::ECppForm::EnumClass)
         {
-        param_name = FString::Printf(TEXT("(%s&)(%s)"), *byte_property_p->Enum->CppType, *param_name);
+        param_name = FString::Printf(TEXT("(%s&)(%s)"), *enum_p->CppType, *param_name);
         }
       else
         {
-        param_name = FString::Printf(TEXT("(TEnumAsByte<%s>&)(%s)"), *byte_property_p->Enum->CppType, *param_name);
+        param_name = FString::Printf(TEXT("(TEnumAsByte<%s>&)(%s)"), *enum_p->CppType, *param_name);
         }
       }
     param_list += separator_p + param_name;
@@ -2244,9 +2244,8 @@ FString FSkookumScriptGenerator::get_cpp_property_type_name(UProperty * property
   FString property_type_name = property_p->GetCPPType(NULL, CPPF_ArgumentOrReturnValue);
 
   // Check for enum
-  UByteProperty * byte_property_p = Cast<UByteProperty>(property_p);
-  if (byte_property_p && byte_property_p->Enum && (is_array_element
-       || byte_property_p->GetName() == TEXT("PathEvent"))) // HACK MJB I see no proper way to detect this from the UProperty
+  UEnum * enum_p = get_enum(property_p);
+  if (enum_p && (is_array_element || property_p->GetName() == TEXT("PathEvent"))) // HACK MJB I see no proper way to detect this from the UProperty
     {
     property_type_name = TEXT("TEnumAsByte<") + property_type_name + TEXT(">");
     }
@@ -2279,10 +2278,10 @@ FString FSkookumScriptGenerator::get_cpp_property_type_name(UProperty * property
 
 FString FSkookumScriptGenerator::get_cpp_property_cast_name(UProperty * property_p)
   {
-  UByteProperty * byte_property_p = Cast<UByteProperty>(property_p);
-  if (byte_property_p && byte_property_p->Enum && byte_property_p->Enum->GetCppForm() == UEnum::ECppForm::Regular)
+  UEnum * enum_p = get_enum(property_p);
+  if (enum_p && enum_p->GetCppForm() == UEnum::ECppForm::Regular)
     {
-    return byte_property_p->Enum->GetName();
+    return enum_p->GetName();
     }
 
   return get_cpp_property_type_name(property_p);
@@ -2321,7 +2320,7 @@ FString FSkookumScriptGenerator::get_skookum_default_initializer(UFunction * fun
         case SkTypeID_Real:            default_value = TEXT("0.0"); break;
         case SkTypeID_Boolean:         default_value = TEXT("false"); break;
         case SkTypeID_String:          default_value = TEXT("\"\""); break;
-        case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".") + skookify_var_name(get_enum(param_p)->GetEnumName(0), false, VarScope_class); break;
+        case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".") + skookify_var_name(get_enum(param_p)->GetNameStringByIndex(0), false, VarScope_class); break;
         case SkTypeID_Name:            default_value = TEXT("Name!none"); break;
         case SkTypeID_Vector2:
         case SkTypeID_Vector3:
