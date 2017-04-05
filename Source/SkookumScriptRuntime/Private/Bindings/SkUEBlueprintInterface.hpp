@@ -212,6 +212,7 @@ class SkUEBlueprintInterface
     static SkInstance * fetch_k2_param_struct_val(FFrame & stack, const TypedName & typed_name);
     static SkInstance * fetch_k2_param_struct_ref(FFrame & stack, const TypedName & typed_name);
     static SkInstance * fetch_k2_param_entity(FFrame & stack, const TypedName & typed_name);
+    static SkInstance * fetch_k2_param_enum(FFrame & stack, const TypedName & typed_name);
 
     static uint32_t     get_sk_value_boolean(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_integer(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
@@ -223,6 +224,7 @@ class SkUEBlueprintInterface
     static uint32_t     get_sk_value_struct_val(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_struct_ref(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_entity(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
+    static uint32_t     get_sk_value_enum(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
 
     APArray<BindingEntry> m_binding_entry_array;
 
