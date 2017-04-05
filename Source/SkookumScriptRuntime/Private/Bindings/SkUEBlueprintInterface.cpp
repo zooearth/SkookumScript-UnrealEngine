@@ -36,6 +36,7 @@
 #include <SkookumScript/SkInvokedCoroutine.hpp>
 #include <SkookumScript/SkParameterBase.hpp>
 #include <SkookumScript/SkBoolean.hpp>
+#include <SkookumScript/SkEnum.hpp>
 #include <SkookumScript/SkInteger.hpp>
 #include <SkookumScript/SkReal.hpp>
 
@@ -535,11 +536,17 @@ void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, 
     method_p = static_cast<SkMethodBase *>(class_scope_p->get_invokable_from_vtable(this_p ? SkScope_instance : SkScope_class, method_p->get_vtable_index()));
   #if SKOOKUM & SK_DEBUG
     // If not found, might be due to recent live update and the vtable not being updated yet - try finding it by name
-    if (method_p == nullptr || method_p->get_name() != function_entry.m_sk_invokable_p->get_name())
+    if (!method_p || method_p->get_name() != function_entry.m_sk_invokable_p->get_name())
       {
-      method_p = this_p 
-        ? class_scope_p->find_instance_method_inherited(function_entry.m_sk_invokable_p->get_name()) 
+      method_p = this_p
+        ? class_scope_p->find_instance_method_inherited(function_entry.m_sk_invokable_p->get_name())
         : class_scope_p->find_class_method_inherited(function_entry.m_sk_invokable_p->get_name());
+      }
+    // If still not found, that means the method placed in the graph is not in a parent class of class_scope_p
+    if (!method_p)
+      {
+      // Just revert to original method and then, after processing the arguments on the stack, assert below
+      method_p = static_cast<SkMethodBase *>(function_entry.m_sk_invokable_p);
       }
   #endif
     }
@@ -561,7 +568,7 @@ void SkUEBlueprintInterface::exec_method(FFrame & stack, void * const result_p, 
   stack.Code += !!stack.Code;
 
   #if (SKOOKUM & SK_DEBUG)
-    if (!this_p->get_class()->is_class(*function_entry.m_sk_invokable_p->get_scope()))
+    if (!class_scope_p->is_class(*function_entry.m_sk_invokable_p->get_scope()))
       {
       SK_ERRORX(a_str_format("Attempted to invoke method '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", function_entry.m_sk_class_name.as_cstr(), function_entry.m_sk_invokable_name.as_cstr(), this_p->get_class()->get_name_cstr(), function_entry.m_sk_class_name.as_cstr()));
       }
@@ -949,6 +956,18 @@ UProperty * SkUEBlueprintInterface::build_ue_param(UFunction * ue_function_p, Sk
     k2_param_fetcher_p = &fetch_k2_param_transform;
     sk_value_getter_p = &get_sk_value_transform;
     }
+  else if (sk_parameter_class_p->get_key_class()->is_class(*SkEnum::get_class()))
+    {
+    UEnum * ue_enum_p = FindObject<UEnum>(ANY_PACKAGE, *FString(sk_parameter_class_p->get_key_class_name().as_cstr()));
+    SK_ASSERTX(ue_enum_p || !is_final, a_cstr_format("Enum type '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints is not a known engine class. Maybe it is the class of a Blueprint that is not loaded yet?", sk_parameter_class_p->get_key_class_name().as_cstr_dbg(), param_name.GetPlainANSIString(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
+    if (ue_enum_p)
+      {
+      property_p = NewObject<UByteProperty>(ue_function_p, param_name);
+      static_cast<UByteProperty *>(property_p)->Enum = ue_enum_p;
+      k2_param_fetcher_p = &fetch_k2_param_enum;
+      sk_value_getter_p = &get_sk_value_enum;
+      }
+    }
   else if (sk_parameter_class_p->get_key_class()->is_class(*SkUEEntity::get_class()))
     {
     UClass * ue_class_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(sk_parameter_class_p);
@@ -1105,6 +1124,17 @@ SkInstance * SkUEBlueprintInterface::fetch_k2_param_entity(FFrame & stack, const
 
 //---------------------------------------------------------------------------------------
 
+SkInstance * SkUEBlueprintInterface::fetch_k2_param_enum(FFrame & stack, const TypedName & typed_name)
+  {
+  UByteProperty::TCppType value = UByteProperty::GetDefaultPropertyValue();
+  stack.StepCompiledIn<UByteProperty>(&value);
+  SkInstance * instance_p = typed_name.m_sk_class_p->new_instance();
+  instance_p->construct<SkEnum>(SkEnumType(value));  
+  return instance_p;
+  }
+
+//---------------------------------------------------------------------------------------
+
 uint32_t SkUEBlueprintInterface::get_sk_value_boolean(void * const result_p, SkInstance * value_p, const TypedName & typed_name)
   {
   *((UBoolProperty::TCppType *)result_p) = value_p->as<SkBoolean>();
@@ -1183,6 +1213,14 @@ uint32_t SkUEBlueprintInterface::get_sk_value_entity(void * const result_p, SkIn
   {
   *((UObject **)result_p) = value_p->as<SkUEEntity>();
   return sizeof(UObject *);
+  }
+
+//---------------------------------------------------------------------------------------
+
+uint32_t SkUEBlueprintInterface::get_sk_value_enum(void * const result_p, SkInstance * value_p, const TypedName & typed_name)
+  {
+  *((UByteProperty::TCppType *)result_p) = (UByteProperty::TCppType)value_p->as<SkEnum>();
+  return sizeof(UByteProperty::TCppType);
   }
 
 //---------------------------------------------------------------------------------------
