@@ -206,27 +206,35 @@ class SkUEBlueprintInterface
     static SkInstance * fetch_k2_param_integer(FFrame & stack, const TypedName & typed_name);
     static SkInstance * fetch_k2_param_real(FFrame & stack, const TypedName & typed_name);
     static SkInstance * fetch_k2_param_string(FFrame & stack, const TypedName & typed_name);
+    static SkInstance * fetch_k2_param_vector2(FFrame & stack, const TypedName & typed_name);
     static SkInstance * fetch_k2_param_vector3(FFrame & stack, const TypedName & typed_name);
+    static SkInstance * fetch_k2_param_vector4(FFrame & stack, const TypedName & typed_name);
     static SkInstance * fetch_k2_param_rotation_angles(FFrame & stack, const TypedName & typed_name);
     static SkInstance * fetch_k2_param_transform(FFrame & stack, const TypedName & typed_name);
     static SkInstance * fetch_k2_param_struct_val(FFrame & stack, const TypedName & typed_name);
     static SkInstance * fetch_k2_param_struct_ref(FFrame & stack, const TypedName & typed_name);
     static SkInstance * fetch_k2_param_entity(FFrame & stack, const TypedName & typed_name);
+    static SkInstance * fetch_k2_param_enum(FFrame & stack, const TypedName & typed_name);
 
     static uint32_t     get_sk_value_boolean(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_integer(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_real(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_string(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
+    static uint32_t     get_sk_value_vector2(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_vector3(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
+    static uint32_t     get_sk_value_vector4(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_rotation_angles(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_transform(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_struct_val(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_struct_ref(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
     static uint32_t     get_sk_value_entity(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
+    static uint32_t     get_sk_value_enum(void * const result_p, SkInstance * value_p, const TypedName & typed_name);
 
     APArray<BindingEntry> m_binding_entry_array;
 
+    UScriptStruct *       m_struct_vector2_p;
     UScriptStruct *       m_struct_vector3_p;
+    UScriptStruct *       m_struct_vector4_p;
     UScriptStruct *       m_struct_rotation_angles_p;
     UScriptStruct *       m_struct_transform_p;
 

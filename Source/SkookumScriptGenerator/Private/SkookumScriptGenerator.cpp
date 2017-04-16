@@ -833,6 +833,18 @@ FString FSkookumScriptGenerator::generate_method_script_file_body(UFunction * fu
   // Generate method content
   FString method_body = get_comment_block(function_p);
 
+  // Generate aka annotations
+  method_body += FString::Printf(TEXT("&aka(\"%s\")\r\n"), *function_p->GetName());
+  if (function_p->HasMetaData(ms_meta_data_key_display_name))
+    {
+    FString display_name = function_p->GetMetaData(ms_meta_data_key_display_name);
+    if (display_name != function_p->GetName())
+      {
+      method_body += FString::Printf(TEXT("&aka(\"%s\")\r\n"), *display_name);
+      }
+    }
+  method_body += TEXT("\r\n");
+
   // Generate parameter list
   FString return_type_name;
   int32 num_inputs;
@@ -1952,15 +1964,16 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
   if (class_scope == ClassScope_project)
     {
     binding_code += FString::Printf(TEXT(
+      "static TCHAR const * const _sk_module_name_p = TEXT(\"SkookumScriptRuntime\");\r\n"
+      "static TCHAR const * const _game_module_name_p = TEXT(\"/Script/%s\");\r\n"
+      "static TCHAR const * const _dummy_cpp_class_name_p = TEXT(\"USkookumScriptDummyObject\");\r\n"
+      "\r\n"
       "static struct InitializationHelper : FFieldCompiledInInfo\r\n"
       "  {\r\n"
       "  // Step 1: This gets invoked during module static initialization to add this object to the class initialization queue\r\n"
-      "  InitializationHelper() \r\n"
-      "    : FFieldCompiledInInfo(0, 0)\r\n"
-      "    , m_sk_module_name(TEXT(\"SkookumScriptRuntime\"))\r\n"
-      "	   , m_game_module_name_p(TEXT(\"/Script/%s\"))\r\n"
+      "  InitializationHelper() : FFieldCompiledInInfo(0, 0)\r\n"
       "    {\r\n"
-      "    UClassCompiledInDefer(this, nullptr, 0, 0);\r\n"
+      "    UClassCompiledInDefer(this, _dummy_cpp_class_name_p, 0, 0);\r\n"
       "    }\r\n"
       "\r\n"
       "  // Step 2: This gets invoked when UCLASSES are registered, which is before UENUMS or USTRUCTS are registered\r\n"
@@ -1972,17 +1985,33 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
       "    #else\r\n"
       "      // The struct initialization queue has been filled by now (since it is filled during module static initialization)\r\n"
       "      // Queue up another callback which will end up at the very end of the struct initialization queue\r\n"
-      "      static FCompiledInDeferStruct OnAllModuleTypesRegistered(on_all_module_types_registered, m_game_module_name_p, TEXT(\"OnAllModuleTypesRegistered\"), false, nullptr, nullptr);\r\n"
+      "      static FCompiledInDeferStruct OnAllModuleTypesRegistered(on_all_module_types_registered, _game_module_name_p, TEXT(\"OnAllModuleTypesRegistered\"), false, nullptr, nullptr);\r\n"
       "    #endif\r\n"
-      "    // The registration process does not actually care what we return so return nullptr\r\n"
-      "    return nullptr;\r\n"
+      "    // Return a dummy class\r\n"
+      "    UClass * dummy_class_p = FindObject<UClass>(ANY_PACKAGE, &_dummy_cpp_class_name_p[1]);\r\n"
+      "    if (dummy_class_p) return dummy_class_p;\r\n"
+      "    GetPrivateStaticClassBody(\r\n"
+      "      _game_module_name_p,\r\n"
+      "      &_dummy_cpp_class_name_p[1],\r\n"
+      "      dummy_class_p,\r\n"
+      "      &UObject::StaticRegisterNativesUObject,\r\n"
+      "      sizeof(UObject),\r\n"
+      "      CLASS_Abstract|CLASS_NoExport,\r\n"
+      "      CASTCLASS_None,\r\n"
+      "      TEXT(\"Engine\"),\r\n"
+      "      &InternalConstructor<UObject>,\r\n"
+      "      &InternalVTableHelperCtorCaller<UObject>,\r\n"
+      "      &UObject::AddReferencedObjects,\r\n"
+      "      &UObject::StaticClass,\r\n"
+      "      &UPackage::StaticClass);\r\n"
+      "    return dummy_class_p;\r\n"
       "    }\r\n"
       "\r\n"
       "  // Step 3: This gets invoked after all other USTRUCTS in this module have been registered\r\n"
       "  // And as USTRUCTS get registered after UENUMS and UCLASSES, this means all UCLASSES, UENUMS and USTRUCTS have been registered at this point\r\n"
       "  static class UScriptStruct * on_all_module_types_registered()\r\n"
       "    {\r\n"
-      "    ISkookumScriptRuntime * sk_module_p = FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>(_initialization_helper.m_sk_module_name);\r\n"
+      "    ISkookumScriptRuntime * sk_module_p = FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>(_sk_module_name_p);\r\n"
       "    if (sk_module_p)\r\n"
       "      {\r\n"
       "      static SkUEProjectGeneratedBindings bindings;\r\n"
@@ -1995,7 +2024,8 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
       "#if IS_MONOLITHIC\r\n"
       "  void on_modules_changed(FName module_name, EModuleChangeReason change_reason)\r\n"
       "    {\r\n"
-      "    if (module_name == m_sk_module_name && change_reason == EModuleChangeReason::ModuleLoaded)\r\n"
+      "    static FName sk_module_name(_sk_module_name_p);\r\n"
+      "    if (module_name == sk_module_name && change_reason == EModuleChangeReason::ModuleLoaded)\r\n"
       "      {\r\n"
       "      on_all_module_types_registered();\r\n"
       "      FModuleManager::Get().OnModulesChanged().Remove(m_handle);\r\n"
@@ -2006,18 +2036,16 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
       "  // Step 4: When this module goes away, unregister us with the Sk module\r\n"
       "  ~InitializationHelper()\r\n"
       "    {\r\n"
-      "    ISkookumScriptRuntime * sk_module_p = FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>(m_sk_module_name);\r\n"
+      "    ISkookumScriptRuntime * sk_module_p = FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>(_sk_module_name_p);\r\n"
       "    if (sk_module_p)\r\n"
       "      {\r\n"
       "      sk_module_p->set_project_generated_bindings(nullptr);\r\n"
       "      }\r\n"
       "    }\r\n"
       "\r\n"
-      "  virtual const TCHAR * ClassPackage() const { return m_game_module_name_p; }\r\n"
+      "  virtual const TCHAR * ClassPackage() const { return _game_module_name_p; }\r\n"
       "\r\n"
       "  mutable FDelegateHandle m_handle;\r\n"
-      "  const FName             m_sk_module_name;\r\n"
-      "  TCHAR const * const     m_game_module_name_p;\r\n"
       "\r\n"
       "  } _initialization_helper;\r\n\r\n"), 
       *m_targets[ClassScope_project].m_script_supported_modules.FindByKey(ClassScope_project)->m_name);
