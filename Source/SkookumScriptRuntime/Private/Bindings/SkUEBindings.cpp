@@ -52,7 +52,7 @@
 
 static SkUEEngineGeneratedBindings s_engine_generated_bindings;
 static bool s_engine_ue_types_registered = false;
-static SkUEBindingsInterface * s_project_ue_types_registered_p = false;
+static SkUEBindingsInterface * s_project_ue_types_registered_p = nullptr;
 
 //=======================================================================================
 // SkUEBindings Methods
