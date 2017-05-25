@@ -63,13 +63,15 @@ class SkookumScriptListenerManager
     typedef APArray<USkookumScriptListener> tObjPool;
     typedef AObjReusePool<USkookumScriptListener::EventInfo> tEventPool;
 
-    void              grow_inactive_list(uint32_t pool_incr);
+    void        grow_inactive_list(uint32_t pool_incr);
 
-    tObjPool          m_inactive_list;
-    tObjPool          m_active_list;
-    uint32_t          m_pool_incr;
+    tObjPool    m_inactive_list;
+    tObjPool    m_active_list;
+    uint32_t    m_pool_incr;
 
-    tEventPool        m_event_pool;
+    tEventPool  m_event_pool;
+
+    UPackage *  m_module_package_p;
 
   }; // SkookumScriptListenerManager
 

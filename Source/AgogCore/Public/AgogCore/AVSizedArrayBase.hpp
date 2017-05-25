@@ -87,9 +87,10 @@ class AVSizedArrayBase : public AVArrayBase<_ElementType>
   public:
   // Common types
 
-    // Local shorthand for AVSizedArrayBase template
+    // Local shorthands
     typedef AVSizedArrayBase<_ElementType> tAVSizedArrayBase;
     typedef AVArrayBase<_ElementType>      tAVArrayBase;
+    struct _ElementTypePOD { uint8_t m_mem[sizeof(_ElementType)]; };
 
   // Accessor methods
 
@@ -119,6 +120,7 @@ class AVSizedArrayBase : public AVArrayBase<_ElementType>
     _ElementType   pop(uint32_t pos);
     _ElementType   pop_last();
     void           remove(uint32_t pos = 0u);
+    void           remove_fast(uint32_t pos = 0u);
     void           remove_last();
     void           remove_all();
     void           remove_all(uint32_t pos, uint32_t elem_count = ALength_remainder);
@@ -147,8 +149,10 @@ class AVSizedArrayBase : public AVArrayBase<_ElementType>
 
   // Data members
 
-    // Size of this->m_array_p buffer
-    uint32_t m_size;
+  #ifndef A_BITS64
+    // On 64 bit architectures, m_size is located not here but inside APArrayBase
+    uint32_t m_size; // Size of this->m_array_p buffer
+  #endif
 
   };  // AVSizedArrayBase
 
@@ -742,6 +746,23 @@ inline void AVSizedArrayBase<_ElementType>::remove(
   }
 
 //---------------------------------------------------------------------------------------
+// Removes element at index pos, and plugs the hole with the last element.
+// Important: Changes order of elements!
+template<class _ElementType>
+inline void AVSizedArrayBase<_ElementType>::remove_fast(
+  uint32_t pos // = 0
+)
+  {
+  AVARRAY_BOUNDS_CHECK(pos);
+
+  this->m_array_p[pos].~_ElementType();
+  this->m_count--;  // new length of array
+
+  // Move just last element to plug the hole
+  (_ElementTypePOD &)this->m_array_p[pos] = (_ElementTypePOD &)this->m_array_p[this->m_count];
+  }
+
+//---------------------------------------------------------------------------------------
 //  Removes the element from the last index position.
 // Examples:    array.remove_last();
 // See:         pop(), free(), remove()
@@ -945,9 +966,9 @@ inline AVSizedArrayBase<_ElementType>::AVSizedArrayBase(
   uint32_t        size,    // = 0u
   _ElementType * array_p  // = nullptr
   ) :
-  tAVArrayBase(length, array_p),
-  m_size(size)
+  tAVArrayBase(length, array_p)
   {
+  this->m_size = size;
   }
 
 //---------------------------------------------------------------------------------------
@@ -960,10 +981,10 @@ inline AVSizedArrayBase<_ElementType>::AVSizedArrayBase(
 // Author(s):    Conan Reis
 template<class _ElementType>
 inline AVSizedArrayBase<_ElementType>::AVSizedArrayBase(AVSizedArrayBase * array_p) :
-  tAVArrayBase(array_p->m_count, array_p->m_array_p),
-  m_size(array_p->m_size)
+  tAVArrayBase(array_p->m_count, array_p->m_array_p)
   {
-  array_p->m_count = 0u;
-  array_p->m_size = 0u;
+  this->m_size       = array_p->m_size;
+  array_p->m_count   = 0u;
+  array_p->m_size    = 0u;
   array_p->m_array_p = nullptr;
   }
