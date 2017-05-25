@@ -86,7 +86,7 @@
 // By default only bother doing reference counting of symbols on non-PC - PC has enough
 // memory to handle it.
 // [Requires A_SYMBOL_REF_LINK to be defined.]
-#if defined(A_SYMBOL_REF_LINK) && !defined(A_PLAT_PC) && !defined(A_PLAT_LINUX64)
+#if defined(A_SYMBOL_REF_LINK) && 0
   #define A_SYMBOL_REF_COUNT
 #endif
 
