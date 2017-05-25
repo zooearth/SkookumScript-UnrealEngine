@@ -28,7 +28,10 @@ using UnrealBuildTool;
 public class SkookumScript : ModuleRules
 {
   public SkookumScript(TargetInfo Target)
-  { 
+  {
+    // Ignore warnings about hokey code in windows.h
+    bEnableUndefinedIdentifierWarnings = false;
+
     // Check if Sk source code is present (Pro-RT license) 
     var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "Private", "SkookumScript", "Sk.cpp"));
     // Allow packaging script to force a lib build by creating a temp file (Agog Labs internal)
@@ -132,8 +135,6 @@ public class SkookumScript : ModuleRules
     {
       // We're building SkookumScript from source - not much else needed
       PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Private"));
-      // Build system wants us to be dependent on some module with precompiled headers, so be it
-      PrivateDependencyModuleNames.Add("Core");
     }
     else if (bPlatformAllowed)
     {

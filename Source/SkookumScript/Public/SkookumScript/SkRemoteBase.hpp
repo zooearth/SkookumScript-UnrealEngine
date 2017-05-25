@@ -236,8 +236,8 @@ class SK_API SkRemoteBase
 
   // Common Methods
 
-    SkRemoteBase();
-    ~SkRemoteBase()                                          { ms_default_p = nullptr; }
+             SkRemoteBase();
+    virtual ~SkRemoteBase()                                       { ms_default_p = nullptr; }
 
 
     eSkLocale    get_mode() const                                 { return m_mode; }

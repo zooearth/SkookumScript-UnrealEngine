@@ -32,6 +32,7 @@
 #include "SkUEUtils.hpp"
 
 #include "GenericPlatformProcess.h"
+#include "UObject/UObjectHash.h"
 #include <chrono>
 
 #include <AgogCore/AMethodArg.hpp>
@@ -299,7 +300,7 @@ void SkUERuntime::shutdown()
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Clears out Blueprint interface mappings
-  SkUEBlueprintInterface::get()->clear(nullptr);
+  SkUEReflectionManager::get()->clear(nullptr);
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Unloads SkookumScript and cleans-up
@@ -382,14 +383,14 @@ void SkUERuntime::set_project_generated_bindings(SkUEBindingsInterface * project
       m_have_game_module = true;
 
       // Now all blueprint bindings should be known
-      expose_all_blueprint_bindings(true);
+      sync_all_reflected_to_ue(true);
       }
     }
   }
 
 //---------------------------------------------------------------------------------------
-// Build list of all &blueprint annotated routines, but do not bind them to UE4 yet
-void SkUERuntime::sync_all_blueprint_bindings_from_binary()
+// Gather list of all reflected classes, routines and properties, but do not reflect them to UE4 yet
+void SkUERuntime::sync_all_reflected_from_sk()
   {
   #if WITH_EDITOR
     AMethodArg<ISkookumScriptRuntimeEditorInterface, UClass*> editor_on_function_removed_from_class_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_function_removed_from_class);
@@ -397,12 +398,12 @@ void SkUERuntime::sync_all_blueprint_bindings_from_binary()
   #else
     tSkUEOnFunctionRemovedFromClassFunc * on_function_removed_from_class_f = nullptr;
   #endif
-  m_blueprint_interface.sync_all_bindings_from_binary(on_function_removed_from_class_f);
+  m_reflection_manager.sync_all_from_sk(on_function_removed_from_class_f);
   }
 
 //---------------------------------------------------------------------------------------
 // Bind all routines in the binding list to UE4 by generating UFunction objects
-void SkUERuntime::expose_all_blueprint_bindings(bool is_final)
+void SkUERuntime::sync_all_reflected_to_ue(bool is_final)
   {
   #if WITH_EDITOR
     AMethodArg2<ISkookumScriptRuntimeEditorInterface, UFunction*, bool> editor_on_function_updated_f(m_editor_interface_p, &ISkookumScriptRuntimeEditorInterface::on_function_updated);
@@ -410,7 +411,7 @@ void SkUERuntime::expose_all_blueprint_bindings(bool is_final)
   #else
     tSkUEOnFunctionUpdatedFunc * on_function_updated_f = nullptr;
   #endif
-  m_blueprint_interface.expose_all_bindings(on_function_updated_f, is_final); // Hook up Blueprint functions and events for static classes
+  m_reflection_manager.sync_all_to_ue(on_function_updated_f, is_final); // Hook up Blueprint functions and events for static classes
   }
 
 //---------------------------------------------------------------------------------------
@@ -499,10 +500,11 @@ bool SkUERuntime::load_compiled_scripts()
   ensure_static_ue_types_registered();
   SkUEBindings::begin_register_bindings();
 
-  // Immediately expose blueprint bindings here to make them available for Blueprint compilation
-  // Downside: Game classes and Blueprint generated classes cannot be used as parameters
-  sync_all_blueprint_bindings_from_binary();
-  expose_all_blueprint_bindings(false);
+  // Immediately expose reflected types here to make them available for Blueprint compilation
+  sync_all_reflected_from_sk();
+  #if !WITH_EDITORONLY_DATA
+    sync_all_reflected_to_ue(true); // Only in cooked builds - in editor builds, do this just before first Blueprint is compiled
+  #endif
 
   return true;
   }
@@ -543,9 +545,8 @@ void SkUERuntime::bind_compiled_scripts(
   // Did we just hot reload?
   if (is_hot_reload)
     {
-    // Yes, re-expose to all blueprints
-    sync_all_blueprint_bindings_from_binary();
-    expose_all_blueprint_bindings(true);
+    // Yes, sync all reflected types/variables/routines to UE
+    sync_all_reflected_to_ue(true);
     
     // Also re-resolve the raw data of all dynamic classes
     #if WITH_EDITORONLY_DATA
