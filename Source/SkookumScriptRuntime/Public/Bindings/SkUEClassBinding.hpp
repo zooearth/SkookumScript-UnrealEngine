@@ -29,6 +29,7 @@
 #include "SkookumScriptBehaviorComponent.h"
 
 #include "Engine/Blueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
 #include "GameFramework/Actor.h"
 
 #include <SkookumScript/SkClassBindingBase.hpp>
@@ -60,80 +61,94 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
       Raw_data_type_extra_mask  = 0x3F,
       };
 
-    static UWorld *       get_world(); // Get tha world
-    static void           set_world(UWorld * world_p);
+    static UWorld *        get_world(); // Get tha world
+    static void            set_world(UWorld * world_p);
 
   #if WITH_EDITORONLY_DATA
-    static void           reset_dynamic_class_mappings();
+    static void            reset_dynamic_class_mappings();
+    static bool            is_static_class_registered(UClass * ue_class_p);
+    static bool            is_static_struct_registered(UStruct * ue_struct_p);
+    static bool            is_static_enum_registered(UEnum * ue_enum_p);
   #endif
-    static void           reset_static_class_mappings(uint32_t reserve);
-    static void           reset_static_struct_mappings(uint32_t reserve);
-    static void           reset_static_enum_mappings(uint32_t reserve);
-    static void           add_slack_to_static_class_mappings(uint32_t slack);
-    static void           add_slack_to_static_struct_mappings(uint32_t slack);
-    static void           add_slack_to_static_enum_mappings(uint32_t slack);
-    static void           forget_sk_classes_in_all_mappings();
-    static void           register_static_class(UClass * ue_class_p);
-    static void           register_static_struct(UStruct * ue_struct_p);
-    static void           register_static_enum(UEnum * ue_enum_p);
-    static bool           is_static_class_registered(UClass * ue_class_p);
-    static bool           is_static_struct_registered(UStruct * ue_struct_p);
-    static bool           is_static_enum_registered(UEnum * ue_enum_p);
-    static void           add_static_class_mapping(SkClass * sk_class_p, UClass * ue_class_p);
-    static void           add_static_struct_mapping(SkClass * sk_class_p, UStruct * ue_struct_p);
-    static void           add_static_enum_mapping(SkClass * sk_class_p, UEnum * ue_enum_p);
-    static SkClass *      get_sk_class_from_ue_class(UClass * ue_class_p);
-    static UClass *       get_ue_class_from_sk_class(SkClassDescBase * sk_class_p);
-    static UClass *       get_static_ue_class_from_sk_class(SkClassDescBase * sk_class_p);
-    static UClass *       get_static_ue_class_from_sk_class_super(SkClassDescBase * sk_class_p);
-    static SkClass *      get_static_sk_class_from_ue_struct(UStruct * ue_struct_p);
-    static UStruct *      get_static_ue_struct_from_sk_class(SkClassDescBase * sk_class_p);
-    static SkClass *      get_static_sk_class_from_ue_enum(UEnum * ue_enum_p);
-    static SkClass *      find_most_derived_super_class_known_to_ue(SkClass * sk_class_p);
-    static SkClass *      find_most_derived_super_class_known_to_ue(SkClass * sk_class_p, UClass ** out_ue_class_pp);
-    static SkClass *      find_most_derived_super_class_known_to_sk(UClass * ue_class_p);
-    static SkClass *      get_object_class(UObject * obj_p, UClass * def_uclass_p = nullptr, SkClass * def_class_p = nullptr); // Determine SkookumScript class from UClass
-    static SkInstance *   get_actor_component_instance(AActor * actor_p); // Return SkInstance of an actor's SkookumScriptClassDataComponent if present, nullptr otherwise
+    static void            reset_static_class_mappings(uint32_t reserve);
+    static void            reset_static_struct_mappings(uint32_t reserve);
+    static void            reset_static_enum_mappings(uint32_t reserve);
+    static void            add_slack_to_static_class_mappings(uint32_t slack);
+    static void            add_slack_to_static_struct_mappings(uint32_t slack);
+    static void            add_slack_to_static_enum_mappings(uint32_t slack);
+    static void            forget_sk_classes_in_all_mappings();
+    static void            register_static_class(UClass * ue_class_p);
+    static void            register_static_struct(UStruct * ue_struct_p);
+    static void            register_static_enum(UEnum * ue_enum_p);
+    static void            add_static_class_mapping(SkClass * sk_class_p, UClass * ue_class_p);
+    static void            add_static_struct_mapping(SkClass * sk_class_p, UStruct * ue_struct_p);
+    static void            add_static_enum_mapping(SkClass * sk_class_p, UEnum * ue_enum_p);
 
-    static FString        get_ue_class_name_sans_c(UClass * ue_class_p);
+    static SkClass *       get_sk_class_from_ue_class(UClass * ue_class_p);
+    static UClass *        get_ue_class_from_sk_class(SkClass * sk_class_p);
+    static UScriptStruct * get_ue_struct_from_sk_class(SkClass * sk_class_p);
+    static UStruct *       get_ue_struct_or_class_from_sk_class(SkClass * sk_class_p);
+    static UClass *        get_static_ue_class_from_sk_class_super(SkClassDescBase * sk_class_p);
+    static SkClass *       find_most_derived_super_class_known_to_ue(SkClass * sk_class_p);
+    static SkClass *       find_most_derived_super_class_known_to_ue(SkClass * sk_class_p, UClass ** out_ue_class_pp);
+    static SkClass *       find_most_derived_super_class_known_to_sk(UClass * ue_class_p);
+    static SkClass *       get_object_class(UObject * obj_p, UClass * def_ue_class_p = nullptr, SkClass * def_sk_class_p = nullptr); // Determine SkookumScript class from UClass
+    static SkInstance *    get_embedded_instance(UObject * obj_p, SkClass * sk_class_p);
+    static SkInstance *    get_embedded_instance(AActor * actor_p, SkClass * sk_class_p);
 
-    static tSkRawDataInfo compute_raw_data_info(UProperty * ue_var_p);
-    static bool           resolve_raw_data_static(SkClass * class_p);
-    static void           resolve_raw_data(SkClass * class_p, UStruct * ue_struct_or_class_p);
-    static void           resolve_raw_data_struct(SkClass * class_p, const TCHAR * ue_struct_name_p);
-    static bool           resolve_raw_data_funcs(SkClass * class_p);
+    static FString         get_ue_class_name_sans_c(UClass * ue_class_p);
 
-    static void *         get_raw_pointer_entity(SkInstance * obj_p);
-    static SkInstance *   access_raw_data_entity(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
-    static SkInstance *   access_raw_data_boolean(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
-    static SkInstance *   access_raw_data_integer(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
-    static SkInstance *   access_raw_data_string(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
-    static SkInstance *   access_raw_data_enum(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
-    static SkInstance *   access_raw_data_color(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
-    static SkInstance *   access_raw_data_list(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
+    static tSkRawDataInfo  compute_raw_data_info(UProperty * ue_var_p);
+    static bool            resolve_raw_data_static(SkClass * sk_class_p);
+    static void            resolve_raw_data(SkClass * sk_class_p, UStruct * ue_struct_or_class_p);
+    static void            resolve_raw_data_struct(SkClass * sk_class_p, const TCHAR * ue_struct_name_p);
+    static bool            resolve_raw_data_funcs(SkClass * sk_class_p);
+
+    static void *          get_raw_pointer_entity(SkInstance * obj_p);
+    static SkInstance *    access_raw_data_entity(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
+    static SkInstance *    access_raw_data_boolean(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
+    static SkInstance *    access_raw_data_integer(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
+    static SkInstance *    access_raw_data_string(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
+    static SkInstance *    access_raw_data_enum(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
+    static SkInstance *    access_raw_data_color(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
+    static SkInstance *    access_raw_data_list(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
 
     template<class _BindingClass>
-    static SkInstance *   access_raw_data_struct(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
+    static SkInstance *    access_raw_data_struct(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
 
     template<class _BindingClass, typename _DataType>
-    static SkInstance *   new_instance(const _DataType & value) { return _BindingClass::new_instance(value); }
+    static SkInstance *    new_instance(const _DataType & value) { return _BindingClass::new_instance(value); }
 
     template<class _BindingClass, typename _DataType, typename _CastType = _DataType>
-    static void           set_from_instance(_DataType * out_value_p, SkInstance * instance_p) { *out_value_p = (_CastType)instance_p->as<_BindingClass>(); }
+    static void            set_from_instance(_DataType * out_value_p, SkInstance * instance_p) { *out_value_p = (_CastType)instance_p->as<_BindingClass>(); }
 
     template<class _BindingClass, typename _DataType>
-    static void           initialize_list_from_array(SkInstanceList * out_instance_list_p, const TArray<_DataType> & array);
+    static void            initialize_list_from_array(SkInstanceList * out_instance_list_p, const TArray<_DataType> & array);
 
     template<class _BindingClass, typename _DataType>
-    static void           initialize_empty_list_from_array(SkInstanceList * out_instance_list_p, const TArray<_DataType> & array);
+    static void            initialize_empty_list_from_array(SkInstanceList * out_instance_list_p, const TArray<_DataType> & array);
 
     template<class _BindingClass, typename _DataType>
-    static SkInstance *   list_from_array(const TArray<_DataType> & array);
+    static SkInstance *    list_from_array(const TArray<_DataType> & array);
 
     template<class _BindingClass, typename _DataType, typename _CastType = _DataType>
-    static void           initialize_array_from_list(TArray<_DataType> * out_array_p, const SkInstanceList & list);
+    static void            initialize_array_from_list(TArray<_DataType> * out_array_p, const SkInstanceList & list);
 
   protected:
+
+    // A few handy symbol id constants
+    enum
+      {
+      ASymbolId_Entity          = 0x0984415e,
+      ASymbolId_EntityClass     = 0xbfff707c,
+      ASymbolId_GameEntity      = 0xfed2d79d,
+      ASymbolId_Vector2         = 0x29ca61a5,
+      ASymbolId_Vector3         = 0x5ecd5133,
+      ASymbolId_Rotation        = 0xd00afaa7,
+      ASymbolId_RotationAngles  = 0x81d74f22,
+      };
+
+    static const FName NAME_Entity;
 
     // Copy of bool property with public members so we can extract its private data
     struct HackedBoolProperty : UProperty
@@ -166,12 +181,58 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
         FORCENOINLINE void resize_to(int32 new_max, int32 num_bytes_per_element);
       };
 
+    // HACK to utilize 3 bytes of unused space behind a boolean
+    struct HackedBoolMem
+      {
+      enum { Magic = 0x5c };
+
+      bool      m_boolean;
+      uint8_t   m_magic;
+      uint16_t  m_data_idx;
+
+      uint32_t  get_data_idx() const             { return m_magic == Magic ? m_data_idx : 0; }
+      void      set_data_idx(uint32_t data_idx)  { m_magic = Magic; m_data_idx = (uint16_t)data_idx; }
+      };
+
+    // A version of SkInstance that does not call the destructor
+    class SkRawDataInstance : public SkInstance
+      {
+      public:
+
+        // Special constructor meant for just replacing vtable
+        // Leaves class & user data unchanged
+        SkRawDataInstance()
+          {
+          m_ref_count = 1;
+          }
+
+        virtual void on_no_references() override
+          {
+          // Change virtual table for this instance back to SkInstance
+          new (this) SkInstance();
+          // Important: Do not call destructor here
+          // Put it back on the pool for reuse
+          delete_this();
+          }
+      };
+
+
+  static UClass *        find_ue_class_from_sk_class(SkClass * sk_class_p);
+  static UScriptStruct * find_ue_struct_from_sk_class(SkClass * sk_class_p);
+  static SkClass *       find_sk_class_from_ue_class(UClass * ue_class_p);
+  static SkClass *       find_sk_class_from_ue_struct(UStruct * ue_struct_p);
+  static SkClass *       find_sk_class_from_ue_enum(UEnum * ue_enum_p);
+  static uint32_t        get_sk_class_idx_from_ue_class(UClass * ue_class_p);
+  static void            set_sk_class_idx_on_ue_class(UClass * ue_class_p, uint32_t sk_class_idx);
+  static UStruct *       get_ue_struct_ptr_from_sk_class(SkClass * sk_class_p);
+  static void            set_ue_struct_ptr_on_sk_class(SkClass * sk_class_p, UStruct * ue_struct_p);
+
   #if WITH_EDITORONLY_DATA
-    static UClass *     add_dynamic_class_mapping(SkClassDescBase * sk_class_desc_p);
-    static SkClass *    add_dynamic_class_mapping(UBlueprint * blueprint_p);
+    static UClass *      add_dynamic_class_mapping(SkClassDescBase * sk_class_desc_p);
+    static SkClass *     add_dynamic_class_mapping(UBlueprint * blueprint_p);
   #endif
-    static UClass *     add_static_class_mapping(SkClassDescBase * sk_class_desc_p);
-    static SkClass *    add_static_class_mapping(UClass * ue_class_p);
+    static UClass *      add_static_class_mapping(SkClassDescBase * sk_class_desc_p);
+    static SkClass *     add_static_class_mapping(UClass * ue_class_p);
 
     static TMap<UClass*, SkClass*>                            ms_static_class_map_u2s; // Maps UClasses to their respective SkClasses
     static TMap<SkClassDescBase*, UClass*>                    ms_static_class_map_s2u; // Maps SkClasses to their respective UClasses
@@ -244,28 +305,16 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
     // Allocate and initialize a new instance of this SkookumScript type with given sub class
     static SkInstance * new_instance(_UObjectType * obj_p, SkClass * sk_class_p)
       {
-      if (obj_p)
+      SkInstance * instance_p = SkUEClassBindingHelper::get_embedded_instance(obj_p, sk_class_p);
+      if (instance_p)
         {
-        if (sk_class_p->is_actor_class())
-          {
-          SkInstance * instance_p = SkUEClassBindingHelper::get_actor_component_instance(static_cast<AActor *>(static_cast<UObject *>(obj_p)));
-          if (instance_p)
-            {
-            instance_p->reference();
-            return instance_p;
-            }
-          }
-        else if (sk_class_p->is_component_class())
-          {
-          USkookumScriptBehaviorComponent * component_p = static_cast<USkookumScriptBehaviorComponent *>(static_cast<UObject *>(obj_p));
-          SkInstance * instance_p = component_p->get_sk_component_instance();
-          instance_p->reference();
-          return instance_p;
-          }
+        instance_p->reference();
         }
-
-      SkInstance * instance_p = SkInstance::new_instance(sk_class_p);
-      static_cast<tBindingBase *>(instance_p)->construct(obj_p);
+      else
+        {
+        instance_p = sk_class_p->new_instance();
+        instance_p->construct<tBindingBase>(obj_p);
+        }
       return instance_p;
       }
 
@@ -273,9 +322,11 @@ class SkUEClassBindingEntity : public SkClassBindingBase<_BindingClass, SkUEWeak
     // Allocate and initialize a new instance of this SkookumScript type
     // We override this so we can properly determine the actual class of the SkInstance
     // which may be a sub class of tBindingAbstract::ms_class_p 
-    static SkInstance * new_instance(_UObjectType * obj_p, UClass * def_uclass_p = nullptr, SkClass * def_class_p = nullptr)
+    static SkInstance * new_instance(_UObjectType * obj_p, UClass * def_ue_class_p = nullptr, SkClass * def_sk_class_p = nullptr)
       {
-      SkClass * sk_class_p = SkUEClassBindingHelper::get_object_class(obj_p, def_uclass_p ? def_uclass_p : ms_uclass_p, def_class_p ? def_class_p : tBindingAbstract::ms_class_p);
+      SK_ASSERTX(!def_ue_class_p || def_ue_class_p->IsChildOf(tBindingEntity::ms_uclass_p), "If you pass in def_uclass_p, it must be the same as or a super class of ms_uclass_p.");
+      SK_ASSERTX(!def_sk_class_p || def_sk_class_p->is_class(*tBindingAbstract::ms_class_p), "If you pass in def_class_p, it must be the same as or a super class of ms_class_p.");
+      SkClass * sk_class_p = SkUEClassBindingHelper::get_object_class(obj_p, def_ue_class_p ? def_ue_class_p : ms_uclass_p, def_sk_class_p ? def_sk_class_p : tBindingAbstract::ms_class_p);
       return new_instance(obj_p, sk_class_p);
       }
 
@@ -318,19 +369,9 @@ class SkUEClassBindingActor : public SkUEClassBindingEntity<_BindingClass, _AAct
     // We override this so we can properly determine the actual class of the SkInstance
     // which may be a sub class of tBindingAbstract::ms_class_p 
     // The actor may also contain its own SkInstance inside its SkookumScriptClassDataComponent
-    static SkInstance * new_instance(_AActorType * actor_p, UClass * def_uclass_p = nullptr, SkClass * def_class_p = nullptr)
+    static SkInstance * new_instance(_AActorType * actor_p, UClass * def_ue_class_p = nullptr, SkClass * def_sk_class_p = nullptr)
       {
-      // Check if we can get an instance from a SkookumScriptClassDataComponent
-      // If not, create new entity instance
-      SkInstance * instance_p = SkUEClassBindingHelper::get_actor_component_instance(actor_p);
-      if (instance_p)
-        {
-        instance_p->reference();
-        return instance_p;
-        }
-      SK_ASSERTX(!def_uclass_p || def_uclass_p == tBindingEntity::ms_uclass_p || def_uclass_p->IsChildOf(tBindingEntity::ms_uclass_p), "If you pass in def_uclass_p, it must be the same as or a super class of ms_uclass_p.");
-      SK_ASSERTX(!def_class_p || def_class_p->is_class(*tBindingAbstract::ms_class_p), "If you pass in def_class_p, it must be the same as or a super class of ms_class_p.");
-      return tBindingEntity::new_instance(actor_p, def_uclass_p ? def_uclass_p : tBindingEntity::ms_uclass_p, def_class_p ? def_class_p : tBindingAbstract::ms_class_p);
+      return tBindingEntity::new_instance(actor_p, def_ue_class_p ? def_ue_class_p : tBindingEntity::ms_uclass_p, def_sk_class_p ? def_sk_class_p : tBindingAbstract::ms_class_p);
       }
 
   };
@@ -416,55 +457,63 @@ UStruct * SkUEClassBindingStruct<_BindingClass, _DataType>::ms_ustruct_p = nullp
 // Inline Function Definitions
 //=======================================================================================
 
+#if WITH_EDITORONLY_DATA
+
 //---------------------------------------------------------------------------------------
 
 inline bool SkUEClassBindingHelper::is_static_class_registered(UClass * ue_class_p)
   {
-  return ms_static_class_map_u2s.Find(ue_class_p) != nullptr;
+  return !Cast<UBlueprintGeneratedClass>(ue_class_p) && get_sk_class_from_ue_class(ue_class_p);
   }
 
 //---------------------------------------------------------------------------------------
 
 inline bool SkUEClassBindingHelper::is_static_struct_registered(UStruct * ue_struct_p)
   {
-  return ms_static_struct_map_u2s.Find(ue_struct_p) != nullptr;
+  // This is just used for script generation, therefore a slower lookup is ok here
+  return !!find_sk_class_from_ue_struct(ue_struct_p);
   }
 
 //---------------------------------------------------------------------------------------
 
 inline bool SkUEClassBindingHelper::is_static_enum_registered(UEnum * ue_enum_p)
   {
-  return ms_static_enum_map_u2s.Find(ue_enum_p) != nullptr;
+  // This is just used for script generation, therefore a slower lookup is ok here
+  return !!find_sk_class_from_ue_enum(ue_enum_p);
   }
+
+#endif
 
 //---------------------------------------------------------------------------------------
 
 inline SkClass * SkUEClassBindingHelper::get_sk_class_from_ue_class(UClass * ue_class_p)
   {
-  // First see if it's a known static (Engine) class
-  SkClass ** sk_class_pp = ms_static_class_map_u2s.Find(ue_class_p);
-  if (sk_class_pp) return *sk_class_pp;
-  #if WITH_EDITORONLY_DATA
-    // If not, it might be a dynamic (Blueprint) class
-    UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(ue_class_p);
-    if (!blueprint_p) return nullptr;
-    // It's a blueprint class, see if we know it already
-    sk_class_pp = ms_dynamic_class_map_u2s.Find(blueprint_p);
-    if (sk_class_pp) return *sk_class_pp;
-    // (Yet) unknown, try to look it up by name and add to map
-    SkClass * sk_class_p = add_dynamic_class_mapping(blueprint_p);
-    if (sk_class_p) return sk_class_p;
-  #endif
-  return add_static_class_mapping(ue_class_p);
-  }
+  uint32_t sk_class_idx = get_sk_class_idx_from_ue_class(ue_class_p);
+  if (sk_class_idx)
+    {
+    const tSkClasses & sk_classes = SkBrain::get_classes();
+    if (sk_class_idx < sk_classes.get_length())
+      {
+      SkClass * sk_class_p = sk_classes[sk_class_idx];
 
-//---------------------------------------------------------------------------------------
-// Find our (static!) UE counterpart
-inline UClass * SkUEClassBindingHelper::get_static_ue_class_from_sk_class(SkClassDescBase * sk_class_p)
-  {
-  UClass ** ue_class_pp = ms_static_class_map_s2u.Find(sk_class_p);
-  if (ue_class_pp) return *ue_class_pp;
-  return add_static_class_mapping(sk_class_p);
+      #if (SKOOKUM & SK_DEBUG)
+        // In debug builds (which allow live updating), make sure the return pointer matches, otherwise fall through and re-resolve
+        if (get_ue_struct_ptr_from_sk_class(sk_class_p) == ue_class_p)
+          {
+          return sk_class_p;
+          }
+      #else
+        // If no live update allowed, the index is good forever
+        #ifdef A_MAD_CHECK
+          // If extra checking is on though, make sure it really is
+          UStruct * ue_struct_p = get_ue_struct_ptr_from_sk_class(sk_class_p); 
+          A_VERIFYX(!ue_struct_p || ue_class_p == ue_struct_p, a_str_format("Mapped classes don't match for '%s' ('%S' != '%S')", sk_class_p->get_name_cstr(), ue_struct_p ? *ue_struct_p->GetName() : TEXT("?"), *ue_class_p->GetName()));
+        #endif
+        return sk_class_p;
+      #endif
+      }
+    }
+  return find_sk_class_from_ue_class(ue_class_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -473,60 +522,74 @@ inline UClass * SkUEClassBindingHelper::get_static_ue_class_from_sk_class(SkClas
 inline UClass * SkUEClassBindingHelper::get_static_ue_class_from_sk_class_super(SkClassDescBase * sk_class_p)
   {
   SkClass * sk_ue_class_p = sk_class_p->get_key_class();
-  do
+  while (sk_ue_class_p->get_annotation_flags() & SkAnnotation_reflected_data)
     {
-    UClass ** ue_class_pp = ms_static_class_map_s2u.Find(sk_ue_class_p);
-    if (ue_class_pp) return *ue_class_pp;
     sk_ue_class_p = sk_ue_class_p->get_superclass();
-    } while (sk_ue_class_p);
-
-  return nullptr;
+    }
+  UClass * ue_class_p;
+  do 
+  {
+    ue_class_p = get_ue_class_from_sk_class(sk_ue_class_p);
+  } while (!ue_class_p && (sk_ue_class_p = sk_ue_class_p->get_superclass()) != nullptr);
+  return ue_class_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-inline SkClass * SkUEClassBindingHelper::get_static_sk_class_from_ue_struct(UStruct * ue_struct_p)
+inline UClass * SkUEClassBindingHelper::get_ue_class_from_sk_class(SkClass * sk_class_p)
   {
-  SkClass ** sk_class_pp = ms_static_struct_map_u2s.Find(ue_struct_p);
-  return sk_class_pp ? *sk_class_pp : nullptr;
-  }
+  UClass * ue_class_p = static_cast<UClass *>(get_ue_struct_ptr_from_sk_class(sk_class_p));  
+  SK_ASSERTX(!ue_class_p || Cast<UClass>(ue_class_p), a_str_format("Requested UClass '%S' is not a UClass!", *ue_class_p->GetName()));
 
-//---------------------------------------------------------------------------------------
+  if (!ue_class_p)
+    {
+    ue_class_p = find_ue_class_from_sk_class(sk_class_p);
+    }
 
-inline UStruct * SkUEClassBindingHelper::get_static_ue_struct_from_sk_class(SkClassDescBase * sk_class_p)
-  {
-  UStruct ** ue_struct_pp = ms_static_struct_map_s2u.Find(sk_class_p);
-  return ue_struct_pp ? *ue_struct_pp : nullptr;
-  }
-
-//---------------------------------------------------------------------------------------
-
-inline SkClass * SkUEClassBindingHelper::get_static_sk_class_from_ue_enum(UEnum * ue_enum_p)
-  {
-  SkClass ** sk_class_pp = ms_static_enum_map_u2s.Find(ue_enum_p);
-  return sk_class_pp ? *sk_class_pp : nullptr;
-  }
-
-//---------------------------------------------------------------------------------------
-
-inline UClass * SkUEClassBindingHelper::get_ue_class_from_sk_class(SkClassDescBase * sk_class_p)
-  {
-  // First see if it's a known static (Engine) class
-  UClass ** ue_class_pp = ms_static_class_map_s2u.Find(sk_class_p);
-  if (ue_class_pp) return *ue_class_pp;
-  #if WITH_EDITORONLY_DATA
-    // If not, see if it's a known dynamic (Blueprint) class
-    TWeakObjectPtr<UBlueprint> * blueprint_pp = ms_dynamic_class_map_s2u.Find(sk_class_p);
-    if (blueprint_pp)
+  #if (SKOOKUM & SK_DEBUG) && defined(A_MAD_CHECK)
+    if (ue_class_p)
       {
-      UBlueprint * blueprint_p = blueprint_pp->Get();
-      if (blueprint_p) return blueprint_p->GeneratedClass; // Note: GeneratedClass might be null here
+      uint32_t sk_class_idx = get_sk_class_idx_from_ue_class(ue_class_p);
+      if (sk_class_idx)
+        {
+        SkClass * ue_sk_class_p = SkBrain::get_classes()[sk_class_idx];
+        SK_ASSERTX(sk_class_p == ue_sk_class_p, a_str_format("Mapped classes don't match for '%S' ('%s' != '%s')", *ue_class_p->GetName(), sk_class_p->get_name_cstr(), ue_sk_class_p->get_name_cstr()));
+        }
       }
-    // (Yet) unknown (or blueprint was rebuilt/reloaded), try to look it up by name and add to map
-    UClass * ue_class_p = add_dynamic_class_mapping(sk_class_p);
-    if (ue_class_p) return ue_class_p;
   #endif
-  return add_static_class_mapping(sk_class_p);
+
+  return ue_class_p;
+  }
+
+//---------------------------------------------------------------------------------------
+
+inline UScriptStruct * SkUEClassBindingHelper::get_ue_struct_from_sk_class(SkClass * sk_class_p)
+  {
+  UScriptStruct * ue_struct_p = static_cast<UScriptStruct *>(get_ue_struct_ptr_from_sk_class(sk_class_p));
+  SK_ASSERTX(!ue_struct_p || Cast<UScriptStruct>(ue_struct_p), a_str_format("Requested UScriptStruct '%S' is not a UScriptStruct!", *ue_struct_p->GetName()));
+
+  if (!ue_struct_p)
+    {
+    ue_struct_p = find_ue_struct_from_sk_class(sk_class_p);
+    }
+
+  return ue_struct_p;
+  }
+
+//---------------------------------------------------------------------------------------
+
+inline UStruct * SkUEClassBindingHelper::get_ue_struct_or_class_from_sk_class(SkClass * sk_class_p)
+  {
+  UStruct * ue_struct_or_class_p = get_ue_struct_ptr_from_sk_class(sk_class_p);
+
+  if (!ue_struct_or_class_p)
+    {
+    ue_struct_or_class_p = sk_class_p->is_entity_class()
+      ? static_cast<UStruct *>(find_ue_class_from_sk_class(sk_class_p))
+      : static_cast<UStruct *>(find_ue_struct_from_sk_class(sk_class_p));
+    }
+
+  return ue_struct_or_class_p;
   }
 
 //---------------------------------------------------------------------------------------
@@ -634,3 +697,48 @@ void SkUEClassBindingHelper::initialize_array_from_list(TArray<_DataType> * out_
     set_from_instance<_BindingClass, _DataType, _CastType>(&(*out_array_p)[index], instance_p);
     }
   }
+
+
+//---------------------------------------------------------------------------------------
+// Returns index into master class array or 0 if unset
+// HACK! This exploits unused memory between member variables
+inline uint32_t SkUEClassBindingHelper::get_sk_class_idx_from_ue_class(UClass * ue_class_p)
+  {
+  static_assert(offsetof(UClass, ClassReps) - offsetof(UClass, bCooked) >= sizeof(HackedBoolMem), "Not enough storage space for sk_class_idx!");
+  return reinterpret_cast<const HackedBoolMem *>(&ue_class_p->bCooked)->get_data_idx();
+  }
+
+//---------------------------------------------------------------------------------------
+// Sets index into master class array or 0 if unset
+// HACK! This exploits unused memory between member variables
+inline void SkUEClassBindingHelper::set_sk_class_idx_on_ue_class(UClass * ue_class_p, uint32_t sk_class_idx)
+  {
+  reinterpret_cast<HackedBoolMem *>(&ue_class_p->bCooked)->set_data_idx(sk_class_idx);
+  }
+
+//---------------------------------------------------------------------------------------
+// Fetch struct pointer from Sk class user data
+inline UStruct * SkUEClassBindingHelper::get_ue_struct_ptr_from_sk_class(SkClass * sk_class_p)
+  {
+  #if WITH_EDITORONLY_DATA
+    // With Blueprints and hot loading we have to be careful and use a weak pointer
+    return sk_class_p->get_user_data<TWeakObjectPtr<UStruct>>().Get();
+  #else
+    // In cooked builds we can store the class pointer directly and save a few cycles that way
+    return sk_class_p->get_user_data<UStruct *>();
+  #endif
+  }
+
+//---------------------------------------------------------------------------------------
+// Set struct pointer to Sk class user data
+inline void SkUEClassBindingHelper::set_ue_struct_ptr_on_sk_class(SkClass * sk_class_p, UStruct * ue_struct_p)
+  {
+  #if WITH_EDITORONLY_DATA
+    sk_class_p->set_user_data<TWeakObjectPtr<UStruct>>(ue_struct_p);
+  #else
+    sk_class_p->set_user_data(ue_struct_p);
+  #endif
+  }
+
+
+

@@ -717,7 +717,7 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       SkTypedNameRaw *          get_instance_data_type_raw(const ASymbol & data_name, uint32_t * data_idx_p = nullptr, SkClass ** data_owner_class_pp = nullptr) const;
       SkTypedName *             get_class_data_type(const ASymbol & data_name, uint32_t * data_idx_p = nullptr, SkClass ** data_owner_class_pp = nullptr) const;
       uint32_t                  get_inherited_instance_data_count() const;
-      bool                      is_raw_data_resolved() const           { return (m_flags & Flag_raw_resolved); }
+      bool                      is_raw_data_resolved() const           { return (m_flags & Flag_raw_resolved) != 0; }
       void                      set_raw_data_resolved(bool is_resolved);
       bool                      resolve_raw_data(const ASymbol & name, tSkRawDataInfo raw_data_info);
       bool                      resolve_raw_data(const char * name_p, tSkRawDataInfo raw_data_info);
@@ -776,8 +776,11 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
     // User data
 
-      template<typename T> T *   get_user_data() const           { return (T*)m_user_data_p; }
-      template<typename T> void  set_user_data(T * user_data_p)  { m_user_data_p = (void *)user_data_p; }
+      template<typename T> const T &  get_user_data() const               { return reinterpret_cast<const T &>(m_user_data); }
+      template<typename T> void       set_user_data(const T & user_data)  { static_assert(sizeof(T) <= sizeof(m_user_data), "User data does not fit."); reinterpret_cast<SkPOD32<T> &>(m_user_data) = reinterpret_cast<const SkPOD32<T> &>(user_data); }
+      uint32_t                        get_user_data_int() const           { return m_user_data_int; }
+      void                            set_user_data_int(uint32_t value)   { m_user_data_int = value; }
+      void                            set_user_data_int_recursively(uint32_t value);
 
     // Sanity checking
 
@@ -916,7 +919,8 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
 
     // User Data
 
-      void * m_user_data_p;
+      uint64_t m_user_data;
+      uint32_t m_user_data_int;
 
     // Sanity checking
 

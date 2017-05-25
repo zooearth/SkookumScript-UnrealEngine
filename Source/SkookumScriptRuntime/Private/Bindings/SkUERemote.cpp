@@ -32,7 +32,7 @@
 #ifdef SKOOKUM_REMOTE_UNREAL
 
 #include "SkUERuntime.hpp"
-#include "Bindings/SkUEBlueprintInterface.hpp"
+#include "Bindings/SkUEReflectionManager.hpp"
 #include "../SkookumScriptRuntimeGenerator.h"
 #include "Bindings/SkUEUtils.hpp"
 
@@ -239,14 +239,15 @@ TSharedPtr<FInternetAddr> SkUERemote::get_ip_address_ide()
     //ip_addr = get_ip_address_local();
     
     // If non-desktop expect SkookumIDE IP address to be specified
-    #if ((PLATFORM_WINDOWS == 0) && (PLATFORM_MAC == 0) && (PLATFORM_LINUX == 0))
-      A_DPRINT("SkookumIDE Warning!\n"
+    #if !defined(PLATFORM_WINDOWS) && !defined(PLATFORM_MAC) && !defined(PLATFORM_LINUX)
+      ADebug::print("SkookumIDE Warning!\n"
         "  Did not find ide-ip.txt in the SkookumScript compiled binary folder.\n"
         "  It specifies the SkookumIDE IP address and without it the runtime will not be able\n"
         "  to connect to the SkookumIDE.\n\n"
         "  See 'Specifying the SkookumRuntime IP address' here:\n"
-        "    http://skookumscript.com/docs/v3.0/ide/ip-addresses/#specifying-the-skookumruntime-ip-address"
-        );
+        "    http://skookumscript.com/docs/v3.0/ide/ip-addresses/#specifying-the-skookumruntime-ip-address\n",
+        false
+      );
     #endif
     }
 
@@ -277,13 +278,13 @@ void SkUERemote::set_mode(eSkLocale mode)
     // Stop old mode
     if (m_socket_p)
       {
-      SkDebug::print(a_str_format("SkookumScript: Disconnecting... %s\n", get_socket_str().as_cstr()), SkLocale_local);
+      ADebug::print(a_str_format("SkookumScript: Disconnecting... %s\n", get_socket_str().as_cstr()), false);
 
       ISocketSubsystem * socket_system_p = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
 
       if (!m_socket_p->Close())
         {
-        SkDebug::print(a_str_format("  error closing socket: %i\n", (int32)socket_system_p->GetLastErrorCode()), SkLocale_local);
+        ADebug::print(a_str_format("  error closing socket: %i\n", (int32)socket_system_p->GetLastErrorCode()), false);
         }
 
       // Free the memory the OS allocated for this socket
@@ -303,7 +304,7 @@ void SkUERemote::set_mode(eSkLocale mode)
       {
       case SkLocale_embedded:
         set_connect_state(ConnectState_disconnected);
-        SkDebug::print("\nSkookumScript: SkookumIDE not connected (off-line)\n\n", SkLocale_local);
+        ADebug::print("\nSkookumScript: SkookumIDE not connected (off-line)\n\n", false);
         break;
 
       case SkLocale_runtime:
@@ -319,18 +320,18 @@ void SkUERemote::set_mode(eSkLocale mode)
         if (m_socket_p)
           {
           TSharedPtr<FInternetAddr> ip_addr = get_ip_address_ide();
-          SkDebug::print(a_str_format("SkookumScript: Attempting to connect to remote IDE at %s\n", get_socket_str(*ip_addr).as_cstr()), SkLocale_local);
+          ADebug::print(a_str_format("SkookumScript: Attempting to connect to remote IDE at %s\n", get_socket_str(*ip_addr).as_cstr()), false);
           success = m_socket_p->Connect(*ip_addr);
           }
 
         if (!success)
           {
-          SkDebug::print("\nSkookumScript: Failed attempt to connect with remote IDE!\n\n", SkLocale_local);
+          ADebug::print("\nSkookumScript: Failed attempt to connect with remote IDE!\n\n", false);
           set_mode(SkLocale_embedded);
           return;
           }
 
-        SkDebug::print(a_str_format("SkookumScript: Connected %s\n", get_socket_str().as_cstr()), SkLocale_local);
+        ADebug::print(a_str_format("SkookumScript: Connected %s\n", get_socket_str().as_cstr()), false);
 
         set_connect_state(ConnectState_authenticating);
         break;
@@ -374,11 +375,10 @@ SkRemoteBase::eSendResponse SkUERemote::on_cmd_send(const ADatum & datum)
     }
   else
     {
-    SkDebug::print(
+    ADebug::print(
       "SkookumScript: Remote IDE is not connected - command ignored!\n"
       "[Connect runtime to SkookumIDE and try again.]\n",
-      SkLocale_local,
-      SkDPrintType_warning);
+      false);
 
     return SendResponse_Not_Connected;
     }
@@ -431,8 +431,8 @@ void SkUERemote::on_class_updated(SkClass * class_p)
     tSkUEOnFunctionUpdatedFunc *          on_function_updated_f            = nullptr;
     tSkUEOnFunctionRemovedFromClassFunc * on_function_removed_from_class_f = nullptr;
   #endif
-  SkUEBlueprintInterface::get()->sync_bindings_from_binary(class_p, on_function_removed_from_class_f);
-  SkUEBlueprintInterface::get()->expose_all_bindings(on_function_updated_f, true);
+  SkUEReflectionManager::get()->sync_class_from_sk(class_p, on_function_removed_from_class_f);
+  SkUEReflectionManager::get()->sync_all_to_ue(on_function_updated_f, true);
   }
 
 //---------------------------------------------------------------------------------------
