@@ -115,6 +115,7 @@ class APSorted : public APSizedArrayBase<_ElementType>
     using APSizedArrayBase<_ElementType>::pop;
     using APSizedArrayBase<_ElementType>::remove;
     using APSizedArrayBase<_ElementType>::remove_all;
+    void remove_fast(uint32_t) = delete; // remove_fast reorders elements therefore must not be used with APSorted
 
   // Common methods
 

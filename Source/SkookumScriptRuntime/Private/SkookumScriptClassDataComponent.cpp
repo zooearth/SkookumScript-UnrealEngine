@@ -27,6 +27,7 @@
 //=======================================================================================
 
 #include "SkookumScriptClassDataComponent.h"
+#include "SkookumScriptInstanceProperty.h"
 #include "Bindings/Engine/SkUEActor.hpp"
 
 #include "Engine/World.h"
@@ -65,19 +66,19 @@ void USkookumScriptClassDataComponent::create_sk_instance()
   SK_ASSERTX(actor_p, "SkookumScriptClassDataComponent must be attached to an actor.");
 
   // Determine SkookumScript class of my actor
-  SkClass * class_p = nullptr;
+  SkClass * sk_class_p = nullptr;
   FString class_name = ScriptActorClassName;
   if (!class_name.IsEmpty())
     {
     AString class_name_ascii(*class_name, class_name.Len());
-    class_p = SkBrain::get_class(class_name_ascii.as_cstr());
-    SK_ASSERTX(class_p, a_cstr_format("Cannot find Script Class Name '%s' specified in SkookumScriptClassDataComponent of '%S'. Misspelled?", class_name_ascii.as_cstr(), *actor_p->GetName()));
-    if (!class_p) goto set_default_class; // Recover from bad user input
+    sk_class_p = SkBrain::get_class(class_name_ascii.as_cstr());
+    SK_ASSERTX(sk_class_p, a_cstr_format("Cannot find Script Class Name '%s' specified in SkookumScriptClassDataComponent of '%S'. Misspelled?", class_name_ascii.as_cstr(), *actor_p->GetName()));
+    if (!sk_class_p) goto set_default_class; // Recover from bad user input
 
     // Do some extra checking in non-shipping builds
     #if (SKOOKUM & SK_DEBUG)
       UClass * known_ue_superclass_p;
-      SkClass * super_class_known_to_ue_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_ue(class_p, &known_ue_superclass_p);
+      SkClass * super_class_known_to_ue_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_ue(sk_class_p, &known_ue_superclass_p);
       UClass * allowed_ue_superclass_p = known_ue_superclass_p;
       while (!actor_p->GetClass()->IsChildOf(allowed_ue_superclass_p))
         {
@@ -105,21 +106,37 @@ void USkookumScriptClassDataComponent::create_sk_instance()
   else
     {
   set_default_class:
-    class_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_sk(actor_p->GetClass());
-    SK_ASSERTX(class_p, a_cstr_format("No parent class of %S is known to SkookumScript!", *actor_p->GetClass()->GetName()));
-    if (!class_p)
+    sk_class_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_sk(actor_p->GetClass());
+    SK_ASSERTX(sk_class_p, a_cstr_format("No parent class of %S is known to SkookumScript!", *actor_p->GetClass()->GetName()));
+    if (!sk_class_p)
       {
-      class_p = SkBrain::ms_actor_class_p; // Recover to prevent crash
+      sk_class_p = SkBrain::ms_actor_class_p; // Recover to prevent crash
       }
     }
 
-  // Based on the desired class, create SkInstance or SkDataInstance
-  // Currently, we support only actors and minds
-  SK_ASSERTX(class_p->is_actor_class(), a_str_format("Trying to create a SkookumScriptClassDataComponent of class '%s' which is not an actor.", class_p->get_name_cstr_dbg()));
-  SkInstance * instance_p = class_p->new_instance();
-  if (class_p->is_actor_class())
+  // Currently, we support only actors
+  SK_ASSERTX(sk_class_p->is_actor_class(), a_str_format("Trying to create a SkookumScriptClassDataComponent of class '%s' which is not an actor.", sk_class_p->get_name_cstr_dbg()));
+  SkInstance * instance_p;
+  uint32_t offset = sk_class_p->get_user_data_int();
+  if (offset)
     {
+    // If this object stores its own instance, create it here
+    instance_p = USkookumScriptInstanceProperty::construct_instance((uint8_t *)actor_p + offset, actor_p, sk_class_p);
+    #if WITH_EDITOR
+      // Check if this component's class could be also just auto-generated
+      SkClass * sk_actor_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(actor_p->GetClass());
+      if (sk_actor_class_p && sk_actor_class_p->is_class(*sk_class_p))
+        {
+        A_DPRINT("Note: Due to recent plugin improvements, the SkookumScriptClassDataComponent '%S' of actor '%S' is no longer needed and can be deleted.\n", *this->GetName(), *actor_p->GetName());
+        }
+    #endif
+    }
+  else
+    {
+    // Based on the desired class, create SkInstance or SkDataInstance
+    instance_p = sk_class_p->new_instance();
     instance_p->construct<SkUEActor>(actor_p); // Keep track of owner actor
+    instance_p->call_default_constructor();
     }
   m_actor_instance_p = instance_p;
   }
@@ -153,8 +170,6 @@ void USkookumScriptClassDataComponent::InitializeComponent()
     SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when InitializeComponent() is invoked.");
 
     create_sk_instance();
-    m_actor_instance_p->get_class()->resolve_raw_data();
-    m_actor_instance_p->call_default_constructor();
     }
   }
 

@@ -161,9 +161,15 @@ class AVArrayBase
 
   // Data members
 
-    uint32_t        m_count;     // Number of elements currently in m_array_p
     _ElementType *  m_array_p;   // Dynamically sizing buffer of pointers to elements
+    uint32_t        m_count;     // Number of elements currently in m_array_p
 
+  #ifdef A_BITS64
+    // This is a hack to use otherwise wasted space on 64-bit architectures
+    // Reduces the size of all array types from 24 bytes to 16 bytes
+    // This member variable is not used by this class at all, only by derived classes
+    uint32_t        m_size;     // Size of this->m_array_p buffer
+  #endif
   };  // AVArrayBase
 
 
@@ -868,8 +874,8 @@ inline AVArrayBase<_ElementType>::AVArrayBase(
   uint32_t        length,  // = 0u
   _ElementType *  array_p  // = nullptr
   ) :
-  m_count(length),
-  m_array_p(array_p)
+  m_array_p(array_p),
+  m_count(length)
   {
   }
 

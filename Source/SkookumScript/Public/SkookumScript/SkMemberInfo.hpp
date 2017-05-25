@@ -134,8 +134,8 @@ struct SK_API SkMemberInfo
       SkMemberInfo(const void ** binary_pp);
 
       #if (SKOOKUM & SK_COMPILED_OUT)
-        virtual void     as_binary(void ** binary_pp) const;
-        virtual uint32_t as_binary_length() const;
+        void     as_binary(void ** binary_pp) const;
+        uint32_t as_binary_length() const;
       #endif
 
   };  // SkMemberInfo

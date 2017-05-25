@@ -27,10 +27,12 @@
 #include "SlateGameResources.h" 
 #include "IPluginManager.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "Kismet2/EnumEditorUtils.h"
 #include "ISkookumScriptRuntime.h"
 #include "AssetRegistryModule.h"
 #include "BlueprintActionDatabase.h"
 #include "BlueprintEditorUtils.h"
+#include "Engine/UserDefinedEnum.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_Event.h"
 
@@ -42,7 +44,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogSkookumScriptEditor, Log, All);
 
 //---------------------------------------------------------------------------------------
 
-class FSkookumScriptEditor : public ISkookumScriptEditor, public ISkookumScriptRuntimeEditorInterface
+class FSkookumScriptEditor 
+  : public ISkookumScriptEditor
+  , public ISkookumScriptRuntimeEditorInterface
+  , public FEnumEditorUtils::FEnumEditorManager::ListenerType
 {
 public:
 
@@ -57,11 +62,16 @@ protected:
   //---------------------------------------------------------------------------------------
   // ISkookumScriptRuntimeEditorInterface implementation
 
-  virtual void  recompile_blueprints_with_errors() const override;
   virtual void  on_class_updated(UClass * ue_class_p) override;
   virtual void  on_function_updated(UFunction * ue_function_p, bool is_event) override;
   virtual void  on_function_removed_from_class(UClass * ue_class_p) override;
   virtual bool  check_out_file(const FString & file_path) const override;
+
+  //---------------------------------------------------------------------------------------
+  // FEnumEditorManager::ListenerType implementation
+
+  virtual void PreChange(const UUserDefinedEnum * enum_p, FEnumEditorUtils::EEnumEditorChangeInfo change_type) override;
+  virtual void PostChange(const UUserDefinedEnum * enum_p, FEnumEditorUtils::EEnumEditorChangeInfo change_type) override;
 
   //---------------------------------------------------------------------------------------
   // Local implementation
@@ -78,7 +88,6 @@ protected:
   void                    on_in_memory_asset_created(UObject * obj_p);
   void                    on_in_memory_asset_deleted(UObject * obj_p);
   void                    on_map_opened(const FString & file_name, bool as_template);
-  void                    on_blueprint_compiled(UBlueprint * blueprint_p);
 
   void                    on_new_asset(UObject * obj_p);
 
@@ -139,8 +148,16 @@ void FSkookumScriptEditor::StartupModule()
 
     // Instrument all already existing blueprints
     TArray<UObject*> blueprint_array;
-    GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array, true, RF_ClassDefaultObject);
+    GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array);
     for (UObject * obj_p : blueprint_array)
+      {
+      on_new_asset(obj_p);
+      }
+
+    // Same for user defined enums
+    TArray<UObject*> enum_array;
+    GetObjectsOfClass(UUserDefinedEnum::StaticClass(), enum_array);
+    for (UObject * obj_p : enum_array)
       {
       on_new_asset(obj_p);
       }
@@ -186,23 +203,6 @@ void FSkookumScriptEditor::ShutdownModule()
 //=======================================================================================
 
 //---------------------------------------------------------------------------------------
-// Find blueprints that have compile errors and try recompiling them
-// (as errors might be due to SkookumScript not having been initialized at previous compile time
-void FSkookumScriptEditor::recompile_blueprints_with_errors() const
-  {
-  TArray<UObject*> blueprint_array;
-  GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array, false, RF_ClassDefaultObject);
-  for (UObject * obj_p : blueprint_array)
-    {
-    UBlueprint * blueprint_p = static_cast<UBlueprint *>(obj_p);
-    if (blueprint_p->Status == BS_Error)
-      {
-      FKismetEditorUtilities::CompileBlueprint(blueprint_p);
-      }
-    }
-  }
-
-//---------------------------------------------------------------------------------------
 
 void FSkookumScriptEditor::on_class_updated(UClass * ue_class_p)
   {
@@ -226,9 +226,9 @@ void FSkookumScriptEditor::on_class_updated(UClass * ue_class_p)
     UK2Node_CallFunction * function_node_p = Cast<UK2Node_CallFunction>(obj_p);
     UFunction * target_function_p = function_node_p->GetTargetFunction();
     // Also refresh all nodes with no target function as it is probably a Sk function that was deleted
-    //if (!target_function_p || get_runtime()->is_skookum_blueprint_function(target_function_p))
+    //if (!target_function_p || get_runtime()->is_skookum_reflected_call(target_function_p))
     if (target_function_p 
-     && get_runtime()->is_skookum_blueprint_function(target_function_p)
+     && get_runtime()->is_skookum_reflected_call(target_function_p)
      && ue_class_p->IsChildOf(target_function_p->GetOwnerClass()))
       {
       function_node_p->ReconstructNode();
@@ -244,7 +244,7 @@ void FSkookumScriptEditor::on_class_updated(UClass * ue_class_p)
     UK2Node_Event * event_node_p = Cast<UK2Node_Event>(obj_p);
     UFunction * event_function_p = event_node_p->FindEventSignatureFunction();
     if (event_function_p 
-     && get_runtime()->is_skookum_blueprint_event(event_function_p)
+     && get_runtime()->is_skookum_reflected_event(event_function_p)
      && ue_class_p->IsChildOf(event_function_p->GetOwnerClass()))
       {
       event_node_p->ReconstructNode();
@@ -303,7 +303,6 @@ void FSkookumScriptEditor::on_function_updated(UFunction * ue_function_p, bool i
         {
         function_node_p->ReconstructNode();
         affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(function_node_p));
-        break;
         }
       }
     }
@@ -339,6 +338,23 @@ bool FSkookumScriptEditor::check_out_file(const FString & file_path) const
   }
 
 //=======================================================================================
+// FEnumEditorManager::ListenerType implementation
+//=======================================================================================
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptEditor::PreChange(const UUserDefinedEnum * enum_p, FEnumEditorUtils::EEnumEditorChangeInfo change_type)
+  {
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptEditor::PostChange(const UUserDefinedEnum * enum_p, FEnumEditorUtils::EEnumEditorChangeInfo change_type)
+  {
+  on_object_modified((UObject *)enum_p);
+  }
+
+//=======================================================================================
 // FSkookumScriptEditor implementation
 //=======================================================================================
 
@@ -359,6 +375,14 @@ void FSkookumScriptEditor::on_object_modified(UObject * obj_p)
     {
     get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, false);
     }
+
+  // Is this an enum?
+  UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(obj_p);
+  if (enum_p)
+    {
+    get_runtime()->on_enum_added_or_modified(enum_p, false);
+    }
+
   }
 
 //---------------------------------------------------------------------------------------
@@ -377,11 +401,7 @@ void FSkookumScriptEditor::on_assets_deleted(const TArray<UClass*> & deleted_ass
 //
 void FSkookumScriptEditor::on_asset_post_import(UFactory * factory_p, UObject * obj_p)
   {
-  UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-  if (blueprint_p && blueprint_p->GeneratedClass)
-    {
-    get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, false);
-    }
+  on_object_modified(obj_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -395,6 +415,7 @@ void FSkookumScriptEditor::on_asset_added(const FAssetData & asset_data)
 void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const FString & old_object_path)
   {
   static FName s_blueprint_class_name(TEXT("Blueprint"));
+  static FName s_enum_class_name(TEXT("UserDefinedEnum"));
 
   if (asset_data.AssetClass == s_blueprint_class_name)
     {
@@ -402,6 +423,14 @@ void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const
     if (blueprint_p && blueprint_p->GeneratedClass)
       {
       get_runtime()->on_class_renamed(blueprint_p->GeneratedClass, FPaths::GetBaseFilename(old_object_path));
+      }
+    }
+  else if (asset_data.AssetClass == s_enum_class_name)
+    {
+    UUserDefinedEnum * enum_p = FindObjectChecked<UUserDefinedEnum>(ANY_PACKAGE, *asset_data.AssetName.ToString());
+    if (enum_p)
+      {
+      get_runtime()->on_enum_renamed(enum_p, FPaths::GetBaseFilename(old_object_path));
       }
     }
   }
@@ -422,6 +451,12 @@ void FSkookumScriptEditor::on_in_memory_asset_deleted(UObject * obj_p)
     {
     get_runtime()->on_class_deleted(blueprint_p->GeneratedClass);
     }
+
+  UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(obj_p);
+  if (enum_p)
+    {
+    get_runtime()->on_enum_deleted(enum_p);
+    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -430,104 +465,6 @@ void FSkookumScriptEditor::on_map_opened(const FString & file_name, bool as_temp
   {
   // Let runtime know we are done opening a new map
   get_runtime()->on_editor_map_opened();
-
-  // Also try recompiling blueprints with errors one more time at this point
-  recompile_blueprints_with_errors();
-  }
-
-//---------------------------------------------------------------------------------------
-
-void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
-  {
-  // Bail if there's no GeneratedClass i.e. nothing to do for SkookumScript
-  if (!blueprint_p->GeneratedClass)
-    {
-    return;
-    }
-
-  // Re-generate script files for this class as things might have changed
-  get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, true);
-
-  // Check that there's no dangling default constructor
-  bool has_skookum_default_constructor = get_runtime()->has_skookum_default_constructor(blueprint_p->GeneratedClass);
-  bool has_skookum_destructor = get_runtime()->has_skookum_destructor(blueprint_p->GeneratedClass);
-  if (has_skookum_default_constructor || has_skookum_destructor)
-    {
-    // Determine if it has a SkookumScriptClassData component
-    bool has_component = get_runtime()->is_skookum_behavior_component_class(blueprint_p->GeneratedClass); // Component itself?
-    if (!has_component)
-      {
-      for (TFieldIterator<UProperty> property_it(blueprint_p->GeneratedClass, EFieldIteratorFlags::IncludeSuper); property_it; ++property_it)
-        {
-        UObjectPropertyBase * obj_property_p = Cast<UObjectPropertyBase>(*property_it);
-        if (obj_property_p)
-          {
-          if (get_runtime()->is_skookum_class_data_component_class(obj_property_p->PropertyClass))
-            {
-            has_component = true;
-            break;
-            }
-          }
-        }
-      }
-
-    // Has no Sk component, see if it is called by the graph somewhere
-    if (!has_component)
-      {
-      bool has_constructor_node = false;
-      bool has_destructor_node = false;
-      TArray<class UEdGraph*> graph_array;
-      blueprint_p->GetAllGraphs(graph_array);
-      for (auto graph_iter = graph_array.CreateConstIterator(); graph_iter && !has_constructor_node; ++graph_iter)
-        {
-        UEdGraph * graph_p = *graph_iter;
-        for (auto node_iter = graph_p->Nodes.CreateConstIterator(); node_iter; ++node_iter)
-          {
-          UK2Node_CallFunction * function_node_p = Cast<UK2Node_CallFunction>(*node_iter);
-          if (function_node_p)
-            {
-            UFunction * function_p = function_node_p->GetTargetFunction();
-            if (function_p && get_runtime()->is_skookum_blueprint_function(function_p))
-              {
-              if (function_p->GetName().EndsWith(TEXT("@ !"), ESearchCase::CaseSensitive))
-                {
-                has_constructor_node = true;
-                if (has_destructor_node) break; // If we found both we can stop looking any further
-                }
-              else if (function_p->GetName().EndsWith(TEXT("@ !!"), ESearchCase::CaseSensitive))
-                {
-                has_destructor_node = true;
-                if (has_constructor_node) break; // If we found both we can stop looking any further
-                }
-              }
-            }
-          }
-        }
-
-      if (has_skookum_default_constructor && !has_constructor_node)
-        {
-        FText title = FText::Format(FText::FromString(TEXT("SkookumScript default constructor never called in '{0}'")), FText::FromString(blueprint_p->GetName()));
-        FMessageDialog::Open(
-          EAppMsgType::Ok,
-          FText::Format(FText::FromString(
-          TEXT("The SkookumScript class '{0}' has a default constructor but the blueprint has neither a SkookumScriptClassDataComponent nor is the default constructor invoked somewhere in an event graph. ")
-          TEXT("That means, unless it is invoked from C++ code, the default constructor might never be called. ")
-          TEXT("To fix this issue, either add a SkookumScriptClassDataComponent to the Blueprint, or invoke the default constructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
-          &title);
-        }
-      else if (has_skookum_destructor && !has_destructor_node) // `else if` here so we won't show both dialogs, one is enough
-        {
-        FText title = FText::Format(FText::FromString(TEXT("SkookumScript destructor never called in '{0}'")), FText::FromString(blueprint_p->GetName()));
-        FMessageDialog::Open(
-          EAppMsgType::Ok,
-          FText::Format(FText::FromString(
-          TEXT("The SkookumScript class '{0}' has a destructor but the blueprint has neither a SkookumScriptClassDataComponent nor is the destructor invoked somewhere in an event graph. ")
-          TEXT("That means, unless it is invoked from C++ code, the destructor might never be called. ")
-          TEXT("To fix this issue, either add a SkookumScriptClassDataComponent to the Blueprint, or invoke the destructor explicitely in its event graph.")), FText::FromString(blueprint_p->GetName())),
-          &title);
-        }
-      }
-    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -535,15 +472,15 @@ void FSkookumScriptEditor::on_blueprint_compiled(UBlueprint * blueprint_p)
 void FSkookumScriptEditor::on_new_asset(UObject * obj_p)
   {
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-  if (blueprint_p)
+  if (blueprint_p && blueprint_p->GeneratedClass)
     {
-    // Register callback so we know when this Blueprint has been compiled
-    blueprint_p->OnCompiled().AddRaw(this, &FSkookumScriptEditor::on_blueprint_compiled);
+    get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, true);
+    }
 
-    if (blueprint_p->GeneratedClass)
-      {
-      get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, true);
-      }
+  UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(obj_p);
+  if (enum_p)
+    {
+    get_runtime()->on_enum_added_or_modified(enum_p, true);
     }
   }
 

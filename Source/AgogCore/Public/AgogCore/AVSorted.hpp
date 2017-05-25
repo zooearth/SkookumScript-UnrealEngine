@@ -113,6 +113,7 @@ class AVSorted : public AVSizedArrayBase<_ElementType>
     using AVSizedArrayBase<_ElementType>::pop;
     using AVSizedArrayBase<_ElementType>::remove;
     using AVSizedArrayBase<_ElementType>::remove_all;
+    void remove_fast(uint32_t) = delete; // remove_fast reorders elements therefore must not be used with AVSorted
 
   // Common methods
 
