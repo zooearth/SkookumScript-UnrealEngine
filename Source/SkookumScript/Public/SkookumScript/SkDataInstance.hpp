@@ -30,9 +30,17 @@
 #include <SkookumScript/SkInstanceList.hpp>
 
 //=======================================================================================
-// Global Structures
+// Global Macros / Defines
 //=======================================================================================
 
+// Store a magic number in the user data and perform sanity checking
+#if (SKOOKUM & SK_DEBUG) && defined(A_BITS64)
+  #define SK_DATA_INSTANCE_HAS_MAGIC_MARKER
+#endif
+
+//=======================================================================================
+// Global Structures
+//=======================================================================================
 
 //---------------------------------------------------------------------------------------
 // Notes      Class instance objects with one or more data members
@@ -88,7 +96,7 @@ class SK_API SkDataInstance : public SkInstance
     // used rather than a binary search of the symbols
     SkInstanceList m_data;
 
-  #if (SKOOKUM & SK_DEBUG)
+  #ifdef SK_DATA_INSTANCE_HAS_MAGIC_MARKER
     // This magic number is stored in the user data to allow sanity checking code to verify we are dealing in fact with a data instance
     // It's not really a pointer, thus no _p postfix
     static void * const ms_magic_marker;
