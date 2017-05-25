@@ -20,20 +20,20 @@
 
 #include "SkookumScriptGeneratorBase.h"
 
-#include <CoreUObject.h>
-#include <Regex.h>
+#include "CoreUObject.h"
 
 #if WITH_EDITOR
   #include "Engine/Blueprint.h"
+  #include "Engine/UserDefinedEnum.h"
 #endif
 
 //=======================================================================================
-// FSkookumScriptGeneratorBase Implementation
+// FSkookumScriptGeneratorHelper Implementation
 //=======================================================================================
 
 //---------------------------------------------------------------------------------------
 
-const FString FSkookumScriptGeneratorBase::ms_sk_type_id_names[FSkookumScriptGeneratorBase::SkTypeID__count] =
+const FString FSkookumScriptGeneratorHelper::ms_sk_type_id_names[FSkookumScriptGeneratorHelper::SkTypeID__count] =
   {
   TEXT("nil"),
   TEXT("Integer"),
@@ -55,7 +55,7 @@ const FString FSkookumScriptGeneratorBase::ms_sk_type_id_names[FSkookumScriptGen
   TEXT("List"),
   };
 
-const FString FSkookumScriptGeneratorBase::ms_reserved_keywords[] =
+const FString FSkookumScriptGeneratorHelper::ms_reserved_keywords[] =
   {
   TEXT("branch"),
   TEXT("case"),
@@ -90,8 +90,414 @@ const FString FSkookumScriptGeneratorBase::ms_reserved_keywords[] =
   TEXT("xor"),
   };
 
+#if WITH_EDITOR || HACK_HEADER_GENERATOR
+  const FName FSkookumScriptGeneratorHelper::ms_meta_data_key_blueprint_type(TEXT("BlueprintType"));
+#endif
+
+//---------------------------------------------------------------------------------------
+
+FSkookumScriptGeneratorHelper::eSkTypeID FSkookumScriptGeneratorHelper::get_skookum_property_type(UProperty * property_p, bool allow_all)
+  {
+  // Check for simple types first
+  if (property_p->IsA(UNumericProperty::StaticClass()))
+    {
+    UNumericProperty * numeric_property_p = static_cast<UNumericProperty *>(property_p);
+    if (numeric_property_p->IsInteger() && !numeric_property_p->IsEnum())
+      {
+      return SkTypeID_Integer;
+      }
+    }
+  if (property_p->IsA(UFloatProperty::StaticClass()))       return SkTypeID_Real;
+  if (property_p->IsA(UStrProperty::StaticClass()))         return SkTypeID_String;
+  if (property_p->IsA(UNameProperty::StaticClass()))        return SkTypeID_Name;
+  if (property_p->IsA(UBoolProperty::StaticClass()))        return SkTypeID_Boolean;
+
+  // Any known struct?
+  if (property_p->IsA(UStructProperty::StaticClass()))
+    {
+    UStructProperty * struct_prop_p = CastChecked<UStructProperty>(property_p);
+    eSkTypeID type_id = get_skookum_struct_type(struct_prop_p->Struct);
+    return (allow_all || type_id != SkTypeID_UStruct || is_struct_type_supported(struct_prop_p->Struct)) ? type_id : SkTypeID_none;
+    }
+
+  if (get_enum(property_p))                                 return SkTypeID_Enum;
+  if (property_p->IsA(UClassProperty::StaticClass()))       return SkTypeID_UClass;
+
+  if (property_p->IsA(UObjectPropertyBase::StaticClass()))
+    {
+    UClass * class_p = Cast<UObjectPropertyBase>(property_p)->PropertyClass;
+    if (class_p
+     && (allow_all || does_class_have_static_class(class_p) || class_p->HasAnyClassFlags(CLASS_HasInstancedReference) || class_p->GetName() == TEXT("Object")))
+      {
+      return property_p->IsA(UWeakObjectProperty::StaticClass()) ? SkTypeID_UObjectWeakPtr : SkTypeID_UObject;
+      }
+
+    return SkTypeID_none;
+    }
+
+  if (UArrayProperty * array_property_p = Cast<UArrayProperty>(property_p))
+    {
+    // Reject arrays of unknown types and arrays of arrays
+    return (allow_all || (is_property_type_supported(array_property_p->Inner) && (get_skookum_property_type(array_property_p->Inner, true) != SkTypeID_List))) ? SkTypeID_List : SkTypeID_none;
+    }
+
+  // Didn't find a known type
+  return SkTypeID_none;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FSkookumScriptGeneratorHelper::eSkTypeID FSkookumScriptGeneratorHelper::get_skookum_struct_type(UStruct * struct_p)
+  {
+  static FName name_Vector2D("Vector2D");
+  static FName name_Vector("Vector");
+  static FName name_Vector_NetQuantize("Vector_NetQuantize");
+  static FName name_Vector_NetQuantizeNormal("Vector_NetQuantizeNormal");  
+  static FName name_Vector4("Vector4");
+  static FName name_Quat("Quat");
+  static FName name_Rotator("Rotator");
+  static FName name_Transform("Transform");
+  static FName name_LinearColor("LinearColor");
+  static FName name_Color("Color");
+
+  const FName struct_name = struct_p->GetFName();
+
+  if (struct_name == name_Vector2D)                 return SkTypeID_Vector2;
+  if (struct_name == name_Vector)                   return SkTypeID_Vector3;
+  if (struct_name == name_Vector_NetQuantize)       return SkTypeID_Vector3;
+  if (struct_name == name_Vector_NetQuantizeNormal) return SkTypeID_Vector3;
+  if (struct_name == name_Vector4)                  return SkTypeID_Vector4;
+  if (struct_name == name_Quat)                     return SkTypeID_Rotation;
+  if (struct_name == name_Rotator)                  return SkTypeID_RotationAngles;
+  if (struct_name == name_Transform)                return SkTypeID_Transform;
+  if (struct_name == name_Color)                    return SkTypeID_Color;
+  if (struct_name == name_LinearColor)              return SkTypeID_Color;
+
+  return Cast<UClass>(struct_p) ? SkTypeID_UClass : SkTypeID_UStruct;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptGeneratorHelper::is_property_type_supported(UProperty * property_p)
+  {
+  if (property_p->HasAnyPropertyFlags(CPF_EditorOnly)
+   || property_p->IsA(ULazyObjectProperty::StaticClass())
+   || property_p->IsA(UAssetObjectProperty::StaticClass())
+   || property_p->IsA(UAssetClassProperty::StaticClass()))
+    {
+    return false;
+    }
+
+  return (get_skookum_property_type(property_p, false) != SkTypeID_none);
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptGeneratorHelper::is_struct_type_supported(UStruct * struct_p)
+  {
+  UScriptStruct * script_struct = Cast<UScriptStruct>(struct_p);  
+  return (script_struct && (script_struct->HasDefaults() || (script_struct->StructFlags & STRUCT_RequiredAPI)
+#if WITH_EDITOR || HACK_HEADER_GENERATOR
+    || script_struct->HasMetaData(ms_meta_data_key_blueprint_type)
+#endif
+    ));
+#if 0
+  return script_struct
+    && (script_struct->StructFlags & (STRUCT_CopyNative|STRUCT_IsPlainOldData|STRUCT_RequiredAPI))
+    && !(script_struct->StructFlags & STRUCT_NoExport);
+#endif
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptGeneratorHelper::is_pod(UStruct * struct_p)
+  {
+  UScriptStruct * script_struct = Cast<UScriptStruct>(struct_p);
+  return (script_struct && (script_struct->StructFlags & STRUCT_IsPlainOldData));
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptGeneratorHelper::does_class_have_static_class(UClass * class_p)
+  {
+  return class_p->HasAnyClassFlags(CLASS_RequiredAPI | CLASS_MinimalAPI);
+  }
+
+//---------------------------------------------------------------------------------------
+
+UEnum * FSkookumScriptGeneratorHelper::get_enum(UField * field_p)
+  {
+  const UByteProperty * byte_property_p = Cast<UByteProperty>(field_p);
+  return byte_property_p ? byte_property_p->Enum : nullptr;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGeneratorHelper::skookify_class_name(const FString & name)
+  {
+  if (name == TEXT("Object")) return TEXT("Entity");
+  if (name == TEXT("Class"))  return TEXT("EntityClass");
+  if (name == TEXT("Entity")) return TEXT("GameEntity"); // In case someone defined a class named Entity, make sure it does not collide with SkookumScript's native Entity
+  if (name == TEXT("Vector")) return TEXT("Vector3"); // These are the same class
+  if (name == TEXT("Enum"))   return TEXT("Enum2"); // HACK to avoid collision with Skookum built-in Enum class
+
+  // SkookumScript shortcuts for static function libraries as their names occur very frequently in code
+  if (name == TEXT("DataTableFunctionLibrary"))          return TEXT("DataLib");
+  if (name == TEXT("GameplayStatics"))                   return TEXT("GameLib");
+  if (name == TEXT("HeadMountedDisplayFunctionLibrary")) return TEXT("VRLib");
+  if (name == TEXT("KismetArrayLibrary"))                return TEXT("ArrayLib");
+  if (name == TEXT("KismetGuidLibrary"))                 return TEXT("GuidLib");
+  if (name == TEXT("KismetInputLibrary"))                return TEXT("InputLib");
+  if (name == TEXT("KismetMaterialLibrary"))             return TEXT("MaterialLib");
+  if (name == TEXT("KismetMathLibrary"))                 return TEXT("MathLib");
+  if (name == TEXT("KismetNodeHelperLibrary"))           return TEXT("NodeLib");
+  if (name == TEXT("KismetStringLibrary"))               return TEXT("StringLib");
+  if (name == TEXT("KismetSystemLibrary"))               return TEXT("SystemLib");
+  if (name == TEXT("KismetTextLibrary"))                 return TEXT("TextLib");
+  if (name == TEXT("VisualLoggerKismetLibrary"))         return TEXT("LogLib");
+
+  if (name.IsEmpty()) return TEXT("Unnamed");
+
+  // Make sure class name conforms to Sk naming requirements
+  FString skookum_name;
+  skookum_name.Reserve(name.Len() + 16);
+
+  bool was_underscore = true;
+  for (int32 i = 0; i < name.Len(); ++i)
+    {
+    TCHAR c = name[i];
+
+    // Ensure first character is uppercase
+    if (skookum_name.IsEmpty())
+      {
+      if (islower(c))
+        {
+        c = toupper(c);
+        }
+      else if (!isupper(c))
+        {
+        // If name starts with neither upper nor lowercase letter, prepend "Sk"
+        skookum_name.Append(TEXT("Sk"));
+        }
+      }
+
+    // Is it [A-Za-z0-9]?
+    if ((c >= TCHAR('0') && c <= TCHAR('9'))
+     || (c >= TCHAR('A') && c <= TCHAR('Z'))
+     || (c >= TCHAR('a') && c <= TCHAR('z')))
+      {
+      // Yes, append it
+      skookum_name.AppendChar(c);
+      was_underscore = false;
+      }
+    else
+      {
+      // No, insert underscore, but only one
+      if (!was_underscore)
+        {
+        skookum_name.AppendChar('_');
+        was_underscore = true;
+        }
+      }
+    }
+
+  return skookum_name;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGeneratorHelper::skookify_method_name(const FString & name, UProperty * return_property_p)
+  {
+  FString method_name = skookify_var_name(name, false, VarScope_local);
+  bool is_boolean = false;
+
+  // Remove K2 (Kismet 2) prefix if present
+  if (method_name.Len() > 3 && !method_name.Mid(3, 1).IsNumeric())
+    {
+    if (method_name.RemoveFromStart(TEXT("k2_"), ESearchCase::CaseSensitive))
+      {
+      // Check if removing the k2_ turned it into a Sk reserved word
+      if (is_skookum_reserved_word(method_name))
+        {
+        method_name.AppendChar('_');
+        }
+      }
+    }
+
+  if (method_name.Len() > 4 && !method_name.Mid(4, 1).IsNumeric())
+    {
+    // If name starts with "get_", remove it
+    if (method_name.RemoveFromStart(TEXT("get_"), ESearchCase::CaseSensitive))
+      {
+      // Check if removing the get_ turned it into a Sk reserved word
+      if (is_skookum_reserved_word(method_name))
+        {
+        method_name.AppendChar('_');
+        }
+
+      // Allow question mark
+      is_boolean = true;
+      }
+    // If name starts with "set_", remove it and append "_set" instead
+    else if (method_name.RemoveFromStart(TEXT("set_"), ESearchCase::CaseSensitive))
+      {
+      method_name.Append(TEXT("_set"));
+      }
+    }
+
+  // If name starts with "is_", "has_" or "can_" also append question mark
+  if ((name.Len() > 2 && name[0] == 'b' && isupper(name[1]))
+   || method_name.Find(TEXT("is_"), ESearchCase::CaseSensitive) == 0
+   || method_name.Find(TEXT("has_"), ESearchCase::CaseSensitive) == 0
+   || method_name.Find(TEXT("can_"), ESearchCase::CaseSensitive) == 0)
+    {
+    is_boolean = true;
+    }
+
+  // Append question mark if determined to be boolean
+  if (is_boolean && return_property_p && return_property_p->IsA(UBoolProperty::StaticClass()))
+    {
+    method_name += TEXT("?");
+    }
+
+  return method_name;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGeneratorHelper::skookify_var_name(const FString & name, bool append_question_mark, eVarScope scope)
+  {
+  if (name.IsEmpty()) return name;
+
+  // Change title case to lower case with underscores
+  FString skookum_name;
+  skookum_name.Reserve(name.Len() + 16);
+  skookum_name.AppendChars(TEXT("@@"), scope == VarScope_instance ? 1 : (scope == VarScope_class ? 2 : 0));
+  bool is_boolean = name.Len() > 2 && name[0] == 'b' && isupper(name[1]);
+  bool was_upper = true;
+  bool was_underscore = true;
+  for (int32 i = int32(is_boolean); i < name.Len(); ++i)
+    {
+    TCHAR c = name[i];
+
+    // Skip special characters
+    if (c == TCHAR('?'))
+      {
+      continue;
+      }
+
+    // Is it [A-Za-z0-9]?
+    if ((c >= TCHAR('0') && c <= TCHAR('9'))
+     || (c >= TCHAR('A') && c <= TCHAR('Z'))
+     || (c >= TCHAR('a') && c <= TCHAR('z')))
+      {
+      // Yes, append it
+      bool is_upper = isupper(c) != 0 || isdigit(c) != 0;
+      if (is_upper && !was_upper && !was_underscore)
+        {
+        skookum_name.AppendChar('_');
+        }
+      skookum_name.AppendChar(tolower(c));
+      was_upper = is_upper;
+      was_underscore = false;
+      }
+    else
+      {
+      // No, insert underscore, but only one
+      if (!was_underscore)
+        {
+        skookum_name.AppendChar('_');
+        was_underscore = true;
+        }
+      }
+    }
+
+  // Check for reserved keywords and append underscore if found
+  if ((scope == VarScope_local && is_skookum_reserved_word(skookum_name))
+   || (scope == VarScope_class && (skookum_name == TEXT("@@world") || skookum_name == TEXT("@@random"))))
+    {
+    skookum_name.AppendChar('_');
+    }
+
+  // Check if there's an MD5 checksum appended to the name - if so, chop it off
+  int32 skookum_name_len = skookum_name.Len();
+  if (skookum_name_len > 33)
+    {
+    const TCHAR * skookum_name_p = &skookum_name[skookum_name_len - 33];
+    if (skookum_name_p[0] == TCHAR('_'))
+      {
+      for (int32 i = 1; i <= 32; ++i)
+        {
+        uint32_t c = skookum_name_p[i];
+        if ((c - '0') > 9u && (c - 'a') > 5u) goto no_md5;
+        }
+      // We chop off most digits of the MD5 and leave only the first four, 
+      // assuming that that's distinctive enough for just a few of them at a time
+      skookum_name = skookum_name.Left(skookum_name_len - 28);
+    no_md5:;
+      }
+    }
+
+  if (append_question_mark)
+    {
+    skookum_name.AppendChar(TCHAR('?'));
+    }
+
+  return skookum_name;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptGeneratorHelper::compare_var_name_skookified(const TCHAR * ue_var_name_p, const ANSICHAR * sk_var_name_p)
+  {
+  uint32_t ue_len = FCString::Strlen(ue_var_name_p);
+  uint32_t sk_len = FCStringAnsi::Strlen(sk_var_name_p);
+
+  // Check if there's an MD5 checksum appended to the name - if so, leave only first four digits
+  if (ue_len > 33 && ue_var_name_p[ue_len - 33] == '_')
+    {
+    for (int32 i = 0; i < 32; ++i)
+      {
+      uint32_t c = ue_var_name_p[ue_len - 32 + i];
+      if ((c - '0') > 9u && (c - 'A') > 5u) goto no_md5;
+      }
+      // We chop off most digits of the MD5 and leave only the first four, 
+      // assuming that that's distinctive enough for just a few of them at a time
+      ue_len -= 28;
+    no_md5:;
+    }
+
+  uint32_t ue_i = uint32_t(ue_len >= 2 && ue_var_name_p[0] == 'b' && FChar::IsUpper(ue_var_name_p[1])); // Skip Boolean `b` prefix if present
+  uint32_t sk_i = 0;
+  do
+    {
+    // Skip non-alphanumeric characters
+    while (ue_i < ue_len && !FChar::IsAlnum(ue_var_name_p[ue_i])) ++ue_i;
+    while (sk_i < sk_len && !FChar::IsAlnum(sk_var_name_p[sk_i])) ++sk_i;
+    } while (ue_i < ue_len && sk_i < sk_len && FChar::ToLower(ue_var_name_p[ue_i++]) == FChar::ToLower(sk_var_name_p[sk_i++]));
+  // Did we find a match?
+  return (ue_i == ue_len && sk_i == sk_len);
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptGeneratorHelper::is_skookum_reserved_word(const FString & name)
+  {
+  for (uint32 i = 0; i < sizeof(ms_reserved_keywords) / sizeof(ms_reserved_keywords[0]); ++i)
+    {
+    if (name == ms_reserved_keywords[i]) return true;
+    }
+
+  return false;
+  }
+
+//=======================================================================================
+// FSkookumScriptGeneratorBase Implementation
+//=======================================================================================
+
+#if WITH_EDITOR || HACK_HEADER_GENERATOR
+
 const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_function_category(TEXT("Category"));
-const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_blueprint_type(TEXT("BlueprintType"));
 const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_display_name(TEXT("DisplayName"));
 const FString       FSkookumScriptGeneratorBase::ms_asset_name_key(TEXT("// UE4 Asset Name: "));
 const FString       FSkookumScriptGeneratorBase::ms_package_name_key(TEXT("// UE4 Package Name: \""));
@@ -283,317 +689,9 @@ void FSkookumScriptGeneratorBase::flush_saved_text_files(tSourceControlCheckoutF
 
 //---------------------------------------------------------------------------------------
 
-bool FSkookumScriptGeneratorBase::is_property_type_supported(UProperty * property_p)
+FString FSkookumScriptGeneratorBase::get_skookified_enum_val_name_by_index(UEnum * enum_p, int32 index)
   {
-  if (property_p->HasAnyPropertyFlags(CPF_EditorOnly)
-   || property_p->IsA(ULazyObjectProperty::StaticClass())
-   || property_p->IsA(UAssetObjectProperty::StaticClass())
-   || property_p->IsA(UAssetClassProperty::StaticClass()))
-    {
-    return false;
-    }
-
-  return (get_skookum_property_type(property_p, false) != SkTypeID_none);
-  }
-
-//---------------------------------------------------------------------------------------
-
-bool FSkookumScriptGeneratorBase::is_struct_type_supported(UStruct * struct_p)
-  {
-  UScriptStruct * script_struct = Cast<UScriptStruct>(struct_p);  
-  return (script_struct && (script_struct->HasDefaults() || (script_struct->StructFlags & STRUCT_RequiredAPI)
-#if WITH_EDITOR || HACK_HEADER_GENERATOR
-    || script_struct->HasMetaData(ms_meta_data_key_blueprint_type)
-#endif
-    ));
-#if 0
-  return script_struct
-    && (script_struct->StructFlags & (STRUCT_CopyNative|STRUCT_IsPlainOldData|STRUCT_RequiredAPI))
-    && !(script_struct->StructFlags & STRUCT_NoExport);
-#endif
-  }
-
-//---------------------------------------------------------------------------------------
-
-bool FSkookumScriptGeneratorBase::is_pod(UStruct * struct_p)
-  {
-  UScriptStruct * script_struct = Cast<UScriptStruct>(struct_p);
-  return (script_struct && (script_struct->StructFlags & STRUCT_IsPlainOldData));
-  }
-
-//---------------------------------------------------------------------------------------
-
-bool FSkookumScriptGeneratorBase::does_class_have_static_class(UClass * class_p)
-  {
-  return class_p->HasAnyClassFlags(CLASS_RequiredAPI | CLASS_MinimalAPI);
-  }
-
-//---------------------------------------------------------------------------------------
-
-UEnum * FSkookumScriptGeneratorBase::get_enum(UField * field_p)
-  {
-  const UByteProperty * byte_property_p = Cast<UByteProperty>(field_p);
-  return byte_property_p ? byte_property_p->Enum : nullptr;
-  }
-
-//---------------------------------------------------------------------------------------
-
-FString FSkookumScriptGeneratorBase::skookify_class_name(const FString & name)
-  {
-  if (name == TEXT("Object")) return TEXT("Entity");
-  if (name == TEXT("Class"))  return TEXT("EntityClass");
-  if (name == TEXT("Entity")) return TEXT("GameEntity"); // In case someone defined a class named Entity, make sure it does not collide with SkookumScript's native Entity
-  if (name == TEXT("Vector")) return TEXT("Vector3"); // These are the same class
-  if (name == TEXT("Enum"))   return TEXT("Enum2"); // HACK to avoid collision with Skookum built-in Enum class
-
-  // SkookumScript shortcuts for static function libraries as their names occur very frequently in code
-  if (name == TEXT("DataTableFunctionLibrary"))          return TEXT("DataLib");
-  if (name == TEXT("GameplayStatics"))                   return TEXT("GameLib");
-  if (name == TEXT("HeadMountedDisplayFunctionLibrary")) return TEXT("VRLib");
-  if (name == TEXT("KismetArrayLibrary"))                return TEXT("ArrayLib");
-  if (name == TEXT("KismetGuidLibrary"))                 return TEXT("GuidLib");
-  if (name == TEXT("KismetInputLibrary"))                return TEXT("InputLib");
-  if (name == TEXT("KismetMaterialLibrary"))             return TEXT("MaterialLib");
-  if (name == TEXT("KismetMathLibrary"))                 return TEXT("MathLib");
-  if (name == TEXT("KismetNodeHelperLibrary"))           return TEXT("NodeLib");
-  if (name == TEXT("KismetStringLibrary"))               return TEXT("StringLib");
-  if (name == TEXT("KismetSystemLibrary"))               return TEXT("SystemLib");
-  if (name == TEXT("KismetTextLibrary"))                 return TEXT("TextLib");
-  if (name == TEXT("VisualLoggerKismetLibrary"))         return TEXT("LogLib");
-
-  if (name.IsEmpty()) return TEXT("Unnamed");
-
-  // Make sure class name conforms to Sk naming requirements
-  FString skookum_name;
-  skookum_name.Reserve(name.Len() + 16);
-
-  bool was_underscore = true;
-  for (int32 i = 0; i < name.Len(); ++i)
-    {
-    TCHAR c = name[i];
-
-    // Ensure first character is uppercase
-    if (skookum_name.IsEmpty())
-      {
-      if (islower(c))
-        {
-        c = toupper(c);
-        }
-      else if (!isupper(c))
-        {
-        // If name starts with neither upper nor lowercase letter, prepend "Sk"
-        skookum_name.Append(TEXT("Sk"));
-        }
-      }
-
-    // Is it [A-Za-z0-9]?
-    if ((c >= TCHAR('0') && c <= TCHAR('9'))
-     || (c >= TCHAR('A') && c <= TCHAR('Z'))
-     || (c >= TCHAR('a') && c <= TCHAR('z')))
-      {
-      // Yes, append it
-      skookum_name.AppendChar(c);
-      was_underscore = false;
-      }
-    else
-      {
-      // No, insert underscore, but only one
-      if (!was_underscore)
-        {
-        skookum_name.AppendChar('_');
-        was_underscore = true;
-        }
-      }
-    }
-
-  return skookum_name;
-  }
-
-//---------------------------------------------------------------------------------------
-
-FString FSkookumScriptGeneratorBase::skookify_method_name(const FString & name, UProperty * return_property_p)
-  {
-  FString method_name = skookify_var_name(name, false, VarScope_local);
-  bool is_boolean = false;
-
-  // Remove K2 (Kismet 2) prefix if present
-  if (method_name.Len() > 3 && !method_name.Mid(3, 1).IsNumeric())
-    {
-    if (method_name.RemoveFromStart(TEXT("k2_"), ESearchCase::CaseSensitive))
-      {
-      // Check if removing the k2_ turned it into a Sk reserved word
-      if (is_skookum_reserved_word(method_name))
-        {
-        method_name.AppendChar('_');
-        }
-      }
-    }
-
-  if (method_name.Len() > 4 && !method_name.Mid(4, 1).IsNumeric())
-    {
-    // If name starts with "get_", remove it
-    if (method_name.RemoveFromStart(TEXT("get_"), ESearchCase::CaseSensitive))
-      {
-      // Check if removing the get_ turned it into a Sk reserved word
-      if (is_skookum_reserved_word(method_name))
-        {
-        method_name.AppendChar('_');
-        }
-
-      // Allow question mark
-      is_boolean = true;
-      }
-    // If name starts with "set_", remove it and append "_set" instead
-    else if (method_name.RemoveFromStart(TEXT("set_"), ESearchCase::CaseSensitive))
-      {
-      method_name.Append(TEXT("_set"));
-      }
-    }
-
-  // If name starts with "is_", "has_" or "can_" also append question mark
-  if ((name.Len() > 2 && name[0] == 'b' && isupper(name[1]))
-   || method_name.Find(TEXT("is_"), ESearchCase::CaseSensitive) == 0
-   || method_name.Find(TEXT("has_"), ESearchCase::CaseSensitive) == 0
-   || method_name.Find(TEXT("can_"), ESearchCase::CaseSensitive) == 0)
-    {
-    is_boolean = true;
-    }
-
-  // Append question mark if determined to be boolean
-  if (is_boolean && return_property_p && return_property_p->IsA(UBoolProperty::StaticClass()))
-    {
-    method_name += TEXT("?");
-    }
-
-  return method_name;
-  }
-
-//---------------------------------------------------------------------------------------
-
-FString FSkookumScriptGeneratorBase::skookify_var_name(const FString & name, bool append_question_mark, eVarScope scope)
-  {
-  if (name.IsEmpty()) return name;
-
-  // Change title case to lower case with underscores
-  FString skookum_name;
-  skookum_name.Reserve(name.Len() + 16);
-  skookum_name.AppendChars(TEXT("@@"), scope == VarScope_instance ? 1 : (scope == VarScope_class ? 2 : 0));
-  bool is_boolean = name.Len() > 2 && name[0] == 'b' && isupper(name[1]);
-  bool was_upper = true;
-  bool was_underscore = true;
-  for (int32 i = int32(is_boolean); i < name.Len(); ++i)
-    {
-    TCHAR c = name[i];
-
-    // Skip special characters
-    if (c == TCHAR('?'))
-      {
-      continue;
-      }
-
-    // Is it [A-Za-z0-9]?
-    if ((c >= TCHAR('0') && c <= TCHAR('9'))
-     || (c >= TCHAR('A') && c <= TCHAR('Z'))
-     || (c >= TCHAR('a') && c <= TCHAR('z')))
-      {
-      // Yes, append it
-      bool is_upper = isupper(c) != 0 || isdigit(c) != 0;
-      if (is_upper && !was_upper && !was_underscore)
-        {
-        skookum_name.AppendChar('_');
-        }
-      skookum_name.AppendChar(tolower(c));
-      was_upper = is_upper;
-      was_underscore = false;
-      }
-    else
-      {
-      // No, insert underscore, but only one
-      if (!was_underscore)
-        {
-        skookum_name.AppendChar('_');
-        was_underscore = true;
-        }
-      }
-    }
-
-  // Check for reserved keywords and append underscore if found
-  if ((scope == VarScope_local && is_skookum_reserved_word(skookum_name))
-   || (scope == VarScope_class && (skookum_name == TEXT("@@world") || skookum_name == TEXT("@@random"))))
-    {
-    skookum_name.AppendChar('_');
-    }
-
-  // Check if there's an MD5 checksum appended to the name - if so, chop it off
-  int32 skookum_name_len = skookum_name.Len();
-  if (skookum_name_len > 33)
-    {
-    const TCHAR * skookum_name_p = &skookum_name[skookum_name_len - 33];
-    if (skookum_name_p[0] == TCHAR('_'))
-      {
-      for (int32 i = 1; i <= 32; ++i)
-        {
-        uint32_t c = skookum_name_p[i];
-        if ((c - '0') > 9u && (c - 'a') > 5u) goto no_md5;
-        }
-      // We chop off most digits of the MD5 and leave only the first four, 
-      // assuming that that's distinctive enough for just a few of them at a time
-      skookum_name = skookum_name.Left(skookum_name_len - 28);
-    no_md5:;
-      }
-    }
-
-  if (append_question_mark)
-    {
-    skookum_name.AppendChar(TCHAR('?'));
-    }
-
-  return skookum_name;
-  }
-
-//---------------------------------------------------------------------------------------
-
-bool FSkookumScriptGeneratorBase::compare_var_name_skookified(const TCHAR * ue_var_name_p, const ANSICHAR * sk_var_name_p)
-  {
-  uint32_t ue_len = FCString::Strlen(ue_var_name_p);
-  uint32_t sk_len = FCStringAnsi::Strlen(sk_var_name_p);
-
-  // Check if there's an MD5 checksum appended to the name - if so, leave only first four digits
-  if (ue_len > 33 && ue_var_name_p[ue_len - 33] == '_')
-    {
-    for (int32 i = 0; i < 32; ++i)
-      {
-      uint32_t c = ue_var_name_p[ue_len - 32 + i];
-      if ((c - '0') > 9u && (c - 'A') > 5u) goto no_md5;
-      }
-      // We chop off most digits of the MD5 and leave only the first four, 
-      // assuming that that's distinctive enough for just a few of them at a time
-      ue_len -= 28;
-    no_md5:;
-    }
-
-  uint32_t ue_i = uint32_t(ue_len >= 2 && ue_var_name_p[0] == 'b' && FChar::IsUpper(ue_var_name_p[1])); // Skip Boolean `b` prefix if present
-  uint32_t sk_i = 0;
-  do
-    {
-    // Skip non-alphanumeric characters
-    while (ue_i < ue_len && !FChar::IsAlnum(ue_var_name_p[ue_i])) ++ue_i;
-    while (sk_i < sk_len && !FChar::IsAlnum(sk_var_name_p[sk_i])) ++sk_i;
-    } while (ue_i < ue_len && sk_i < sk_len && FChar::ToLower(ue_var_name_p[ue_i++]) == FChar::ToLower(sk_var_name_p[sk_i++]));
-  // Did we find a match?
-  return (ue_i == ue_len && sk_i == sk_len);
-  }
-
-//---------------------------------------------------------------------------------------
-
-bool FSkookumScriptGeneratorBase::is_skookum_reserved_word(const FString & name)
-  {
-  for (uint32 i = 0; i < sizeof(ms_reserved_keywords) / sizeof(ms_reserved_keywords[0]); ++i)
-    {
-    if (name == ms_reserved_keywords[i]) return true;
-    }
-
-  return false;
+  return skookify_var_name(enum_p->GetEnumText(index).ToString(), false, VarScope_class);
   }
 
 //---------------------------------------------------------------------------------------
@@ -705,87 +803,6 @@ FString FSkookumScriptGeneratorBase::get_skookum_method_file_name(const FString 
 
 //---------------------------------------------------------------------------------------
 
-FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_struct_type(UStruct * struct_p)
-  {
-  static FName name_Vector2D("Vector2D");
-  static FName name_Vector("Vector");
-  static FName name_Vector_NetQuantize("Vector_NetQuantize");
-  static FName name_Vector_NetQuantizeNormal("Vector_NetQuantizeNormal");  
-  static FName name_Vector4("Vector4");
-  static FName name_Quat("Quat");
-  static FName name_Rotator("Rotator");
-  static FName name_Transform("Transform");
-  static FName name_LinearColor("LinearColor");
-  static FName name_Color("Color");
-
-  const FName struct_name = struct_p->GetFName();
-
-  if (struct_name == name_Vector2D)                 return SkTypeID_Vector2;
-  if (struct_name == name_Vector)                   return SkTypeID_Vector3;
-  if (struct_name == name_Vector_NetQuantize)       return SkTypeID_Vector3;
-  if (struct_name == name_Vector_NetQuantizeNormal) return SkTypeID_Vector3;
-  if (struct_name == name_Vector4)                  return SkTypeID_Vector4;
-  if (struct_name == name_Quat)                     return SkTypeID_Rotation;
-  if (struct_name == name_Rotator)                  return SkTypeID_RotationAngles;
-  if (struct_name == name_Transform)                return SkTypeID_Transform;
-  if (struct_name == name_Color)                    return SkTypeID_Color;
-  if (struct_name == name_LinearColor)              return SkTypeID_Color;
-
-  return Cast<UClass>(struct_p) ? SkTypeID_UClass : SkTypeID_UStruct;
-  }
-
-//---------------------------------------------------------------------------------------
-
-FSkookumScriptGeneratorBase::eSkTypeID FSkookumScriptGeneratorBase::get_skookum_property_type(UProperty * property_p, bool allow_all)
-  {
-  // Check for simple types first
-  if (property_p->IsA(UNumericProperty::StaticClass()))
-    {
-    UNumericProperty * numeric_property_p = static_cast<UNumericProperty *>(property_p);
-    if (numeric_property_p->IsInteger() && !numeric_property_p->IsEnum())
-      {
-      return SkTypeID_Integer;
-      }
-    }
-  if (property_p->IsA(UFloatProperty::StaticClass()))       return SkTypeID_Real;
-  if (property_p->IsA(UStrProperty::StaticClass()))         return SkTypeID_String;
-  if (property_p->IsA(UNameProperty::StaticClass()))        return SkTypeID_Name;
-  if (property_p->IsA(UBoolProperty::StaticClass()))        return SkTypeID_Boolean;
-
-  // Any known struct?
-  if (property_p->IsA(UStructProperty::StaticClass()))
-    {
-    UStructProperty * struct_prop_p = CastChecked<UStructProperty>(property_p);
-    eSkTypeID type_id = get_skookum_struct_type(struct_prop_p->Struct);
-    return (allow_all || type_id != SkTypeID_UStruct || is_struct_type_supported(struct_prop_p->Struct)) ? type_id : SkTypeID_none;
-    }
-
-  if (get_enum(property_p))                                 return SkTypeID_Enum;
-  if (property_p->IsA(UClassProperty::StaticClass()))       return SkTypeID_UClass;
-
-  if (property_p->IsA(UObjectPropertyBase::StaticClass()))
-    {
-    UClass * class_p = Cast<UObjectPropertyBase>(property_p)->PropertyClass;
-    if (allow_all || does_class_have_static_class(class_p) || class_p->HasAnyClassFlags(CLASS_HasInstancedReference) || class_p->GetName() == TEXT("Object"))
-      {
-      return property_p->IsA(UWeakObjectProperty::StaticClass()) ? SkTypeID_UObjectWeakPtr : SkTypeID_UObject;
-      }
-
-    return SkTypeID_none;
-    }
-
-  if (UArrayProperty * array_property_p = Cast<UArrayProperty>(property_p))
-    {
-    // Reject arrays of unknown types and arrays of arrays
-    return (allow_all || (is_property_type_supported(array_property_p->Inner) && (get_skookum_property_type(array_property_p->Inner, true) != SkTypeID_List))) ? SkTypeID_List : SkTypeID_none;
-    }
-
-  // Didn't find a known type
-  return SkTypeID_none;
-  }
-
-//---------------------------------------------------------------------------------------
-
 FString FSkookumScriptGeneratorBase::get_skookum_property_type_name(UProperty * property_p)
   {
   eSkTypeID type_id = get_skookum_property_type(property_p, true);
@@ -811,6 +828,120 @@ FString FSkookumScriptGeneratorBase::get_skookum_property_type_name(UProperty * 
     }
 
   return ms_sk_type_id_names[type_id];
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGeneratorBase::get_skookum_default_initializer(UFunction * function_p, UProperty * param_p)
+  {
+  FString default_value;
+
+  // For Blueprintcallable functions, assume all arguments have defaults even if not specified
+  bool has_default_value = function_p->HasAnyFunctionFlags(FUNC_BlueprintCallable | FUNC_Exec); // || function_p->HasMetaData(*param_p->GetName());
+  if (has_default_value)
+    {
+    default_value = function_p->GetMetaData(*param_p->GetName());
+    }
+  if (default_value.IsEmpty())
+    {
+    FName cpp_default_value_key(*(TEXT("CPP_Default_") + param_p->GetName()));
+    if (function_p->HasMetaData(cpp_default_value_key))
+      {
+      has_default_value = true;
+      default_value = function_p->GetMetaData(cpp_default_value_key);
+      }
+    }
+  if (has_default_value)
+    {
+    // Trivial default?
+    if (default_value.IsEmpty())
+      {
+      eSkTypeID type_id = get_skookum_property_type(param_p, true);
+      switch (type_id)
+        {
+        case SkTypeID_Integer:         default_value = TEXT("0"); break;
+        case SkTypeID_Real:            default_value = TEXT("0.0"); break;
+        case SkTypeID_Boolean:         default_value = TEXT("false"); break;
+        case SkTypeID_String:          default_value = TEXT("\"\""); break;
+        case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".") + get_skookified_enum_val_name_by_index(get_enum(param_p), 0); break;
+        case SkTypeID_Name:            default_value = TEXT("Name!none"); break;
+        case SkTypeID_Vector2:
+        case SkTypeID_Vector3:
+        case SkTypeID_Vector4:
+        case SkTypeID_Rotation:
+        case SkTypeID_RotationAngles:
+        case SkTypeID_Transform:
+        case SkTypeID_Color:
+        case SkTypeID_List:
+        case SkTypeID_UStruct:         default_value = get_skookum_property_type_name(param_p) + TEXT("!"); break;
+        case SkTypeID_UClass:
+        case SkTypeID_UObject:
+        case SkTypeID_UObjectWeakPtr:  default_value = (param_p->GetName() == TEXT("WorldContextObject")) ? TEXT("@@world") : get_skookum_class_name(Cast<UObjectPropertyBase>(param_p)->PropertyClass) + TEXT("!null"); break;
+        }
+      }
+    else
+      {
+      // Remove variable assignments from default_value (e.g. "X=")
+      for (int32 pos = 0; pos < default_value.Len() - 1; ++pos)
+        {
+        if (FChar::IsAlpha(default_value[pos]) && default_value[pos + 1] == '=')
+          {
+          default_value.RemoveAt(pos, 2);
+          }
+        }
+
+      // Trim trailing zeros off floating point numbers
+      for (int32 pos = 0; pos < default_value.Len(); ++pos)
+        {
+        if (FChar::IsDigit(default_value[pos]))
+          {
+          int32 npos = pos;
+          while (npos < default_value.Len() && FChar::IsDigit(default_value[npos])) ++npos;
+          if (npos < default_value.Len() && default_value[npos] == '.')
+            {
+            ++npos;
+            while (npos < default_value.Len() && FChar::IsDigit(default_value[npos])) ++npos;
+            int32 zpos = npos - 1;
+            while (default_value[zpos] == '0') --zpos;
+            if (default_value[zpos] == '.') ++zpos;
+            ++zpos;
+            if (npos > zpos) default_value.RemoveAt(zpos, npos - zpos);
+            npos = zpos;
+            }
+          pos = npos;
+          }
+        }
+
+      // Skookify the default argument
+      eSkTypeID type_id = get_skookum_property_type(param_p, true);
+      switch (type_id)
+        {
+        case SkTypeID_Integer:         break; // Leave as-is
+        case SkTypeID_Real:            break; // Leave as-is
+        case SkTypeID_Boolean:         default_value = default_value.ToLower(); break;
+        case SkTypeID_String:          default_value = TEXT("\"") + default_value + TEXT("\""); break;
+        case SkTypeID_Name:            default_value = (default_value == TEXT("None") ? TEXT("Name!none") : TEXT("Name!(\"") + default_value + TEXT("\")")); break;
+        case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".") + skookify_var_name(default_value, false, VarScope_class); break;
+        case SkTypeID_Vector2:         default_value = TEXT("Vector2!xy") + default_value; break;
+        case SkTypeID_Vector3:         default_value = TEXT("Vector3!xyz(") + default_value + TEXT(")"); break;
+        case SkTypeID_Vector4:         default_value = TEXT("Vector4!xyzw") + default_value; break;
+        case SkTypeID_Rotation:        break; // Not implemented yet - leave as-is for now
+        case SkTypeID_RotationAngles:  default_value = TEXT("RotationAngles!yaw_pitch_roll(") + default_value + TEXT(")"); break;
+        case SkTypeID_Transform:       break; // Not implemented yet - leave as-is for now
+        case SkTypeID_Color:           default_value = TEXT("Color!rgba") + default_value; break;
+        case SkTypeID_UStruct:         if (default_value == TEXT("LatentInfo")) default_value = get_skookum_class_name(Cast<UStructProperty>(param_p)->Struct) + TEXT("!"); break;
+        case SkTypeID_UClass:          default_value = skookify_class_name(default_value) + TEXT(".static_class"); break;
+        case SkTypeID_UObject:
+        case SkTypeID_UObjectWeakPtr:  if (default_value == TEXT("WorldContext") || default_value == TEXT("WorldContextObject") || param_p->GetName() == TEXT("WorldContextObject")) default_value = TEXT("@@world"); break;
+        }
+      }
+
+    check(!default_value.IsEmpty()); // Default value must be non-empty at this point
+
+    default_value = TEXT(" : ") + default_value;
+    }
+
+  return default_value;
   }
 
 //---------------------------------------------------------------------------------------
@@ -890,36 +1021,115 @@ FString FSkookumScriptGeneratorBase::get_comment_block(UField * field_p)
 
 //---------------------------------------------------------------------------------------
 
+FString FSkookumScriptGeneratorBase::generate_routine_script_parameters(UFunction * function_p, int32 indent_spaces, FString * out_return_type_name_p, int32 * out_num_inputs_p)
+  {
+  if (out_return_type_name_p) out_return_type_name_p->Empty();
+  if (out_num_inputs_p) *out_num_inputs_p = 0;
+
+  FString parameter_body;
+  FString separator_indent = TEXT("\n") + FString::ChrN(indent_spaces, ' ');
+
+  bool has_params_or_return_value = (function_p->Children != NULL);
+  if (has_params_or_return_value)
+    {
+    // Figure out column width of variable types & names
+    int32 max_type_length = 0;
+    int32 max_name_length = 0;
+    int32 inputs_count = 0;
+    for (TFieldIterator<UProperty> param_it(function_p); param_it; ++param_it)
+      {
+      UProperty * param_p = *param_it;
+      if ((param_p->GetPropertyFlags() & (CPF_ReturnParm | CPF_Parm)) == CPF_Parm)
+        {
+        FString type_name = get_skookum_property_type_name(param_p);
+        FString var_name = skookify_var_name(param_p->GetName(), param_p->IsA(UBoolProperty::StaticClass()), VarScope_local);
+        max_type_length = FMath::Max(max_type_length, type_name.Len());
+        max_name_length = FMath::Max(max_name_length, var_name.Len());
+        ++inputs_count;
+        }
+      }
+    if (out_num_inputs_p) *out_num_inputs_p = inputs_count;
+
+    // Format nicely
+    FString separator;
+    for (TFieldIterator<UProperty> param_it(function_p); param_it; ++param_it)
+      {
+      UProperty * param_p = *param_it;
+      if (param_p->HasAllPropertyFlags(CPF_Parm))
+        {
+        if (param_p->HasAllPropertyFlags(CPF_ReturnParm))
+          {
+          if (out_return_type_name_p) *out_return_type_name_p = get_skookum_property_type_name(param_p);
+          }
+        else
+          {
+          FString type_name = get_skookum_property_type_name(param_p);
+          FString var_name = skookify_var_name(param_p->GetName(), param_p->IsA(UBoolProperty::StaticClass()), VarScope_local);
+          FString default_initializer = get_skookum_default_initializer(function_p, param_p);
+          parameter_body += separator + type_name.RightPad(max_type_length) + TEXT(" ");
+          if (default_initializer.IsEmpty())
+            {
+            parameter_body += var_name;
+            }
+          else
+            {
+            parameter_body += var_name.RightPad(max_name_length) + get_skookum_default_initializer(function_p, param_p);
+            }
+          }
+        separator = separator_indent;
+        }
+      }
+    }
+
+  return parameter_body;
+  }
+
+//---------------------------------------------------------------------------------------
+
 FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type_p)
   {
   // Begin with comment bock explaining the class
   FString meta_body = get_comment_block(type_p);
 
   // Add name and file name of package where it came from if applicable
-  bool is_blueprint_class = false;
+  bool is_reflected_data = false;
+
   #if WITH_EDITOR
+    UObject * asset_p = nullptr;
+
     UClass * class_p = Cast<UClass>(type_p);
     if (class_p)
       {
       UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(class_p);
       if (blueprint_p)
         {
-        is_blueprint_class = true;
-
-        meta_body += ms_asset_name_key + blueprint_p->GetName() + TEXT("\r\n");
-        UPackage * blueprint_package_p = Cast<UPackage>(blueprint_p->GetOuter());
-        if (blueprint_package_p)
-          {
-          meta_body += ms_package_name_key + blueprint_package_p->GetName() + TEXT("\"\r\n");
-          meta_body += ms_package_path_key + blueprint_package_p->FileName.ToString() + TEXT("\"\r\n");
-          }
-        meta_body += TEXT("\r\n");
+        is_reflected_data = true;
+        asset_p = blueprint_p;
         }
+      }
+
+    UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(type_p);
+    if (enum_p)
+      {
+      is_reflected_data = true;
+      asset_p = enum_p;
+      }
+
+    if (asset_p)
+      {
+      meta_body += ms_asset_name_key + asset_p->GetName() + TEXT("\r\n");
+      UPackage * package_p = Cast<UPackage>(asset_p->GetOutermost());
+      if (package_p)
+        {
+        meta_body += ms_package_name_key + package_p->GetName() + TEXT("\"\r\n");
+        meta_body += ms_package_path_key + package_p->FileName.ToString() + TEXT("\"\r\n");
+        }
+      meta_body += TEXT("\r\n");
       }
   #endif
 
   // Also add annotations
-  meta_body += is_blueprint_class ? TEXT("annotations: &reflected_data\r\n") : TEXT("annotations: &reflected_cpp\r\n");
+  meta_body += is_reflected_data ? TEXT("annotations: &reflected_data\r\n") : TEXT("annotations: &reflected_cpp\r\n");
 
   return meta_body;
   }
@@ -976,6 +1186,90 @@ FString FSkookumScriptGeneratorBase::generate_class_instance_data_file_body(UStr
 
 //---------------------------------------------------------------------------------------
 
+FString FSkookumScriptGeneratorBase::generate_enum_class_data_body(UEnum * enum_p)
+  {
+  FString data_body = TEXT("\r\n");
+  FString enum_type_name = get_skookum_class_name(enum_p);
+
+  // Class data members
+  for (int32 enum_index = 0; enum_index < enum_p->NumEnums() - 1; ++enum_index)
+    {
+    FString skookified_val_name = get_skookified_enum_val_name_by_index(enum_p, enum_index);
+    data_body += FString::Printf(TEXT("%s !%s\r\n"), *enum_type_name, *skookified_val_name);
+    }
+
+  return data_body;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGeneratorBase::generate_enum_class_constructor_body(UEnum * enum_p)
+  {
+  FString enum_type_name = get_skookum_class_name(enum_p);
+  FString constructor_body = FString::Printf(TEXT("// %s\r\n// EnumPath: %s\r\n\r\n()\r\n\r\n  [\r\n"), *enum_type_name, *enum_p->GetPathName());
+
+  // Class constructor
+  int32 max_name_length = 0;
+  // Pass 0: Compute max_name_length
+  // Pass 1: Generate the data
+  for (uint32_t pass = 0; pass < 2; ++pass)
+    {
+    for (int32 enum_index = 0; enum_index < enum_p->NumEnums() - 1; ++enum_index)
+      {
+      FString skookified_val_name = get_skookified_enum_val_name_by_index(enum_p, enum_index);
+      if (pass == 0)
+        {
+        max_name_length = FMath::Max(max_name_length, skookified_val_name.Len());
+        }
+      else
+        {
+        int32 enum_val = enum_p->GetValueByIndex(enum_index);
+        constructor_body += FString::Printf(TEXT("  %s %s!int(%d)\r\n"), *(skookified_val_name + TEXT(":")).RightPad(max_name_length + 1), *enum_type_name, enum_val);
+        }
+      }
+    }
+
+  constructor_body += TEXT("  ]\r\n");
+
+  return constructor_body;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptGeneratorBase::generate_method_script_file_body(UFunction * function_p, const FString & script_function_name)
+  {
+  // Generate method content
+  FString method_body = get_comment_block(function_p);
+
+  // Generate aka annotations
+  method_body += FString::Printf(TEXT("&aka(\"%s\")\r\n"), *function_p->GetName());
+  if (function_p->HasMetaData(ms_meta_data_key_display_name))
+    {
+    FString display_name = function_p->GetMetaData(ms_meta_data_key_display_name);
+    if (display_name != function_p->GetName())
+      {
+      method_body += FString::Printf(TEXT("&aka(\"%s\")\r\n"), *display_name);
+      }
+    }
+  method_body += TEXT("\r\n");
+
+  // Generate parameter list
+  FString return_type_name;
+  int32 num_inputs;
+  method_body += TEXT("(") + generate_routine_script_parameters(function_p, 1, &return_type_name, &num_inputs);
+
+  // Place return type on new line if present and more than one parameter
+  if (num_inputs > 1 && !return_type_name.IsEmpty())
+    {
+    method_body += TEXT("\n");
+    }
+  method_body += TEXT(") ") + return_type_name + TEXT("\n");
+
+  return method_body;
+  }
+
+//---------------------------------------------------------------------------------------
+
 void FSkookumScriptGeneratorBase::generate_class_meta_file(UField * type_p, const FString & class_path, const FString & skookum_class_name)
   {
   const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
@@ -985,3 +1279,5 @@ void FSkookumScriptGeneratorBase::generate_class_meta_file(UField * type_p, cons
     report_error(FString::Printf(TEXT("Could not save file: %s"), *meta_file_path));
     }
   }
+
+#endif // WITH_EDITOR || HACK_HEADER_GENERATOR

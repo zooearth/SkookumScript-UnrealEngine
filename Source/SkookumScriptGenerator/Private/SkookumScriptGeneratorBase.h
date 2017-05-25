@@ -29,10 +29,8 @@ enum eSkProjectMode
   };
 
 //---------------------------------------------------------------------------------------
-// This class provides functionality for processing UE4 runtime type information
-// and for generating Sk script files
-
-class FSkookumScriptGeneratorBase
+// Contains all types and methods used even in shipping builds
+class FSkookumScriptGeneratorHelper
   {
   public:
 
@@ -64,6 +62,53 @@ class FSkookumScriptGeneratorBase
       SkTypeID__count
       };
 
+    // What kind of variable we are dealing with
+    enum eVarScope
+      {
+      VarScope_local,
+      VarScope_instance,
+      VarScope_class
+      };
+
+    //---------------------------------------------------------------------------------------
+    // Methods
+
+    static eSkTypeID      get_skookum_property_type(UProperty * property_p, bool allow_all);
+    static eSkTypeID      get_skookum_struct_type(UStruct * struct_p);
+    static bool           is_property_type_supported(UProperty * property_p);
+    static bool           is_struct_type_supported(UStruct * struct_p);
+    static bool           is_pod(UStruct * struct_p);
+    static bool           does_class_have_static_class(UClass * class_p);
+    static UEnum *        get_enum(UField * field_p); // Returns the Enum if it is an enum, nullptr otherwise
+
+    static FString        skookify_class_name(const FString & name);
+    static FString        skookify_method_name(const FString & name, UProperty * return_property_p = nullptr);
+    static FString        skookify_var_name(const FString & name, bool append_question_mark, eVarScope scope);
+    static bool           compare_var_name_skookified(const TCHAR * ue_var_name_p, const ANSICHAR * sk_var_name_p);
+    static bool           is_skookum_reserved_word(const FString & name);
+
+    //---------------------------------------------------------------------------------------
+    // Data
+
+    static const FString  ms_sk_type_id_names[SkTypeID__count]; // Names belonging to the ids above
+    static const FString  ms_reserved_keywords[];               // = Forbidden variable names
+
+  #if WITH_EDITOR || HACK_HEADER_GENERATOR
+    static const FName    ms_meta_data_key_blueprint_type;
+  #endif
+
+  };
+
+#if WITH_EDITOR || HACK_HEADER_GENERATOR
+
+//---------------------------------------------------------------------------------------
+// This class provides functionality for processing UE4 runtime type information
+// and for generating Sk script files
+
+class FSkookumScriptGeneratorBase : public FSkookumScriptGeneratorHelper
+  {
+  public:
+
     typedef bool (*tSourceControlCheckoutFunc)(const FString & file_path);
 
     struct FSuperClassEntry
@@ -81,16 +126,10 @@ class FSkookumScriptGeneratorBase
       PathDepth_archived = -2  // All chunks stored in a single archive file
       };
 
-    // What kind of variable we are dealing with
-    enum eVarScope
-      {
-      VarScope_local,
-      VarScope_instance,
-      VarScope_class
-      };
-
     //---------------------------------------------------------------------------------------
     // Interface
+
+    virtual               ~FSkookumScriptGeneratorBase() {}
 
     enum eReferenced
       {
@@ -111,29 +150,24 @@ class FSkookumScriptGeneratorBase
     bool                  save_text_file_if_changed(const FString & file_path, const FString & new_file_contents); // Helper to change a file only if needed
     void                  flush_saved_text_files(tSourceControlCheckoutFunc checkout_f = nullptr); // Puts generated files into place after all code generation is done
 
-    static bool           is_property_type_supported(UProperty * property_p);
-    static bool           is_struct_type_supported(UStruct * struct_p);
-    static bool           is_pod(UStruct * struct_p);
-    static bool           does_class_have_static_class(UClass * class_p);
-    static UEnum *        get_enum(UField * field_p); // Returns the Enum if it is an enum, nullptr otherwise
+    static FString        get_skookified_enum_val_name_by_index(UEnum * enum_p, int32 index);
 
-    static FString        skookify_class_name(const FString & name);
-    static FString        skookify_method_name(const FString & name, UProperty * return_property_p = nullptr);
-    static FString        skookify_var_name(const FString & name, bool append_question_mark, eVarScope scope);
-    static bool           compare_var_name_skookified(const TCHAR * ue_var_name_p, const ANSICHAR * sk_var_name_p);
-    static bool           is_skookum_reserved_word(const FString & name);
     static FString        get_skookum_class_name(UField * type_p);
     FString               get_skookum_parent_name(UField * type_p, int32 include_priority, uint32 referenced_flags, UStruct ** out_parent_pp = nullptr);
     FString               get_skookum_class_path(UField * type_p, int32 include_priority, uint32 referenced_flags, FString * out_class_name_p = nullptr);
     FString               get_skookum_method_file_name(const FString & script_function_name, bool is_static);
-    static eSkTypeID      get_skookum_struct_type(UStruct * struct_p);
-    static eSkTypeID      get_skookum_property_type(UProperty * property_p, bool allow_all);
     static FString        get_skookum_property_type_name(UProperty * property_p);
+    static FString        get_skookum_default_initializer(UFunction * function_p, UProperty * param_p);
     static uint32         get_skookum_symbol_id(const FString & string);
     static FString        get_comment_block(UField * field_p);
 
+    static FString        generate_routine_script_parameters(UFunction * function_p, int32 indent_spaces, FString * out_return_type_name_p, int32 * out_num_inputs_p); // Generate script code for a routine's parameter list (without parentheses)
+
     FString               generate_class_meta_file_body(UField * type_p);
     FString               generate_class_instance_data_file_body(UStruct * class_or_struct_p, int32 include_priority, uint32 referenced_flags);
+    FString               generate_enum_class_data_body(UEnum * enum_p);
+    FString               generate_enum_class_constructor_body(UEnum * enum_p);
+    FString               generate_method_script_file_body(UFunction * function_p, const FString & script_function_name); // Generate script file for a method
 
     void                  generate_class_meta_file(UField * type_p, const FString & class_path, const FString & skookum_class_name);
 
@@ -142,10 +176,7 @@ class FSkookumScriptGeneratorBase
 
     static const FFileHelper::EEncodingOptions::Type  ms_script_file_encoding;
 
-    static const FString        ms_sk_type_id_names[SkTypeID__count]; // Names belonging to the ids above
-    static const FString        ms_reserved_keywords[]; // = Forbidden variable names
     static const FName          ms_meta_data_key_function_category;
-    static const FName          ms_meta_data_key_blueprint_type;
     static const FName          ms_meta_data_key_display_name;
     static const FString        ms_asset_name_key; // Label used to extract asset name from Sk class meta file
     static const FString        ms_package_name_key; // Label used to extract package name from Sk class meta file
@@ -160,3 +191,5 @@ class FSkookumScriptGeneratorBase
 
     TArray<FString>       m_temp_file_paths;    // Keep track of temp files generated by save_files_if_changed()
   };
+
+#endif // WITH_EDITOR || HACK_HEADER_GENERATOR

@@ -301,6 +301,20 @@ enum eSkAnnotationTarget
 typedef AVCompactArray<AString> tSkAkas;
 
 //---------------------------------------------------------------------------------------
+// A POD struct the same size as a given class T
+template<class T>
+struct SkPOD
+  {
+  uint8_t m_pod[sizeof(T)];
+  };
+
+template<class T>
+struct SkPOD32
+  {
+  uint32_t m_pod[sizeof(T)/4];
+  };
+
+//---------------------------------------------------------------------------------------
 // Notes      SkookumScript main class
 // Author(s)  Conan Reis
 class SK_API SkookumScript

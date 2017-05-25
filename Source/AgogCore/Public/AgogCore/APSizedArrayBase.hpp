@@ -121,6 +121,7 @@ class APSizedArrayBase : public APArrayBase<_ElementType>
     _ElementType * pop(uint32_t pos);
     _ElementType * pop_last();
     void           remove(uint32_t pos = 0u);
+    void           remove_fast(uint32_t pos = 0u);
     bool           remove_equiv(const _ElementType & elem, uint32_t * find_pos_p = nullptr, uint32_t start_pos = 0u, uint32_t end_pos = ALength_remainder);
     void           remove_last();
     void           remove_all();
@@ -151,8 +152,10 @@ class APSizedArrayBase : public APArrayBase<_ElementType>
 
   // Data members
 
-    // Size of this->m_array_p buffer
-    uint32_t m_size;
+  #ifndef A_BITS64
+    // On 64 bit architectures, m_size is located not here but inside APArrayBase
+    uint32_t m_size; // Size of this->m_array_p buffer
+  #endif
 
   };  // APSizedArrayBase
 
@@ -175,7 +178,7 @@ class APSizedArrayBase : public APArrayBase<_ElementType>
 template<class _ElementType>
 inline uint32_t APSizedArrayBase<_ElementType>::get_size() const
   {
-  return m_size;
+  return this->m_size;
   }
 
 //---------------------------------------------------------------------------------------
@@ -187,7 +190,7 @@ inline uint32_t APSizedArrayBase<_ElementType>::get_size() const
 template<class _ElementType>
 inline uint32_t APSizedArrayBase<_ElementType>::get_size_buffer_bytes() const
   {
-  return sizeof(void *) * m_size;
+  return sizeof(void *) * this->m_size;
   }
 
 
@@ -841,6 +844,20 @@ inline void APSizedArrayBase<_ElementType>::remove(
   }
 
 //---------------------------------------------------------------------------------------
+// Removes element at index pos, and plugs the hole with the last element.
+// Important: Changes order of elements!
+template<class _ElementType>
+inline void APSizedArrayBase<_ElementType>::remove_fast(
+  uint32_t pos // = 0
+  )
+  {
+  APARRAY_BOUNDS_CHECK(pos);
+
+  this->m_count--;  // new length of array
+  this->m_array_p[pos] = this->m_array_p[this->m_count];
+  }
+
+//---------------------------------------------------------------------------------------
 // Removes equivalent element (i.e. the exact same object with the same memory
 //             address) between start_pos and end_pos, returning true if removed and false
 //             if not.
@@ -1111,9 +1128,9 @@ inline APSizedArrayBase<_ElementType>::APSizedArrayBase(
   uint32_t        size,    // = 0u
   _ElementType ** array_p  // = nullptr
   ) :
-  tAPArrayBase(length, array_p),
-  m_size(size)
+  tAPArrayBase(length, array_p)
   {
+  this->m_size = size;
   }
 
 //---------------------------------------------------------------------------------------
@@ -1126,9 +1143,9 @@ inline APSizedArrayBase<_ElementType>::APSizedArrayBase(
 // Author(s):    Conan Reis
 template<class _ElementType>
 inline APSizedArrayBase<_ElementType>::APSizedArrayBase(APSizedArrayBase * array_p) :
-  tAPArrayBase(array_p->m_count, array_p->m_array_p),
-  m_size(array_p->m_size)
+  tAPArrayBase(array_p->m_count, array_p->m_array_p)
   {
+  this->m_size       = array_p->m_size;
   array_p->m_count   = 0u;
   array_p->m_size    = 0u;
   array_p->m_array_p = nullptr;
