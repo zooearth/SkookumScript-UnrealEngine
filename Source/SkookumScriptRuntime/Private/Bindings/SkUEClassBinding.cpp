@@ -28,6 +28,7 @@
 #include "SkUESymbol.hpp"
 #include "SkUEUtils.hpp"
 #include "SkookumScriptClassDataComponent.h"
+#include "SkookumScriptInstanceProperty.h"
 #include "Engine/SkUEEntity.hpp"
 #include "VectorMath/SkColor.hpp"
 #include <SkUEWorld.generated.hpp>
@@ -56,6 +57,8 @@ TMap<UBlueprint*, SkClass*>                         SkUEClassBindingHelper::ms_d
 #endif
 
 int32_t                                             SkUEClassBindingHelper::ms_world_data_idx = -1;
+
+const FName                                         SkUEClassBindingHelper::NAME_Entity("Entity");
 
 //---------------------------------------------------------------------------------------
 // Compute data idx to world variable
@@ -98,40 +101,99 @@ void SkUEClassBindingHelper::set_world(UWorld * world_p)
 
 //---------------------------------------------------------------------------------------
 // Determine SkookumScript class from UClass
-SkClass * SkUEClassBindingHelper::get_object_class(UObject * obj_p, UClass * def_uclass_p /*= nullptr*/, SkClass * def_class_p /*= nullptr*/)
+SkClass * SkUEClassBindingHelper::get_object_class(UObject * obj_p, UClass * def_ue_class_p /*= nullptr*/, SkClass * def_sk_class_p /*= nullptr*/)
   {
-  SkClass * class_p = def_class_p;
+  SkClass * sk_class_p = def_sk_class_p;
 
   if (obj_p)
     {
-    UClass * obj_uclass_p = obj_p->GetClass();
-    if (obj_uclass_p != def_uclass_p)
+    UClass * ue_class_p = obj_p->GetClass();
+    if (ue_class_p != def_ue_class_p)
       {
       // Crawl up class hierarchy until we find a class known to Sk
-      SkClass * obj_class_p = nullptr;
-      for (; !obj_class_p && obj_uclass_p; obj_uclass_p = obj_uclass_p->GetSuperClass())
+      do 
         {
-        obj_class_p = get_sk_class_from_ue_class(obj_uclass_p);
-        }
-      SK_ASSERTX(obj_class_p, a_str_format("UObject of type '%S' has no matching SkookumScript type!", *obj_p->GetClass()->GetName()));
-      class_p = obj_class_p;
+        sk_class_p = get_sk_class_from_ue_class(ue_class_p);
+        } while (!sk_class_p && (ue_class_p = ue_class_p->GetSuperClass()) != nullptr);
+      SK_ASSERTX(sk_class_p, a_str_format("UObject of type '%S' has no matching SkookumScript type!", *obj_p->GetClass()->GetName()));
       }
     }
 
-  return class_p;
+  return sk_class_p;
   }
 
 //---------------------------------------------------------------------------------------
-// Return instance of an actor's SkookumScriptComponent, if any
-SkInstance * SkUEClassBindingHelper::get_actor_component_instance(AActor * actor_p)
+// Get the embedded, dedicated SkInstance from an object
+// Note: The instance is _not_ referenced
+SkInstance * SkUEClassBindingHelper::get_embedded_instance(UObject * obj_p, SkClass * sk_class_p)
   {
-  // If the actor has component, return the instance contained in the component
+  if (obj_p)
+    {
+    // Check if we have an instance stored inside the UObject itself
+    uint32_t instance_offset = sk_class_p->get_user_data_int();
+    if (instance_offset)
+      {
+      SkInstance * instance_p = USkookumScriptInstanceProperty::get_instance((uint8_t *)obj_p + instance_offset);
+      if (instance_p)
+        {
+        return instance_p;
+        }
+      }
+
+    // Else, look for components that might have an instance stored inside
+    if (sk_class_p->is_actor_class())
+      {
+      USkookumScriptClassDataComponent * component_p = static_cast<USkookumScriptClassDataComponent *>(static_cast<AActor *>(obj_p)->GetComponentByClass(USkookumScriptClassDataComponent::StaticClass()));
+      if (component_p)
+        {
+        SkInstance * instance_p = component_p->get_sk_actor_instance();
+        if (instance_p)
+          {
+          return instance_p;
+          }
+        }
+      }
+    else if (sk_class_p->is_component_class())
+      {
+      USkookumScriptBehaviorComponent * component_p = static_cast<USkookumScriptBehaviorComponent *>(static_cast<UObject *>(obj_p));
+      SkInstance * instance_p = component_p->get_sk_component_instance();
+      if (instance_p)
+        {
+        return instance_p;
+        }
+      }
+    }
+
+  return nullptr;
+  }
+
+//---------------------------------------------------------------------------------------
+// Optimized version of get_embedded_instance() for known actors
+// Note: The instance is _not_ referenced
+SkInstance * SkUEClassBindingHelper::get_embedded_instance(AActor * actor_p, SkClass * sk_class_p)
+  {
   if (actor_p)
     {
+    // Check if we have an instance stored inside the UObject itself
+    uint32_t instance_offset = sk_class_p->get_user_data_int();
+    if (instance_offset)
+      {
+      SkInstance * instance_p = USkookumScriptInstanceProperty::get_instance((uint8_t *)actor_p + instance_offset);
+      if (instance_p)
+        {
+        return instance_p;
+        }
+      }
+
+    // Else, look for component
     USkookumScriptClassDataComponent * component_p = static_cast<USkookumScriptClassDataComponent *>(actor_p->GetComponentByClass(USkookumScriptClassDataComponent::StaticClass()));
     if (component_p)
       {
-      return component_p->get_sk_actor_instance();
+      SkInstance * instance_p = component_p->get_sk_actor_instance();
+      if (instance_p)
+        {
+        return instance_p;
+        }
       }
     }
 
@@ -149,7 +211,7 @@ FString SkUEClassBindingHelper::get_ue_class_name_sans_c(UClass * ue_class_p)
 
 //---------------------------------------------------------------------------------------
 // Resolve the raw data info of each raw data member of the given class
-void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_struct_or_class_p)
+void SkUEClassBindingHelper::resolve_raw_data(SkClass * sk_class_p, UStruct * ue_struct_or_class_p)
   {
   // This loop assumes that the data members of the Sk class were created from this very UE4 class
   // I.e. that therefore, except for unsupported properties, they must be in the same order
@@ -158,7 +220,7 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
   FString ue_var_name;
   AString sk_var_name;
   TFieldIterator<UProperty> property_it(ue_struct_or_class_p, EFieldIteratorFlags::ExcludeSuper);
-  tSkTypedNameRawArray & raw_data = class_p->get_instance_data_raw_for_resolving();
+  tSkTypedNameRawArray & raw_data = sk_class_p->get_instance_data_raw_for_resolving();
   bool is_all_resolved = true;
   for (auto var_p : raw_data)
     {
@@ -176,13 +238,13 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
       ++property_it;
       ue_var_p->GetName(ue_var_name);
       sk_var_name = var_p->get_name_str();
-      found_match = FSkookumScriptGeneratorBase::compare_var_name_skookified(*ue_var_name, sk_var_name.as_cstr());
+      found_match = FSkookumScriptGeneratorHelper::compare_var_name_skookified(*ue_var_name, sk_var_name.as_cstr());
       // If it's unknown it might be due to case insensitivity of FName - e.g. "Blocked" might really be "bLocked"
       if (!found_match && ue_var_p->IsA(UBoolProperty::StaticClass()) && ue_var_name.Len() >= 2 && ue_var_name[0] == 'B')
         {
         ue_var_name[0] = FChar::ToLower(ue_var_name[0]);
         ue_var_name[1] = FChar::ToUpper(ue_var_name[1]);
-        found_match = FSkookumScriptGeneratorBase::compare_var_name_skookified(*ue_var_name, sk_var_name.as_cstr());
+        found_match = FSkookumScriptGeneratorHelper::compare_var_name_skookified(*ue_var_name, sk_var_name.as_cstr());
         }
       if (found_match) break;
       }
@@ -199,36 +261,30 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * class_p, UStruct * ue_st
       // If this is the case, a recompile would have been triggered when this class was loaded by get_ue_class_from_sk_class()
       // Which means binaries would be recompiled and reloaded once more, fixing this issue
       // So make sure this assumption is true
-      SK_ASSERTX(FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>("SkookumScriptRuntime")->is_freshen_binaries_pending(), a_str_format("Sk Variable '%s.%s' not found in UE4 reflection data.", class_p->get_name_cstr_dbg(), var_p->get_name_cstr()));
+      SK_ASSERTX(FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>("SkookumScriptRuntime")->is_freshen_binaries_pending(), a_str_format("Sk Variable '%s.%s' not found in UE4 reflection data.", sk_class_p->get_name_cstr_dbg(), var_p->get_name_cstr()));
       is_all_resolved = false;
       }
     }
   // Remember if all raw data was resolved
-  class_p->set_raw_data_resolved(is_all_resolved);
+  sk_class_p->set_raw_data_resolved(is_all_resolved);
   }
 
 //---------------------------------------------------------------------------------------
 // Resolve the raw data info of each raw data member of the given class
-bool SkUEClassBindingHelper::resolve_raw_data_static(SkClass * class_p)
+bool SkUEClassBindingHelper::resolve_raw_data_static(SkClass * sk_class_p)
   {
   // Resolve function pointers and determine if there's anything to do
-  if (!resolve_raw_data_funcs(class_p))
+  if (!resolve_raw_data_funcs(sk_class_p))
     {
     return true;
     }
 
-  // First check if it's a class
-  UStruct * ue_struct_or_class_p = get_static_ue_class_from_sk_class(class_p);
-  if (!ue_struct_or_class_p)
-    {
-    // Not a class, must be a struct then
-    ue_struct_or_class_p = get_static_ue_struct_from_sk_class(class_p);
-    }
-
+  // Check if it's known
+  UStruct * ue_struct_or_class_p = get_ue_struct_or_class_from_sk_class(sk_class_p);
   if (ue_struct_or_class_p)
     {
     // Resolve raw data
-    resolve_raw_data(class_p, ue_struct_or_class_p);
+    resolve_raw_data(sk_class_p, ue_struct_or_class_p);
     return true;
     }
 
@@ -237,28 +293,28 @@ bool SkUEClassBindingHelper::resolve_raw_data_static(SkClass * class_p)
 
 //---------------------------------------------------------------------------------------
 
-void SkUEClassBindingHelper::resolve_raw_data_struct(SkClass * class_p, const TCHAR * ue_struct_name_p)
+void SkUEClassBindingHelper::resolve_raw_data_struct(SkClass * sk_class_p, const TCHAR * ue_struct_name_p)
   {
-  resolve_raw_data(class_p, FindObjectChecked<UScriptStruct>(UObject::StaticClass()->GetOutermost(), ue_struct_name_p, false));
+  resolve_raw_data(sk_class_p, FindObjectChecked<UScriptStruct>(UObject::StaticClass()->GetOutermost(), ue_struct_name_p, false));
   }
 
 //---------------------------------------------------------------------------------------
 // Returns if there's anything to resolve
-bool SkUEClassBindingHelper::resolve_raw_data_funcs(SkClass * class_p)
+bool SkUEClassBindingHelper::resolve_raw_data_funcs(SkClass * sk_class_p)
   {
   // By default, inherit raw pointer and accessor functions from super class
-  if (!class_p->get_raw_pointer_func())
+  if (!sk_class_p->get_raw_pointer_func())
     {
-    class_p->register_raw_pointer_func(class_p->get_raw_pointer_func_inherited());
+    sk_class_p->register_raw_pointer_func(sk_class_p->get_raw_pointer_func_inherited());
     }
-  if (!class_p->get_raw_accessor_func())
+  if (!sk_class_p->get_raw_accessor_func())
     {
-    class_p->register_raw_accessor_func(class_p->get_raw_accessor_func_inherited());
+    sk_class_p->register_raw_accessor_func(sk_class_p->get_raw_accessor_func_inherited());
     }
 
   // Return if there's anything to resolve
-  bool has_no_raw_data = class_p->get_instance_data_raw().is_empty();
-  class_p->set_raw_data_resolved(has_no_raw_data);
+  bool has_no_raw_data = sk_class_p->get_instance_data_raw().is_empty();
+  sk_class_p->set_raw_data_resolved(has_no_raw_data);
   return !has_no_raw_data;
   }
 
@@ -268,19 +324,19 @@ tSkRawDataInfo SkUEClassBindingHelper::compute_raw_data_info(UProperty * ue_var_
   {
   tSkRawDataInfo raw_data_info = (tSkRawDataInfo(ue_var_p->GetOffset_ForInternal()) << Raw_data_info_offset_shift) | (tSkRawDataInfo(ue_var_p->GetSize()) << (Raw_data_info_type_shift + Raw_data_type_size_shift)); // Set raw_data_info to generic value
 
-  FSkookumScriptGeneratorBase::eSkTypeID type_id = FSkookumScriptGeneratorBase::get_skookum_property_type(ue_var_p, true);
-  if (type_id == FSkookumScriptGeneratorBase::SkTypeID_Integer)
+  FSkookumScriptGeneratorHelper::eSkTypeID type_id = FSkookumScriptGeneratorHelper::get_skookum_property_type(ue_var_p, true);
+  if (type_id == FSkookumScriptGeneratorHelper::SkTypeID_Integer)
     {
     // If integer, specify sign bit
     if (ue_var_p->IsA(UInt64Property::StaticClass())
-      || ue_var_p->IsA(UIntProperty::StaticClass())
-      || ue_var_p->IsA(UInt16Property::StaticClass())
-      || ue_var_p->IsA(UInt8Property::StaticClass()))
+     || ue_var_p->IsA(UIntProperty::StaticClass())
+     || ue_var_p->IsA(UInt16Property::StaticClass())
+     || ue_var_p->IsA(UInt8Property::StaticClass()))
       { // Mark as signed
       raw_data_info |= tSkRawDataInfo(1) << (Raw_data_info_type_shift + Raw_data_type_extra_shift);
       }
     }
-  else if (type_id == FSkookumScriptGeneratorBase::SkTypeID_Boolean)
+  else if (type_id == FSkookumScriptGeneratorHelper::SkTypeID_Boolean)
     {
     // If boolean, store bit shift as well
     static_assert(sizeof(HackedBoolProperty) == sizeof(UBoolProperty), "Must match so this hack will work.");
@@ -290,14 +346,14 @@ tSkRawDataInfo SkUEClassBindingHelper::compute_raw_data_info(UProperty * ue_var_
       | (tSkRawDataInfo(1) << (Raw_data_info_type_shift + Raw_data_type_size_shift)) // Size is always one byte
       | (tSkRawDataInfo(a_ceil_log_2((uint)bool_var_p->ByteMask)) << (Raw_data_info_type_shift + Raw_data_type_extra_shift));
     }
-  else if (type_id == FSkookumScriptGeneratorBase::SkTypeID_List)
+  else if (type_id == FSkookumScriptGeneratorHelper::SkTypeID_List)
     {
     // If a list, store type information for elements as well
     const UArrayProperty * array_property_p = Cast<UArrayProperty>(ue_var_p);
     tSkRawDataInfo item_raw_data_info = compute_raw_data_info(array_property_p->Inner);
     raw_data_info |= ((item_raw_data_info >> Raw_data_info_type_shift) & Raw_data_info_type_mask) << Raw_data_info_elem_type_shift;
     }
-  else if (type_id == FSkookumScriptGeneratorBase::SkTypeID_UObjectWeakPtr)
+  else if (type_id == FSkookumScriptGeneratorHelper::SkTypeID_UObjectWeakPtr)
     {
     // If weak ptr, store extra bit to indicate that
     raw_data_info |= tSkRawDataInfo(1) << (Raw_data_info_type_shift + Raw_data_type_extra_shift);
@@ -340,6 +396,7 @@ SkInstance * SkUEClassBindingHelper::access_raw_data_entity(void * obj_p, tSkRaw
   uint8_t * data_p = (uint8_t*)obj_p + byte_offset;
 
   // Check special bit indicating it's stored as a weak pointer
+  UObject * entity_p;
   if (raw_data_info & (tSkRawDataInfo(1) << (Raw_data_info_type_shift + Raw_data_type_extra_shift)))
     {
     // Stored a weak pointer
@@ -354,7 +411,7 @@ SkInstance * SkUEClassBindingHelper::access_raw_data_entity(void * obj_p, tSkRaw
       }
 
     // Get value
-    return SkUEEntity::new_instance(weak_p->Get(), nullptr, data_type_p->get_key_class());
+    entity_p = weak_p->Get();
     }
   else
     {
@@ -369,9 +426,32 @@ SkInstance * SkUEClassBindingHelper::access_raw_data_entity(void * obj_p, tSkRaw
       return nullptr;
       }
 
-    // Get value
-    return SkUEEntity::new_instance(*obj_pp, nullptr, data_type_p->get_key_class());
+    entity_p = *obj_pp;
     }
+
+  // Get value
+  SkClass * sk_class_p = get_object_class(entity_p);
+  SkInstance * instance_p = get_embedded_instance(entity_p, sk_class_p);
+  if (instance_p)
+    {
+    instance_p->reference();
+    }
+  else
+    {
+    if (!sk_class_p)
+      {
+      sk_class_p = data_type_p->get_key_class();
+      }
+    // If class has data, and entity_p is not null, get_embedded_instance() above should have succeeded
+    SK_ASSERTX(!entity_p || !sk_class_p->get_total_data_count(), a_str_format("Class '%s' has data but UObject has no embedded instance!", sk_class_p->get_name_cstr()));
+    // We always allocate a simple SkInstance even if class has data 
+    // because either entity_p is null in which case the data should not be accessed, 
+    // or get_embedded_instance() above would have succeeded
+    instance_p = SkInstance::new_instance(sk_class_p);
+    new(instance_p) SkRawDataInstance();
+    instance_p->construct<SkUEEntity>(entity_p);
+    }
+  return instance_p;
   }
 
 //---------------------------------------------------------------------------------------
@@ -766,6 +846,199 @@ void SkUEClassBindingHelper::add_static_enum_mapping(SkClass * sk_class_p, UEnum
   {
   SK_ASSERTX(sk_class_p && ue_enum_p, a_str_format("Tried to add static class mapping between `%s` and `%S` one of which is null.", sk_class_p ? sk_class_p->get_name_cstr() : "(null)", ue_enum_p ? *ue_enum_p->GetName() : TEXT("(null)")));
   ms_static_enum_map_u2s.Add(ue_enum_p, sk_class_p);
+  }
+
+//---------------------------------------------------------------------------------------
+
+UClass * SkUEClassBindingHelper::find_ue_class_from_sk_class(SkClass * sk_class_p)
+  {
+  // Convert class name to its UE4 equivalent
+  TCHAR ue_class_name[260];
+  const ANSICHAR * sk_class_name_p;
+  switch (sk_class_p->get_name_id())
+    {
+    case ASymbolId_Entity:      sk_class_name_p = "Object"; break;
+    case ASymbolId_EntityClass: sk_class_name_p = "Class"; break;
+    case ASymbolId_GameEntity:  sk_class_name_p = "Entity"; break;
+    default:                    sk_class_name_p = sk_class_p->get_name_cstr(); break;
+    }
+  uint32_t sk_class_name_length = FPlatformString::Strlen(sk_class_name_p);
+  SK_ASSERTX(sk_class_name_length < A_COUNT_OF(ue_class_name) - 3, a_str_format("Name of class '%s' is too large for conversion buffer.", sk_class_name_p));
+  FPlatformString::Convert(ue_class_name, A_COUNT_OF(ue_class_name), sk_class_name_p, sk_class_name_length + 1);
+  if (sk_class_p->get_annotation_flags() & SkAnnotation_reflected_data)
+    {
+    // It's a Blueprint generated class - append "_C" to the name
+    FPlatformString::Strncpy(ue_class_name + sk_class_name_length, TEXT("_C"), 3);
+    }
+
+  // Now look it up (allow failure)
+  UClass * ue_class_p = FindObject<UClass>(ANY_PACKAGE, ue_class_name);
+
+  // Link classes together for future use
+  if (ue_class_p)
+    {
+    // Store pointer to UClass inside the SkClass
+    set_ue_struct_ptr_on_sk_class(sk_class_p, ue_class_p);
+
+    // Store index of SkClass inside the UClass
+    uint32_t sk_class_idx = 0;
+    SkBrain::get_classes().find(sk_class_p->get_name(), AMatch_first_found, &sk_class_idx);
+    set_sk_class_idx_on_ue_class(ue_class_p, sk_class_idx);
+    }
+
+  return ue_class_p;
+  }
+
+//---------------------------------------------------------------------------------------
+
+UScriptStruct * SkUEClassBindingHelper::find_ue_struct_from_sk_class(SkClass * sk_class_p)
+  {
+  // Convert struct name to its UE4 equivalent
+  TCHAR ue_struct_name[260];
+  const ANSICHAR * sk_struct_name_p;
+  switch (sk_class_p->get_name_id())
+    {
+    case ASymbolId_Vector2:         sk_struct_name_p = "Vector2D"; break;
+    case ASymbolId_Vector3:         sk_struct_name_p = "Vector"; break;
+    case ASymbolId_Rotation:        sk_struct_name_p = "Quat"; break;
+    case ASymbolId_RotationAngles:  sk_struct_name_p = "Rotator"; break;
+    default:                        sk_struct_name_p = sk_class_p->get_name_cstr(); break;
+    }
+  uint32_t sk_struct_name_length = FPlatformString::Strlen(sk_struct_name_p);
+  SK_ASSERTX(sk_struct_name_length < A_COUNT_OF(ue_struct_name), a_str_format("Name of struct '%s' is too large for conversion buffer.", sk_struct_name_p));
+  FPlatformString::Convert(ue_struct_name, A_COUNT_OF(ue_struct_name), sk_struct_name_p, sk_struct_name_length + 1);
+
+  // Now look it up (allow failure)
+  UScriptStruct * ue_struct_p = FindObject<UScriptStruct>(ANY_PACKAGE, ue_struct_name);
+
+  // Link structures together for future use
+  if (ue_struct_p)
+    {
+    // Store pointer to UScriptStruct inside the SkClass
+    set_ue_struct_ptr_on_sk_class(sk_class_p, ue_struct_p);
+    }
+
+  return ue_struct_p;
+  }
+
+//---------------------------------------------------------------------------------------
+
+SkClass * SkUEClassBindingHelper::find_sk_class_from_ue_class(UClass * ue_class_p)
+  {
+  bool is_temp_ue_class = false;
+  // Convert class name to its Sk equivalent
+  FName ue_class_name = ue_class_p->GetFName();
+  ASymbol sk_class_name;
+  if (ue_class_name == NAME_Object)
+    {
+    sk_class_name = ASymbol::create_existing(ASymbolId_Entity);
+    }
+  else if (ue_class_name == NAME_Class)
+    {
+    sk_class_name = ASymbol::create_existing(ASymbolId_EntityClass);
+    }
+  else if (ue_class_name == NAME_Entity)
+    {
+    sk_class_name = ASymbol::create_existing(ASymbolId_GameEntity);
+    }
+  else
+    {
+    ANSICHAR buffer[260];
+    const ANSICHAR * ue_class_name_p = ue_class_name.GetPlainANSIString();
+    if (Cast<UBlueprintGeneratedClass>(ue_class_p))
+      {
+      // It's a Blueprint generated class
+      // Remove prefix if present
+      if (FPlatformString::Strncmp(ue_class_name_p, "REINST_", 7) == 0)
+        {
+        ue_class_name_p += 7;
+        is_temp_ue_class = true;
+        }
+      // And remove "_C" from the name
+      uint32_t name_length = FPlatformString::Strlen(ue_class_name_p);
+      SK_ASSERTX(name_length < sizeof(buffer), "Class name does not fit into buffer!");
+      if (name_length < 3 || name_length >= sizeof(buffer)) return nullptr;
+      FPlatformString::Strncpy(buffer, ue_class_name_p, name_length - 1);
+      buffer[name_length - 2] = 0;
+      ue_class_name_p = buffer;
+      }
+    sk_class_name = ASymbol::create_existing(ue_class_name_p);
+    }
+
+  // Now look up the class
+  uint32_t sk_class_idx = 0;
+  SkClass * sk_class_p = SkBrain::get_classes().get(sk_class_name, AMatch_first_found, &sk_class_idx);
+
+  // Link classes together for future use
+  if (sk_class_p)
+    {
+    // Store pointer to UClass inside the SkClass
+    if (!is_temp_ue_class)
+      {
+      set_ue_struct_ptr_on_sk_class(sk_class_p, ue_class_p);
+      }
+
+    // Store index of SkClass inside the UClass
+    set_sk_class_idx_on_ue_class(ue_class_p, sk_class_idx);
+    }
+
+  return sk_class_p;
+  }
+
+//---------------------------------------------------------------------------------------
+
+SkClass * SkUEClassBindingHelper::find_sk_class_from_ue_struct(UStruct * ue_struct_p)
+  {
+  // Convert struct name to its Sk equivalent
+  FName ue_struct_name = ue_struct_p->GetFName();
+  ASymbol sk_class_name;
+  if (ue_struct_name == NAME_Vector2D)
+    {
+    sk_class_name = ASymbol::create_existing(ASymbolId_Vector2);
+    }
+  else if (ue_struct_name == NAME_Vector)
+    {
+    sk_class_name = ASymbol::create_existing(ASymbolId_Vector3);
+    }
+  else if (ue_struct_name == NAME_Quat)
+    {
+    sk_class_name = ASymbol::create_existing(ASymbolId_Rotation);
+    }
+  else if (ue_struct_name == NAME_Rotator)
+    {
+    sk_class_name = ASymbol::create_existing(ASymbolId_RotationAngles);
+    }
+  else
+    {
+    sk_class_name = ASymbol::create_existing(ue_struct_name.GetPlainANSIString());
+    }
+
+  // Now look up the struct's class
+  SkClass * sk_class_p = SkBrain::get_classes().get(sk_class_name);
+
+  // Link struct to class for future use
+  if (sk_class_p)
+    {
+    // Store pointer to UStruct inside the SkClass
+    set_ue_struct_ptr_on_sk_class(sk_class_p, ue_struct_p);
+    }
+
+  return sk_class_p;
+  }
+
+//---------------------------------------------------------------------------------------
+
+SkClass * SkUEClassBindingHelper::find_sk_class_from_ue_enum(UEnum * ue_enum_p)
+  {
+  // Convert enum name to its Sk equivalent
+  ASymbol sk_enum_name = ASymbol::create_existing(ue_enum_p->GetFName().GetPlainANSIString());
+
+  // Now lookup the class
+  SkClass * sk_class_p = SkBrain::get_classes().get(sk_enum_name);
+
+  SK_ASSERTX(!sk_class_p || sk_class_p->is_class(*SkEnum::get_class()), a_str_format("UEnum '%S' is not an Sk Enum!", *ue_enum_p->GetName()));
+
+  return sk_class_p;
   }
 
 #if WITH_EDITORONLY_DATA

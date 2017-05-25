@@ -135,6 +135,10 @@ bool USkookumScriptListener::coro_on_event_do(SkInvokedCoroutine * scope_p, tReg
   {
   UObject * this_p = scope_p->this_as<SkUEEntity>();
 
+  SK_ASSERTX(this_p, a_str_format("Tried to attach an event handler to an Entity of type '%s' but it is null!", scope_p->get_this()->get_class()->get_name_cstr()));
+  // If this_p is null, we can't listen for events so return immediately
+  if (!this_p) return true;
+
   // Just started?
   if (scope_p->m_update_count == 0u)
     {
@@ -212,9 +216,16 @@ bool USkookumScriptListener::coro_wait_event(SkInvokedCoroutine * scope_p, tUnre
   {
   UObject * this_p = scope_p->this_as<SkUEEntity>();
 
+  SK_ASSERTX(this_p, a_str_format("Tried to wait for an event on an Entity of type '%s' but it is null!", scope_p->get_this()->get_class()->get_name_cstr()));
+  // If this_p is null, we can't listen for events so return immediately
+  if (!this_p) return true;
+
   // Just started?
   if (scope_p->m_update_count == 0u)
     {
+    // If this is null, treat it as if there's nothing to do
+    if (!this_p) return true;
+
     // Install and store away event listener
     USkookumScriptListener * listener_p = SkookumScriptListenerManager::get_singleton()->alloc_listener(this_p, scope_p, unregister_f);
     scope_p->append_user_data<FSkookumScriptListenerAutoPtr, USkookumScriptListener *>(listener_p);
