@@ -24,6 +24,8 @@
 
 #if WITH_EDITORONLY_DATA
 
+class UBlueprint;
+
 //---------------------------------------------------------------------------------------
 
 class ISkookumScriptRuntimeInterface
@@ -59,7 +61,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
     // Methods
 
                    FSkookumScriptRuntimeGenerator(ISkookumScriptRuntimeInterface * runtime_interface_p);
-                   ~FSkookumScriptRuntimeGenerator();
+    virtual       ~FSkookumScriptRuntimeGenerator();
 
     eSkProjectMode get_project_mode() const { return m_project_mode; }
     FString        get_project_file_path();
@@ -70,10 +72,10 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
     FString        make_project_editable();
     UBlueprint *   load_blueprint_asset(const FString & class_path, bool * sk_class_deleted_p);
 
-    void           generate_class_script_files(UClass * ue_class_p, bool generate_data, bool even_if_not_game_class, bool check_if_reparented);
-    void           rename_class_script_files(UClass * ue_class_p, const FString & old_class_name);
-    void           rename_class_script_files(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name);
-    void           delete_class_script_files(UClass * ue_class_p);
+    void           generate_class_script_files(UField * type_p, bool generate_data, bool even_if_not_game_class, bool check_if_reparented);
+    void           rename_class_script_files(UField * type_p, const FString & old_class_name);
+    void           rename_class_script_files(UField * type_p, const FString & old_class_name, const FString & new_class_name);
+    void           delete_class_script_files(UField * type_p);
     void           generate_used_class_script_files();
 
     // FSkookumScriptGeneratorBase interface implementation
@@ -86,6 +88,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
 
     void           initialize_paths();
     void           set_overlay_path();
+    bool           can_export_blueprint_function(UFunction * function_p) const;
 
     // Types
 

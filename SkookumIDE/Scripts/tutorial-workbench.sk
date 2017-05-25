@@ -322,12 +322,12 @@ _sentry_duty
 _sentry_duty(false)
 
 //------------------------------------------
-// Some more random examples!
+// More UE4 examples
 // Get averaged location of all enemies
 GameLib.actor_array_average_location(Enemy.instances)
 
 // Gets list of actors of class 'TargetPoint'
-!actors: List{Actor}!
+!actors: Actor{}
 GameLib.all_actors_of_class(@@world TargetPoint.static_class actors)
 actors 
 
