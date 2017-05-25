@@ -92,8 +92,8 @@ class SK_API SkRuntimeBase
 
   // Methods
 
-    SkRuntimeBase();
-    ~SkRuntimeBase();
+             SkRuntimeBase();
+    virtual ~SkRuntimeBase();
 
     // Binary Serialization / Loading Overrides
 

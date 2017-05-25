@@ -31,6 +31,7 @@
 #include "../SkUERuntime.hpp"
 #include "../SkUEUtils.hpp"
 #include "UObjectHash.h"
+#include <SkUEWorld.generated.hpp>
 
 #include <SkookumScript/SkList.hpp>
 
@@ -43,7 +44,7 @@ namespace SkUEActor_Impl
 
   //---------------------------------------------------------------------------------------
   // Get array of actors of the given class or a superclass
-  static UClass * get_actor_super_class_array(SkClass * sk_class_p, TArray<UObject*> * object_array_p, bool * is_superclass_p = nullptr)
+  static UClass * get_actor_super_class_array(SkClass * sk_class_p, TArray<UObject*> * object_array_p, SkClass ** sk_superclass_pp)
     {
     UClass * ue_superclass_p;
     SkClass * sk_superclass_p = SkUEClassBindingHelper::find_most_derived_super_class_known_to_ue(sk_class_p, &ue_superclass_p);
@@ -52,42 +53,44 @@ namespace SkUEActor_Impl
       object_array_p->Reserve(1024);
       GetObjectsOfClass(ue_superclass_p, *object_array_p, true, RF_ClassDefaultObject);
       }
-    if (is_superclass_p)
-      {
-      *is_superclass_p = (sk_superclass_p != sk_class_p);
-      }
+    *sk_superclass_pp = sk_superclass_p;
     return ue_superclass_p;
     }
 
   //---------------------------------------------------------------------------------------
   // Find actor of given name (returns nullptr if not found)
-  static AActor * find_named(const FName & name, SkInvokedMethod * scope_p, SkClass ** sk_class_pp, UClass ** ue_class_pp)
+  // instance_pp returns a reffed SkInstance for the actor if one was found
+  static AActor * find_named(const FName & name, SkInvokedMethod * scope_p, SkClass ** sk_class_pp, UClass ** ue_class_pp, SkInstance ** instance_pp)
     {
     // Get actor array
     TArray<UObject*> object_array;
-    bool is_superclass = false;
+    SkClass * sk_super_class_p;
     SkClass * sk_class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
-    UClass * ue_class_p = get_actor_super_class_array(sk_class_p, &object_array, &is_superclass);
+    UClass * ue_class_p = get_actor_super_class_array(sk_class_p, &object_array, &sk_super_class_p);
 
     // Find our actor
     UWorld * world_p = SkUEClassBindingHelper::get_world();
     AActor * actor_p = nullptr;
+    SkInstance * instance_p = nullptr;
     for (UObject ** RESTRICT obj_pp = object_array.GetData(), **RESTRICT end_pp = obj_pp + object_array.Num(); obj_pp != end_pp; ++obj_pp)
       {
       if ((*obj_pp)->GetWorld() == world_p && (*obj_pp)->GetFName() == name)
         {
         actor_p = static_cast<AActor *>(*obj_pp);
-        if (!is_superclass)
+        if (sk_super_class_p == sk_class_p)
           {
           break;
           }
-        SkInstance * component_instance_p = SkUEClassBindingHelper::get_actor_component_instance(actor_p);
-        if (component_instance_p)
+        SkInstance * embedded_instance_p = SkUEClassBindingHelper::get_embedded_instance(actor_p, sk_super_class_p);
+        if (embedded_instance_p)
           {
-          SkClass * component_instance_class_p = component_instance_p->get_class();
-          if (component_instance_class_p->is_class(*sk_class_p))
+          SkClass * instance_class_p = embedded_instance_p->get_class();
+          if (instance_class_p->is_class(*sk_class_p))
             {
-            sk_class_p = component_instance_class_p;
+            sk_class_p = instance_class_p;
+            ue_class_p = actor_p->GetClass();
+            instance_p = embedded_instance_p;
+            instance_p->reference();
             break;
             }
           }
@@ -96,6 +99,7 @@ namespace SkUEActor_Impl
 
     *sk_class_pp = sk_class_p;
     *ue_class_pp = ue_class_p;
+    *instance_pp = instance_p;
 
     return actor_p;
     }
@@ -122,6 +126,17 @@ namespace SkUEActor_Impl
 #endif
 
   //---------------------------------------------------------------------------------------
+  // Get world this actor is in
+  static void mthd_world(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    if (result_pp) // Do nothing if result not desired
+      {
+      AActor * this_p = scope_p->this_as<SkUEActor>();
+      *result_pp = SkUEWorld::new_instance(this_p->GetWorld());
+      }
+    }
+
+  //---------------------------------------------------------------------------------------
   // Actor@find_named(Name name) <ThisClass_|None>
   static void mthdc_find_named(SkInvokedMethod * scope_p, SkInstance ** result_pp)
     {
@@ -130,6 +145,7 @@ namespace SkUEActor_Impl
       // Find actor
       SkClass *    sk_class_p;
       UClass *     ue_class_p;
+      SkInstance * instance_p;
       SkInstance * name_p = scope_p->get_arg(SkArg_1);
       AActor *     actor_p = find_named(
         name_p->get_class() == SkUEName::get_class()
@@ -137,10 +153,11 @@ namespace SkUEActor_Impl
           : AStringToFName(name_p->as<SkString>()),
         scope_p,
         &sk_class_p,
-        &ue_class_p);
+        &ue_class_p,
+        &instance_p);
 
       // Create instance from our actor, or return nil if none found
-      *result_pp = actor_p ? SkUEActor::new_instance(actor_p, ue_class_p, sk_class_p) : SkBrain::ms_nil_p;
+      *result_pp = instance_p ? instance_p : (actor_p ? SkUEActor::new_instance(actor_p, ue_class_p, sk_class_p) : SkBrain::ms_nil_p);
       }
     }
 
@@ -153,6 +170,7 @@ namespace SkUEActor_Impl
       // Find actor
       SkClass *    sk_class_p;
       UClass *     ue_class_p;
+      SkInstance * instance_p;
       SkInstance * name_p = scope_p->get_arg(SkArg_1);
       AActor *     actor_p = find_named(
         name_p->get_class() == SkUEName::get_class()
@@ -160,7 +178,8 @@ namespace SkUEActor_Impl
           : AStringToFName(name_p->as<SkString>()),
         scope_p,
         &sk_class_p,
-        &ue_class_p);
+        &ue_class_p,
+        &instance_p);
 
       #if (SKOOKUM & SK_DEBUG)
         if (!actor_p)
@@ -170,7 +189,7 @@ namespace SkUEActor_Impl
       #endif
 
       // Create instance from our actor, even if null
-      *result_pp = SkUEActor::new_instance(actor_p, ue_class_p, sk_class_p);
+      *result_pp = instance_p ? instance_p : SkUEActor::new_instance(actor_p, ue_class_p, sk_class_p);
       }
     }
 
@@ -182,9 +201,9 @@ namespace SkUEActor_Impl
       {
       // Get actor array
       TArray<UObject*> object_array;
-      bool is_superclass = false;
+      SkClass * sk_super_class_p;
       SkClass * sk_class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
-      UClass * ue_class_p = get_actor_super_class_array(sk_class_p, &object_array, &is_superclass);
+      UClass * ue_class_p = get_actor_super_class_array(sk_class_p, &object_array, &sk_super_class_p);
 
       // Build SkList from it
       UWorld * world_p = SkUEClassBindingHelper::get_world();
@@ -200,16 +219,16 @@ namespace SkUEActor_Impl
           AActor * actor_p = static_cast<AActor *>(*obj_pp);
 
           // Check if the right class
-          SkInstance * component_instance_p = SkUEClassBindingHelper::get_actor_component_instance(actor_p);
-          if (component_instance_p)
+          SkInstance * embedded_instance_p = SkUEClassBindingHelper::get_embedded_instance(actor_p, sk_super_class_p);
+          if (embedded_instance_p)
             {
-            if (component_instance_p->get_class()->is_class(*sk_class_p))
+            if (embedded_instance_p->get_class()->is_class(*sk_class_p))
               {
-              component_instance_p->reference();
-              instances.append(*component_instance_p);
+              embedded_instance_p->reference();
+              instances.append(*embedded_instance_p);
               }
             }
-          else if (!is_superclass)
+          else if (sk_super_class_p == sk_class_p)
             {
             instances.append(*SkUEEntity::new_instance(actor_p, ue_class_p, sk_class_p));
             }
@@ -227,9 +246,9 @@ namespace SkUEActor_Impl
       {
       // Get actor array
       TArray<UObject*> object_array;
-      bool is_superclass = false;
+      SkClass * sk_super_class_p;
       SkClass * sk_class_p = ((SkMetaClass *)scope_p->get_topmost_scope())->get_class_info();
-      UClass * ue_class_p = get_actor_super_class_array(sk_class_p, &object_array, &is_superclass);
+      UClass * ue_class_p = get_actor_super_class_array(sk_class_p, &object_array, &sk_super_class_p);
 
       // Return first one
       UWorld * world_p = SkUEClassBindingHelper::get_world();
@@ -241,17 +260,17 @@ namespace SkUEActor_Impl
           AActor * actor_p = static_cast<AActor *>(*obj_pp);
 
           // Check if the right class
-          SkInstance * component_instance_p = SkUEClassBindingHelper::get_actor_component_instance(actor_p);
-          if (component_instance_p)
+          SkInstance * embedded_instance_p = SkUEClassBindingHelper::get_embedded_instance(actor_p, sk_super_class_p);
+          if (embedded_instance_p)
             {
-            if (component_instance_p->get_class()->is_class(*sk_class_p))
+            if (embedded_instance_p->get_class()->is_class(*sk_class_p))
               {
-              component_instance_p->reference();
-              *result_pp = component_instance_p;
+              embedded_instance_p->reference();
+              *result_pp = embedded_instance_p;
               return;
               }
             }
-          else if (!is_superclass)
+          else if (sk_super_class_p == sk_class_p)
             {
             *result_pp = SkUEEntity::new_instance(actor_p, ue_class_p, sk_class_p);
             return;
@@ -271,15 +290,21 @@ namespace SkUEActor_Impl
     if (result_pp) // Do nothing if result not desired
       {      
       // Find actor
-      SkClass * sk_class_p;
-      UClass *  ue_class_p;
-      AActor *  actor_p = find_named(
-        scope_p->get_arg<SkUEName>(SkArg_1), scope_p, &sk_class_p, &ue_class_p);
+      SkClass *    sk_class_p;
+      UClass *     ue_class_p;
+      SkInstance * instance_p;
+      AActor *     actor_p = find_named(
+        scope_p->get_arg<SkUEName>(SkArg_1), scope_p, &sk_class_p, &ue_class_p, &instance_p);
 
       // Create instance from our actor, or return nil if none found
-      *result_pp = actor_p ? SkUEActor::new_instance(actor_p, ue_class_p, sk_class_p) : SkBrain::ms_nil_p;
+      *result_pp = instance_p ? instance_p : (actor_p ? SkUEActor::new_instance(actor_p, ue_class_p, sk_class_p) : SkBrain::ms_nil_p);
       }
     }
+
+  static const SkClass::MethodInitializerFunc methods_i2[] =
+    {
+      { "world",            mthd_world },
+    };
 
   static const SkClass::MethodInitializerFunc methods_c2[] =
     {
@@ -296,6 +321,7 @@ namespace SkUEActor_Impl
 
 void SkUEActor_Ext::register_bindings()
   {
+  ms_class_p->register_method_func_bulk(SkUEActor_Impl::methods_i2, A_COUNT_OF(SkUEActor_Impl::methods_i2), SkBindFlag_instance_no_rebind);
   ms_class_p->register_method_func_bulk(SkUEActor_Impl::methods_c2, A_COUNT_OF(SkUEActor_Impl::methods_c2), SkBindFlag_class_no_rebind);
   }
 

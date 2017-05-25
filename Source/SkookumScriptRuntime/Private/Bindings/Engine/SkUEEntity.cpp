@@ -104,6 +104,16 @@ namespace SkUEEntity_Impl
     }
 
   //---------------------------------------------------------------------------------------
+  // Tests if entity is valid (not null)
+  static void mthd_valid_Q(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+    {
+    if (result_pp) // Do nothing if result not desired
+      {
+      *result_pp = SkBoolean::new_instance(scope_p->this_as<SkUEEntity>().is_valid());
+      }
+    }
+
+  //---------------------------------------------------------------------------------------
   // Convert to String
   static void mthd_String(SkInvokedMethod * scope_p, SkInstance ** result_pp)
     {    
@@ -243,13 +253,14 @@ namespace SkUEEntity_Impl
       { "!new",         mthd_ctor_new },
       { "!copy",        mthd_ctor_copy },
       { "!null",        mthd_ctor_null },
-      { "assign",       mthd_op_assign },
-      { "null?",        mthd_null_Q },
       { "String",       mthd_String },
-      { "name",         mthd_name },
+      { "assign",       mthd_op_assign },
       { "entity_class", mthd_entity_class },
       { "equal?",       mthd_op_equals },
+      { "name",         mthd_name },
       { "not_equal?",   mthd_op_not_equal },
+      { "null?",        mthd_null_Q },
+      { "valid?",       mthd_valid_Q },
     };
 
   static const SkClass::MethodInitializerFunc methods_c2[] =

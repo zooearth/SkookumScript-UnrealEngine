@@ -29,7 +29,7 @@
 #include "../SkookumScriptRuntimePrivatePCH.h"
 
 #include "../SkookumScriptListenerManager.hpp"
-#include "SkUEBlueprintInterface.hpp"
+#include "SkUEReflectionManager.hpp"
 
 #include "Platform.h"  // Set up base types, etc for the platform
 
@@ -75,8 +75,8 @@ class SkUERuntime :
       bool load_compiled_scripts();
       void bind_compiled_scripts(bool is_hot_reload = false, bool ensure_atomics = true, SkClass ** ignore_classes_pp = nullptr, uint32_t ignore_count = 0u);
 
-      void sync_all_blueprint_bindings_from_binary();
-      void expose_all_blueprint_bindings(bool is_final);
+      void sync_all_reflected_from_sk();
+      void sync_all_reflected_to_ue(bool is_final);
 
     // Overridden from SkRuntimeBase
 
@@ -114,8 +114,8 @@ class SkUERuntime :
         bool                                   have_game_module() const           { return m_have_game_module; }
 
         SkookumScriptListenerManager *         get_listener_manager()                 { return &m_listener_manager; }
-        SkUEBlueprintInterface *               get_blueprint_interface()              { return &m_blueprint_interface; }
-        const SkUEBlueprintInterface *         get_blueprint_interface() const        { return &m_blueprint_interface; }
+        SkUEReflectionManager *                get_reflection_manager()               { return &m_reflection_manager; }
+        const SkUEReflectionManager *          get_reflection_manager() const         { return &m_reflection_manager; }
         ISkookumScriptRuntimeEditorInterface * get_editor_interface() const           { return m_editor_interface_p; }
         SkUEBindingsInterface *                get_project_generated_bindings() const { return m_project_generated_bindings_p; }
 
@@ -135,7 +135,7 @@ class SkUERuntime :
       mutable FString     m_compiled_path;
 
       SkookumScriptListenerManager m_listener_manager;
-      SkUEBlueprintInterface       m_blueprint_interface;
+      SkUEReflectionManager       m_reflection_manager;
 
       SkUEBindingsInterface *                 m_project_generated_bindings_p;
       ISkookumScriptRuntimeEditorInterface *  m_editor_interface_p;

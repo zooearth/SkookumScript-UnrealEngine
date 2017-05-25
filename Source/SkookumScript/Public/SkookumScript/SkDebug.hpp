@@ -419,8 +419,8 @@ class SK_API SkMemberExpression : public SkMemberInfo
       SkMemberExpression(const void ** binary_pp);
 
       #if (SKOOKUM & SK_COMPILED_OUT)
-        virtual void     as_binary(void ** binary_pp) const override;
-        virtual uint32_t as_binary_length() const override             { return SkMemberInfo::as_binary_length() + 2u; }
+        void     as_binary(void ** binary_pp) const;
+        uint32_t as_binary_length() const             { return SkMemberInfo::as_binary_length() + 2u; }
       #endif
 
   //protected: // Public for now
@@ -589,7 +589,7 @@ class SK_API SkBreakPoint : public SkMemberExpression
 
     SkBreakPoint(const SkMemberInfo & member_info, SkExpressionBase * break_expr_p = nullptr);
     SkBreakPoint(const SkMemberExpression & info, uint32_t table_idx, bool enabled = true);
-    ~SkBreakPoint();
+    virtual ~SkBreakPoint();
 
     // Accessor methods
 
