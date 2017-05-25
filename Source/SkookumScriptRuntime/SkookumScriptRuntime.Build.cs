@@ -54,11 +54,6 @@ namespace UnrealBuildTool.Rules
           }
         );
 
-      if (UEBuildConfiguration.bBuildEditor == true)
-      {
-        PublicDependencyModuleNames.Add("UnrealEd");
-      }
-
       // ... add private dependencies that you statically link with here ...
       PrivateDependencyModuleNames.AddRange(
         new string[]
@@ -70,6 +65,12 @@ namespace UnrealBuildTool.Rules
             "Projects",
           }
         );
+
+      if (UEBuildConfiguration.bBuildEditor)
+        {
+        PrivateDependencyModuleNames.Add("UnrealEd");
+        PrivateDependencyModuleNames.Add("KismetCompiler");
+        }
 
       // Load SkookumScript.ini and add any ScriptSupportedModules specified to the list of PrivateDependencyModuleNames
       PrivateDependencyModuleNames.AddRange(GetSkookumScriptModuleNames(Path.Combine(ModuleDirectory, "../.."), false));

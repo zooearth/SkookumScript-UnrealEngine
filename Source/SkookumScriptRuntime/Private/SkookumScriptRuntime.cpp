@@ -27,7 +27,7 @@
 #include "Bindings/SkUEClassBinding.hpp"
 #include "Bindings/SkUERuntime.hpp"
 #include "Bindings/SkUERemote.hpp"
-#include "Bindings/SkUEBlueprintInterface.hpp"
+#include "Bindings/SkUEReflectionManager.hpp"
 #include "Bindings/SkUESymbol.hpp"
 #include "Bindings/SkUEUtils.hpp"
 
@@ -35,11 +35,15 @@
 #include "SkookumScriptBehaviorComponent.h"
 #include "SkookumScriptClassDataComponent.h"
 #include "SkookumScriptMindComponent.h"
+#include "SkookumScriptInstanceProperty.h"
 
 #include "Runtime/Launch/Resources/Version.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Stats.h"
+#if WITH_EDITORONLY_DATA
+#include "KismetCompilerModule.h"
+#endif
 
 #include <AgogCore/AMethodArg.hpp>
 #include <SkookumScript/SkSymbolDefs.hpp>
@@ -58,8 +62,8 @@ class FAppInfo : public AAppInfoCore, public SkAppInfo
   {
   public:
 
-    FAppInfo();
-    ~FAppInfo();
+             FAppInfo();
+    virtual ~FAppInfo();
 
   protected:
 
@@ -85,6 +89,9 @@ class FAppInfo : public AAppInfoCore, public SkAppInfo
 class FSkookumScriptRuntime : public ISkookumScriptRuntime
 #if WITH_EDITORONLY_DATA
   , public ISkookumScriptRuntimeInterface
+#endif
+#if WITH_EDITOR
+  , public IBlueprintCompiler
 #endif
   {
   public:
@@ -121,19 +128,29 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual bool  has_skookum_destructor(UClass * class_p) const override;
       virtual bool  is_skookum_class_data_component_class(UClass * class_p) const override;
       virtual bool  is_skookum_behavior_component_class(UClass * class_p) const override;
-      virtual bool  is_skookum_blueprint_function(UFunction * function_p) const override;
-      virtual bool  is_skookum_blueprint_event(UFunction * function_p) const override;
+      virtual bool  is_skookum_reflected_call(UFunction * function_p) const override;
+      virtual bool  is_skookum_reflected_event(UFunction * function_p) const override;
 
       virtual void  on_class_added_or_modified(UClass * ue_class_p, bool check_if_reparented) override;
       virtual void  on_class_renamed(UClass * ue_class_p, const FString & old_class_name) override;
-      virtual void  on_class_renamed(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name) override;
       virtual void  on_class_deleted(UClass * ue_class_p) override;
+
+      virtual void  on_enum_added_or_modified(UEnum * ue_enum_p, bool check_if_reparented) override;
+      virtual void  on_enum_renamed(UEnum * ue_enum_p, const FString & old_enum_name) override;
+      virtual void  on_enum_deleted(UEnum * ue_enum_p) override;
+
+    // Overridden from IBlueprintCompiler
+
+      virtual bool  CanCompile(const UBlueprint* Blueprint) override { return false; }
+      virtual void  Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded) override {}
+      virtual void  PreCompile(UBlueprint* Blueprint) override;
+      virtual void  PostCompile(UBlueprint* Blueprint) override;
 
     #endif
 
-    // Overridden from ISkookumScriptRuntimeGeneratorInterface
-
     #if WITH_EDITORONLY_DATA
+
+    // Overridden from ISkookumScriptRuntimeGeneratorInterface
 
       virtual bool  is_static_class_known_to_skookum(UClass * class_p) const override;
       virtual bool  is_static_struct_known_to_skookum(UStruct * struct_p) const override;
@@ -507,6 +524,12 @@ void FSkookumScriptRuntime::StartupModule()
   m_on_world_init_post_handle   = FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FSkookumScriptRuntime::on_world_init_post);
   m_on_world_cleanup_handle     = FWorldDelegates::OnWorldCleanup.AddRaw(this, &FSkookumScriptRuntime::on_world_cleanup);
 
+  // Install this class as a "compiler" so we know when a Blueprint is about to be compiled
+  #if WITH_EDITORONLY_DATA
+    IKismetCompilerInterface & kismet_compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
+    kismet_compiler.GetCompilers().Add(this);
+  #endif
+
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Start up SkookumScript
   // Originally, the compiled binaries were loaded with a delay when in UE4Editor to provide the user with a smoother startup sequence
@@ -534,26 +557,6 @@ void FSkookumScriptRuntime::on_world_init_pre(UWorld * world_p, const UWorld::In
   {
   //A_DPRINT("on_world_init_pre: %S %p\n", *world_p->GetName(), world_p);
 
-  // Use this callback as an opportunity to take care of connecting to the IDE
-  #ifdef SKOOKUM_REMOTE_UNREAL
-    if (!IsRunningCommandlet()
-     && !m_remote_client.is_authenticated()
-     && allow_auto_connect_to_ide())
-      {
-      m_remote_client.attempt_connect(0.0, true, true);
-      }
-  #endif  
-
-  // When the first world is initialized, do some last minute binding
-  if (m_runtime.is_compiled_scripts_loaded() && !m_runtime.is_compiled_scripts_bound())
-    {
-    // Finish binding atomics now
-    m_runtime.bind_compiled_scripts();
-
-    // At this point, all bindings must be resolved
-    m_runtime.expose_all_blueprint_bindings(true);
-    }
-
   if (world_p->IsGameWorld())
     {
     // Keep track of how many game worlds we got
@@ -562,6 +565,17 @@ void FSkookumScriptRuntime::on_world_init_pre(UWorld * world_p, const UWorld::In
     if (!m_game_world_p)
       {
       m_game_world_p = world_p;
+
+      // Make sure all UE4 classes that have been loaded along with this world are bound
+      m_runtime.sync_all_reflected_to_ue(true);
+
+      // When the first game world is initialized, do some last minute binding
+      if (m_runtime.is_compiled_scripts_loaded() && !m_runtime.is_compiled_scripts_bound())
+        {
+        // Finish binding atomics now
+        m_runtime.bind_compiled_scripts();
+        }
+
       if (is_skookum_initialized())
         {
         SkUEClassBindingHelper::set_world(world_p);
@@ -680,6 +694,14 @@ void FSkookumScriptRuntime::ShutdownModule()
   FWorldDelegates::OnPreWorldInitialization.Remove(m_on_world_init_pre_handle);
   FWorldDelegates::OnPostWorldInitialization.Remove(m_on_world_init_post_handle);
   FWorldDelegates::OnWorldCleanup.Remove(m_on_world_cleanup_handle);
+
+  #if WITH_EDITORONLY_DATA
+    IKismetCompilerInterface * kismet_compiler_p = FModuleManager::GetModulePtr<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
+    if (kismet_compiler_p)
+      {
+      kismet_compiler_p->GetCompilers().Remove(this);
+      }
+  #endif
   }
 
 //---------------------------------------------------------------------------------------
@@ -905,12 +927,12 @@ void FSkookumScriptRuntime::compile_and_load_binaries()
           }
         }
       }
-    else
+    else if (!is_dormant()) // Don't load binaries if dormant since the binaries might have issues
   #endif
       {
       // If no remote connection, or commandlet mode, load binaries at this point
       bool success_b = m_runtime.load_compiled_scripts();
-      SK_ASSERTX(success_b || is_dormant(), AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
+      SK_ASSERTX(success_b, AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
       }
   }
 
@@ -995,17 +1017,6 @@ void FSkookumScriptRuntime::tick_remote()
           {
           // Inform the IDE about the version we got
           m_remote_client.cmd_incremental_update_reply(true, SkBrain::ms_session_guid, SkBrain::ms_revision);
-          }
-
-        if (is_first_time && is_skookum_initialized())
-          {
-          #if WITH_EDITOR
-            // Recompile Blueprints in error state as such error state might have been due to SkookumScript not being initialized at the time of compile
-            if (m_runtime.get_editor_interface())
-              {
-              m_runtime.get_editor_interface()->recompile_blueprints_with_errors();
-              }
-          #endif
           }
         }
       }
@@ -1144,16 +1155,16 @@ bool FSkookumScriptRuntime::is_skookum_behavior_component_class(UClass * class_p
 
 //---------------------------------------------------------------------------------------
 // 
-bool FSkookumScriptRuntime::is_skookum_blueprint_function(UFunction * function_p) const
+bool FSkookumScriptRuntime::is_skookum_reflected_call(UFunction * function_p) const
   {
-  return m_runtime.get_blueprint_interface()->is_skookum_blueprint_function(function_p);
+  return m_runtime.get_reflection_manager()->is_skookum_reflected_call(function_p);
   }
 
 //---------------------------------------------------------------------------------------
 // 
-bool FSkookumScriptRuntime::is_skookum_blueprint_event(UFunction * function_p) const
+bool FSkookumScriptRuntime::is_skookum_reflected_event(UFunction * function_p) const
   {
-  return m_runtime.get_blueprint_interface()->is_skookum_blueprint_event(function_p);
+  return m_runtime.get_reflection_manager()->is_skookum_reflected_event(function_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -1166,10 +1177,20 @@ void FSkookumScriptRuntime::on_class_added_or_modified(UClass * ue_class_p, bool
     m_generator.generate_class_script_files(ue_class_p, true, true, check_if_reparented);
     m_generator.generate_used_class_script_files();
 
-    // Re-resolve the raw data if applicable
+    // Find associated SkClass if any
     SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(ue_class_p);
     if (sk_class_p)
       {
+      // Attach USkookumScriptInstanceProperty to Blueprint generated classes
+      if (SkUEReflectionManager::does_class_need_instance_property(sk_class_p))
+        {
+        SkUEReflectionManager::add_instance_property_to_class(ue_class_p, sk_class_p);
+        }
+
+      // Re-expose all functions as some might have been regenerated
+      m_runtime.sync_all_reflected_to_ue(true);
+
+      // Re-resolve the raw data if applicable
       if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p))
         {
         SkUEClassBindingHelper::resolve_raw_data(sk_class_p, ue_class_p);
@@ -1182,21 +1203,71 @@ void FSkookumScriptRuntime::on_class_added_or_modified(UClass * ue_class_p, bool
 // 
 void FSkookumScriptRuntime::on_class_renamed(UClass * ue_class_p, const FString & old_class_name)
   {
-  m_generator.rename_class_script_files(ue_class_p, old_class_name);
-  }
-
-//---------------------------------------------------------------------------------------
-// 
-void FSkookumScriptRuntime::on_class_renamed(UClass * ue_class_p, const FString & old_class_name, const FString & new_class_name)
-  {
-  m_generator.rename_class_script_files(ue_class_p, old_class_name, new_class_name);
+  if (!is_dormant())
+    {
+    m_generator.rename_class_script_files(ue_class_p, old_class_name);
+    }
   }
 
 //---------------------------------------------------------------------------------------
 // 
 void FSkookumScriptRuntime::on_class_deleted(UClass * ue_class_p)
   {
-  m_generator.delete_class_script_files(ue_class_p);
+  if (!is_dormant())
+    {
+    m_generator.delete_class_script_files(ue_class_p);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_enum_added_or_modified(UEnum * ue_enum_p, bool check_if_reparented)
+  {
+  if (!is_dormant())
+    {
+    // Generate script files for the new/changed enum
+    m_generator.generate_class_script_files(ue_enum_p, true, true, check_if_reparented);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_enum_renamed(UEnum * ue_enum_p, const FString & old_enum_name)
+  {
+  if (!is_dormant())
+    {
+    m_generator.rename_class_script_files(ue_enum_p, old_enum_name);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_enum_deleted(UEnum * ue_enum_p)
+  {
+  if (!is_dormant())
+    {
+    m_generator.delete_class_script_files(ue_enum_p);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::PreCompile(UBlueprint * blueprint_p)
+  {
+  // At this point, all bindings must be resolved
+  m_runtime.sync_all_reflected_to_ue(true);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::PostCompile(UBlueprint * blueprint_p)
+  {
+  // Slap a USkookumScriptInstanceProperty onto the newly generated class
+  UClass * ue_class_p = blueprint_p->GeneratedClass;
+  if (ue_class_p)
+    {
+    on_class_added_or_modified(ue_class_p, false);
+    }
   }
 
 #endif // WITH_EDITOR
