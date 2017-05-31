@@ -227,7 +227,9 @@ template<class _BindingClass, typename _DataType>
 void SkClassBindingBase<_BindingClass, _DataType>::register_bindings()
   {
   // Bind raw pointer callback function
-  _BindingClass::get_class()->register_raw_pointer_func(sizeof(_DataType) <= sizeof(SkInstance::tUserData) ? &SkInstance::get_raw_pointer_val : &SkInstance::get_raw_pointer_ref);
+  _BindingClass::get_class()->register_raw_pointer_func(sizeof(_DataType) <= sizeof(SkInstance::tUserData) 
+    ? static_cast<tSkRawPointerFunc>(&SkInstance::get_raw_pointer_val)
+    : static_cast<tSkRawPointerFunc>(&SkInstance::get_raw_pointer_ref));
 
   // Bind basic methods
   static_assert(_BindingClass::Binding_has_ctor || sizeof(_DataType) <= sizeof(tUserData), "If _DataType does not fit inside m_user_data, it will be allocated from the heap, hence there must be a constructor to allocate the memory.");

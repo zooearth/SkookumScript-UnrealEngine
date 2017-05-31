@@ -20,8 +20,6 @@
 // Class for interfacing with UE4 Blueprint graphs 
 //=======================================================================================
 
-#include "../SkookumScriptRuntimePrivatePCH.h"
-
 #include "SkUEReflectionManager.hpp"
 #include "VectorMath/SkVector2.hpp"
 #include "VectorMath/SkVector3.hpp"
@@ -35,6 +33,7 @@
 #include "../../../SkookumScriptGenerator/Private/SkookumScriptGeneratorBase.h"
 
 #include "CoreObject.h"
+#include "Engine/UserDefinedStruct.h"
 
 #include <SkookumScript/SkExpressionBase.hpp>
 #include <SkookumScript/SkInvokedCoroutine.hpp>

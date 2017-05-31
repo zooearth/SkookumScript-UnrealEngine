@@ -143,32 +143,32 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
     //---------------------------------------------------------------------------------------
     // Allocate (from pool) and construct a new SkInstance of using _BindingClass
     template <class _BindingClass, typename... _ParamClasses>
-    static SkInstance * new_instance(const _ParamClasses & ... args) 
-      { 
-      return _BindingClass::new_instance(args...); 
+    static SkInstance * new_instance(const _ParamClasses & ... args)
+      {
+      return _BindingClass::new_instance(args...);
       }
 
     //---------------------------------------------------------------------------------------
     // Allocate memory for internal data (if necessary) and invoke constructor
     template <class _BindingClass, typename... _ParamClasses>
     typename _BindingClass::tDataType & construct(const _ParamClasses & ... constructor_args)
-      { 
-      return static_cast<_BindingClass*>(this)->construct(constructor_args...); 
+      {
+      return static_cast<_BindingClass*>(this)->construct(constructor_args...);
       }
 
     //---------------------------------------------------------------------------------------
     // Invoke destructor of internal data and free memory (if necessary)
     template <class _BindingClass>
     void destruct()
-      { 
-      static_cast<_BindingClass*>(this)->destruct(); 
+      {
+      static_cast<_BindingClass*>(this)->destruct();
       }
 
     //---------------------------------------------------------------------------------------
     // Get const reference to internal data
     template <class _BindingClass>
     const typename _BindingClass::tDataType & as() const
-      { 
+      {
       return static_cast<const _BindingClass*>(this)->get_data();
       }
 
@@ -408,14 +408,23 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
     static SkInstance * new_instance_uninitialized(SkClass * class_p, uint32_t byte_size, void ** user_data_pp);
     static SkInstance * new_instance_uninitialized_val(SkClass * class_p, uint32_t byte_size, void ** user_data_pp);
     static SkInstance * new_instance_uninitialized_ref(SkClass * class_p, uint32_t byte_size, void ** user_data_pp);
-    static AObjReusePool<SkInstance> & get_pool();
+
+    static A_FORCEINLINE AObjReusePool<SkInstance> & get_pool() { return ms_pool; }
 
     static bool   is_data_stored_by_val(uint32_t byte_size) { return byte_size <= sizeof(tUserData); }
 
-    // Callback functions used by SkClassBindingBase for SkClass::register_raw_pointer_func
+    // Raw data access
     // Expert terrain!
+    void *        get_raw_pointer(uint32_t byte_size) { return byte_size <= sizeof(tUserData) ? &m_user_data : *((void **)&m_user_data); }
+    void *        get_raw_pointer_val() { return &m_user_data; }
+    void *        get_raw_pointer_ref() { return *((void **)&m_user_data); }
     static void * get_raw_pointer_val(SkInstance * obj_p) { return &obj_p->m_user_data; }
     static void * get_raw_pointer_ref(SkInstance * obj_p) { return *((void **)&obj_p->m_user_data); }
+
+    //---------------------------------------------------------------------------------------
+    // Allocate/deallocate memory for internal data
+    void * allocate_raw(uint32_t byte_size)   { return byte_size <= sizeof(m_user_data) ? &m_user_data : (*((void **)&m_user_data) = AgogCore::get_app_info()->malloc(byte_size, "SkUserData")); }
+    void   deallocate_raw(uint32_t byte_size) { if (byte_size > sizeof(m_user_data)) { AgogCore::get_app_info()->free(*((void **)&m_user_data)); }}
 
   protected:
 
@@ -446,6 +455,8 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
     // This includes most smart pointers like AIdxPtr<> and AIdPtr<>
     tUserData  m_user_data;
 
+    // The global pool of SkInstances
+    static AObjReusePool<SkInstance> ms_pool;
 
   };  // SkInstance
 
