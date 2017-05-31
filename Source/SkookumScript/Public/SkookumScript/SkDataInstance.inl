@@ -104,23 +104,6 @@ A_INLINE void SkDataInstance::set_data_by_idx(uint32_t data_idx, SkInstance * ob
   }
 
 //---------------------------------------------------------------------------------------
-// Returns dynamic reference pool. Pool created first call and reused on successive calls.
-// 
-// #Notes
-//   Uses Scott Meyers' tip "Make sure that objects are initialized before they're used"
-//   from "Effective C++" [Item 47 in 1st & 2nd Editions and Item 4 in 3rd Edition]
-//   This is instead of using a non-local static object for a singleton.
-//   
-// #Modifiers  static
-// #Author(s)  Conan Reis
-A_INLINE AObjReusePool<SkDataInstance> & SkDataInstance::get_pool()
-  {
-  static AObjReusePool<SkDataInstance> s_pool(SkookumScript::get_app_info()->get_pool_init_data_instance(), SkookumScript::get_app_info()->get_pool_incr_data_instance());
-
-  return s_pool;
-  }
-
-//---------------------------------------------------------------------------------------
 //  Retrieves an instance object from the dynamic pool and initializes it for
 //              use.  This method should be used instead of 'new' because it prevents
 //              unnecessary allocations by reusing previously allocated objects.
