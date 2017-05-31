@@ -153,6 +153,7 @@ class FSkookumScriptGeneratorBase : public FSkookumScriptGeneratorHelper
     void                  flush_saved_text_files(tSourceControlCheckoutFunc checkout_f = nullptr); // Puts generated files into place after all code generation is done
 
     static FString        get_skookified_enum_val_name_by_index(UEnum * enum_p, int32 index);
+    static FString        get_skookified_default_enum_val_name_by_id(UEnum * enum_p, const FString & id);
 
     static FString        get_skookum_class_name(UField * type_p);
     FString               get_skookum_parent_name(UField * type_p, int32 include_priority, uint32 referenced_flags, UStruct ** out_parent_pp = nullptr);
