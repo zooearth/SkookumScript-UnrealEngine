@@ -28,6 +28,9 @@
 class SkClass;
 class UClass;
 class UBlueprint;
+class UBlueprintGeneratedClass;
+class UUserDefinedStruct;
+class UUserDefinedEnum;
 class SkUEBindingsInterface;
 
 SKOOKUMSCRIPTRUNTIME_API DECLARE_LOG_CATEGORY_EXTERN(LogSkookum, Log, All);
@@ -78,13 +81,17 @@ class ISkookumScriptRuntime : public IModuleInterface
       virtual bool  is_skookum_reflected_call(UFunction * function_p) const = 0;
       virtual bool  is_skookum_reflected_event(UFunction * function_p) const = 0;
 
-      virtual void  on_class_added_or_modified(UClass * ue_class_p, bool check_if_reparented) = 0;
-      virtual void  on_class_renamed(UClass * ue_class_p, const FString & old_class_name) = 0;
-      virtual void  on_class_deleted(UClass * ue_class_p) = 0;
+      virtual void  on_class_added_or_modified(UBlueprintGeneratedClass * ue_class_p, bool check_if_reparented) = 0;
+      virtual void  on_class_renamed(UBlueprintGeneratedClass * ue_class_p, const FString & old_class_name) = 0;
+      virtual void  on_class_deleted(UBlueprintGeneratedClass * ue_class_p) = 0;
 
-      virtual void  on_enum_added_or_modified(UEnum * ue_enum_p, bool check_if_reparented) = 0;
-      virtual void  on_enum_renamed(UEnum * ue_enum_p, const FString & old_enum_name) = 0;
-      virtual void  on_enum_deleted(UEnum * ue_enum_p) = 0;
+      virtual void  on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p, bool check_if_reparented) = 0;
+      virtual void  on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_class_name) = 0;
+      virtual void  on_struct_deleted(UUserDefinedStruct * ue_struct_p) = 0;
+
+      virtual void  on_enum_added_or_modified(UUserDefinedEnum * ue_enum_p, bool check_if_reparented) = 0;
+      virtual void  on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_enum_name) = 0;
+      virtual void  on_enum_deleted(UUserDefinedEnum * ue_enum_p) = 0;
 
     #endif
 

@@ -1,7 +1,7 @@
 {
   "FileVersion" : 3,
   "Version" : 1,
-  "VersionName" : "3.0.4848",
+  "VersionName" : "3.0.4885",
   "EngineVersion" : "4.11",
   "FriendlyName" : "SkookumScript",
 	"Description": "The superpowered scripting language and tool suite.",

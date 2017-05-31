@@ -35,6 +35,7 @@
 #include "../../../SkookumScriptGenerator/Private/SkookumScriptGeneratorBase.h"
 
 #include "CoreObject.h"
+#include "Engine/UserDefinedStruct.h"
 
 #include <SkookumScript/SkExpressionBase.hpp>
 #include <SkookumScript/SkInvokedCoroutine.hpp>
@@ -1146,7 +1147,7 @@ bool SkUEReflectionManager::reflect_ue_property(UProperty * ue_property_p, Refle
       k2_value_assigner_p = &assign_k2_value_transform;
       sk_value_storer_p   = &store_sk_value_transform;
       }
-    else
+    else if (!struct_p->IsA<UUserDefinedStruct>()) // MJB reject UUserDefinedStructs for now
       {
       if (SkInstance::is_data_stored_by_val(struct_p->GetStructureSize()))
         {
@@ -1797,14 +1798,14 @@ void SkUEReflectionManager::assign_k2_value_transform(SkInstance * dest_p, const
 
 void SkUEReflectionManager::assign_k2_value_struct_val(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
   {
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(SkInstance::get_raw_pointer_val(dest_p)), reinterpret_cast<const uint32_t *>(value_p), typed_name.m_byte_size);
+  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p->get_raw_pointer_val()), reinterpret_cast<const uint32_t *>(value_p), typed_name.m_byte_size);
   }
 
 //---------------------------------------------------------------------------------------
 
 void SkUEReflectionManager::assign_k2_value_struct_ref(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
   {
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(SkInstance::get_raw_pointer_ref(dest_p)), reinterpret_cast<const uint32_t *>(value_p), typed_name.m_byte_size);
+  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p->get_raw_pointer_ref()), reinterpret_cast<const uint32_t *>(value_p), typed_name.m_byte_size);
   }
 
 //---------------------------------------------------------------------------------------

@@ -302,23 +302,6 @@ A_INLINE void AStringRef::pool_delete(AStringRef * str_ref_p)
   get_pool().recycle(str_ref_p);
   }
 
-//---------------------------------------------------------------------------------------
-// Returns dynamic reference pool. Pool created first call and reused on successive calls.
-// 
-// #Notes
-//   Uses Scott Meyers' tip "Make sure that objects are initialized before they're used"
-//   from "Effective C++" [Item 47 in 1st & 2nd Editions and Item 4 in 3rd Edition]
-//   This is instead of using a non-local static object for a singleton.
-//   
-// #Modifiers  static
-// #Author(s)  Conan Reis
-A_INLINE AObjReusePool<AStringRef> & AStringRef::get_pool()
-  {
-  static AObjReusePool<AStringRef> s_pool(AgogCore::get_app_info()->get_pool_init_string_ref(), AgogCore::get_app_info()->get_pool_incr_string_ref());
-  //A_DSINGLETON_GUARD;
-  return s_pool;
-  }
-
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class Methods
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

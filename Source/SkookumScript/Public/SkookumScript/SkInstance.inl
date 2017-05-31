@@ -268,23 +268,6 @@ A_INLINE SkInstance * SkInstance::new_instance_ref(SkClass * class_p, const void
   return instance_p;
   }
 
-//---------------------------------------------------------------------------------------
-// Returns dynamic reference pool. Pool created first call and reused on successive calls.
-// 
-// #Notes
-//   Uses Scott Meyers' tip "Make sure that objects are initialized before they're used"
-//   from "Effective C++" [Item 47 in 1st & 2nd Editions and Item 4 in 3rd Edition]
-//   This is instead of using a non-local static object for a singleton.
-//   
-// #Modifiers  static
-// #Author(s)  Conan Reis
-A_INLINE AObjReusePool<SkInstance> & SkInstance::get_pool()
-  {
-  static AObjReusePool<SkInstance> s_pool(SkookumScript::get_app_info()->get_pool_init_instance(), SkookumScript::get_app_info()->get_pool_incr_instance());
-  //A_DSINGLETON_GUARD;
-  return s_pool;
-  }
-
 //=======================================================================================
 // SkInstanceUnreffed Inline Methods
 //=======================================================================================

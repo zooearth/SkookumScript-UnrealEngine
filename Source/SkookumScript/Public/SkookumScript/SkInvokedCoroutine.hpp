@@ -132,7 +132,7 @@ class SK_API SkInvokedCoroutine :
     virtual SkMind *          get_updater() const override;
 
     #if (SKOOKUM & SK_DEBUG)
-      virtual bool is_in_use() const override                        { return is_valid_id() && ((m_flags & Flag_tracked_mask) != 0u); }
+      virtual bool is_in_use() const override               { return is_valid_id() && ((m_flags & Flag_tracked_mask) != 0u); }
     #endif
 
     #if defined(SK_AS_STRINGS)
@@ -148,10 +148,11 @@ class SK_API SkInvokedCoroutine :
 
   // Pool Allocation Methods
 
-    static SkInstance *                         new_instance(SkInvokedCoroutine * icoroutine_p);
-    static SkInvokedCoroutine *                 pool_new(const SkCoroutineBase * coroutine_p);
-    static void                                 pool_delete(SkInvokedCoroutine * icoroutine_p);
-    static AObjReusePool<SkInvokedCoroutine> &  get_pool();
+    static SkInstance *          new_instance(SkInvokedCoroutine * icoroutine_p);
+    static SkInvokedCoroutine *  pool_new(const SkCoroutineBase * coroutine_p);
+    static void                  pool_delete(SkInvokedCoroutine * icoroutine_p);
+
+    static A_FORCEINLINE AObjReusePool<SkInvokedCoroutine> & get_pool() { return ms_pool; }
 
   // SkookumScript Atomic Methods
 
@@ -167,7 +168,7 @@ class SK_API SkInvokedCoroutine :
 
     void stop_tracking();
 
-    SkInvokedCoroutine **                       get_pool_unused_next() { return (SkInvokedCoroutine **)&m_coroutine_p; } // Area in this class where to store the pointer to the next unused object when not in use
+    SkInvokedCoroutine **  get_pool_unused_next() { return (SkInvokedCoroutine **)&m_coroutine_p; } // Area in this class where to store the pointer to the next unused object when not in use
 
   // Data Members
 
@@ -192,6 +193,9 @@ class SK_API SkInvokedCoroutine :
     SkInstance * m_data_quick_storage[Data_quick_storage_size];
 
     // Future: priority - to resolve conflicting coroutines
+
+    // The global pool of SkInvokedCoroutines
+    static AObjReusePool<SkInvokedCoroutine> ms_pool;
 
   };  // SkInvokedCoroutine
 

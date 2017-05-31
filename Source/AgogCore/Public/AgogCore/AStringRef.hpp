@@ -68,10 +68,10 @@ struct A_API AStringRef
 
   // Pool Allocation Methods
 
-    static AStringRef *                 pool_new(const char * cstr_p, uint32_t length, uint32_t size, uint16_t ref_count, bool deallocate, bool read_only);
-    static AStringRef *                 pool_new_copy(const char * cstr_p, uint32_t length, uint16_t ref_count = 1u, bool read_only = false);
-    static void                         pool_delete(AStringRef * str_ref_p);
-    static AObjReusePool<AStringRef> &  get_pool();
+    static AStringRef *  pool_new(const char * cstr_p, uint32_t length, uint32_t size, uint16_t ref_count, bool deallocate, bool read_only);
+    static AStringRef *  pool_new_copy(const char * cstr_p, uint32_t length, uint16_t ref_count = 1u, bool read_only = false);
+    static void          pool_delete(AStringRef * str_ref_p);
+    static A_FORCEINLINE AObjReusePool<AStringRef> & get_pool() { return ms_pool; }
 
   // Data Members
 
@@ -98,6 +98,9 @@ struct A_API AStringRef
   // Internal Class Methods
 
     AStringRef ** get_pool_unused_next() { return (AStringRef **)&m_cstr_p; } // Area in this class where to store the pointer to the next unused object when not in use
+
+    // The global pool of AStringRefs
+    static AObjReusePool<AStringRef> ms_pool;
 
     // Hide except for internal use
   };  // AStringRef
