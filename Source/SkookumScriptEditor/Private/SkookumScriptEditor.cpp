@@ -27,6 +27,7 @@
 #include "SlateGameResources.h" 
 #include "IPluginManager.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "Kismet2/StructureEditorUtils.h"
 #include "Kismet2/EnumEditorUtils.h"
 #include "ISkookumScriptRuntime.h"
 #include "AssetRegistryModule.h"
@@ -47,6 +48,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogSkookumScriptEditor, Log, All);
 class FSkookumScriptEditor 
   : public ISkookumScriptEditor
   , public ISkookumScriptRuntimeEditorInterface
+  , public FStructureEditorUtils::FStructEditorManager::ListenerType
   , public FEnumEditorUtils::FEnumEditorManager::ListenerType
 {
 public:
@@ -66,6 +68,12 @@ protected:
   virtual void  on_function_updated(UFunction * ue_function_p, bool is_event) override;
   virtual void  on_function_removed_from_class(UClass * ue_class_p) override;
   virtual bool  check_out_file(const FString & file_path) const override;
+
+  //---------------------------------------------------------------------------------------
+  // FStructureEditorManager::ListenerType implementation
+
+  virtual void PreChange(const UUserDefinedStruct * struct_p, FStructureEditorUtils::EStructureEditorChangeInfo change_type) override;
+  virtual void PostChange(const UUserDefinedStruct * struct_p, FStructureEditorUtils::EStructureEditorChangeInfo change_type) override;
 
   //---------------------------------------------------------------------------------------
   // FEnumEditorManager::ListenerType implementation
@@ -338,6 +346,23 @@ bool FSkookumScriptEditor::check_out_file(const FString & file_path) const
   }
 
 //=======================================================================================
+// FStructureEditorManager::ListenerType implementation
+//=======================================================================================
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptEditor::PreChange(const UUserDefinedStruct * struct_p, FStructureEditorUtils::EStructureEditorChangeInfo change_type)
+  {
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptEditor::PostChange(const UUserDefinedStruct * struct_p, FStructureEditorUtils::EStructureEditorChangeInfo change_type)
+  {
+  on_object_modified((UObject *)struct_p);
+  }
+
+//=======================================================================================
 // FEnumEditorManager::ListenerType implementation
 //=======================================================================================
 
@@ -372,8 +397,15 @@ void FSkookumScriptEditor::on_object_modified(UObject * obj_p)
   // Is this a blueprint?
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p && blueprint_p->GeneratedClass)
+    {    
+    get_runtime()->on_class_added_or_modified(CastChecked<UBlueprintGeneratedClass>(blueprint_p->GeneratedClass), false);
+    }
+
+  // Is this a struct?
+  UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(obj_p);
+  if (struct_p)
     {
-    get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, false);
+    get_runtime()->on_struct_added_or_modified(struct_p, false);
     }
 
   // Is this an enum?
@@ -382,7 +414,6 @@ void FSkookumScriptEditor::on_object_modified(UObject * obj_p)
     {
     get_runtime()->on_enum_added_or_modified(enum_p, false);
     }
-
   }
 
 //---------------------------------------------------------------------------------------
@@ -415,6 +446,7 @@ void FSkookumScriptEditor::on_asset_added(const FAssetData & asset_data)
 void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const FString & old_object_path)
   {
   static FName s_blueprint_class_name(TEXT("Blueprint"));
+  static FName s_struct_class_name(TEXT("UserDefinedStruct"));
   static FName s_enum_class_name(TEXT("UserDefinedEnum"));
 
   if (asset_data.AssetClass == s_blueprint_class_name)
@@ -422,7 +454,15 @@ void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const
     UBlueprint * blueprint_p = FindObjectChecked<UBlueprint>(ANY_PACKAGE, *asset_data.AssetName.ToString());
     if (blueprint_p && blueprint_p->GeneratedClass)
       {
-      get_runtime()->on_class_renamed(blueprint_p->GeneratedClass, FPaths::GetBaseFilename(old_object_path));
+      get_runtime()->on_class_renamed(CastChecked<UBlueprintGeneratedClass>(blueprint_p->GeneratedClass), FPaths::GetBaseFilename(old_object_path));
+      }
+    }
+  else if (asset_data.AssetClass == s_struct_class_name)
+    {
+    UUserDefinedStruct * struct_p = FindObjectChecked<UUserDefinedStruct>(ANY_PACKAGE, *asset_data.AssetName.ToString());
+    if (struct_p)
+      {
+      get_runtime()->on_struct_renamed(struct_p, FPaths::GetBaseFilename(old_object_path));
       }
     }
   else if (asset_data.AssetClass == s_enum_class_name)
@@ -449,7 +489,13 @@ void FSkookumScriptEditor::on_in_memory_asset_deleted(UObject * obj_p)
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p && blueprint_p->GeneratedClass)
     {
-    get_runtime()->on_class_deleted(blueprint_p->GeneratedClass);
+    get_runtime()->on_class_deleted(CastChecked<UBlueprintGeneratedClass>(blueprint_p->GeneratedClass));
+    }
+
+  UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(obj_p);
+  if (struct_p)
+    {
+    get_runtime()->on_struct_deleted(struct_p);
     }
 
   UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(obj_p);
@@ -474,7 +520,13 @@ void FSkookumScriptEditor::on_new_asset(UObject * obj_p)
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
   if (blueprint_p && blueprint_p->GeneratedClass)
     {
-    get_runtime()->on_class_added_or_modified(blueprint_p->GeneratedClass, true);
+    get_runtime()->on_class_added_or_modified(CastChecked<UBlueprintGeneratedClass>(blueprint_p->GeneratedClass), true);
+    }
+
+  UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(obj_p);
+  if (struct_p)
+    {
+    get_runtime()->on_struct_added_or_modified(struct_p, true);
     }
 
   UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(obj_p);

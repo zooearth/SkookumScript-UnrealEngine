@@ -35,6 +35,7 @@
 #include "../SkookumScriptRuntimeGenerator.h"
 
 #include "CoreObject.h"
+#include "Engine/UserDefinedStruct.h"
 
 #include <AgogCore/AMath.hpp>
 #include <SkookumScript/SkBoolean.hpp>
@@ -300,16 +301,27 @@ void SkUEClassBindingHelper::resolve_raw_data_struct(SkClass * sk_class_p, const
 
 //---------------------------------------------------------------------------------------
 // Returns if there's anything to resolve
-bool SkUEClassBindingHelper::resolve_raw_data_funcs(SkClass * sk_class_p)
+bool SkUEClassBindingHelper::resolve_raw_data_funcs(SkClass * sk_class_p, UStruct * ue_struct_or_class_p)
   {
-  // By default, inherit raw pointer and accessor functions from super class
-  if (!sk_class_p->get_raw_pointer_func())
+  if (ue_struct_or_class_p && ue_struct_or_class_p->IsA<UUserDefinedStruct>())
     {
-    sk_class_p->register_raw_pointer_func(sk_class_p->get_raw_pointer_func_inherited());
+    // Always re-resolve UUserDefinedStructs as they might change size
+    sk_class_p->register_raw_pointer_func(SkInstance::is_data_stored_by_val(ue_struct_or_class_p->PropertiesSize) 
+      ? static_cast<tSkRawPointerFunc>(&SkInstance::get_raw_pointer_val) 
+      : static_cast<tSkRawPointerFunc>(&SkInstance::get_raw_pointer_ref));
+    sk_class_p->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_user_struct);
     }
-  if (!sk_class_p->get_raw_accessor_func())
+  else
     {
-    sk_class_p->register_raw_accessor_func(sk_class_p->get_raw_accessor_func_inherited());
+    // By default, inherit raw pointer and accessor functions from super class
+    if (!sk_class_p->get_raw_pointer_func())
+      {
+      sk_class_p->register_raw_pointer_func(sk_class_p->get_raw_pointer_func_inherited());
+      }
+    if (!sk_class_p->get_raw_accessor_func())
+      {
+      sk_class_p->register_raw_accessor_func(sk_class_p->get_raw_accessor_func_inherited());
+      }
     }
 
   // Return if there's anything to resolve
@@ -719,6 +731,28 @@ SkInstance * SkUEClassBindingHelper::access_raw_data_list(void * obj_p, tSkRawDa
     list_instances.append(*item_class_p->new_instance_from_raw_data(item_array_p, item_raw_data_info, item_type_p));
     item_array_p += item_size;
     }
+  return instance_p;
+  }
+
+//---------------------------------------------------------------------------------------
+
+SkInstance * SkUEClassBindingHelper::access_raw_data_user_struct(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p)
+  {
+  uint32_t byte_size = (raw_data_info >> (Raw_data_info_type_shift + Raw_data_type_size_shift)) & Raw_data_type_size_mask;
+  uint32_t byte_offset = (raw_data_info >> Raw_data_info_offset_shift) & Raw_data_info_offset_mask;
+  void * data_p = (uint8_t*)obj_p + byte_offset;
+
+  // Set or get?
+  if (value_p)
+    {
+    // Set value
+    FMemory::Memcpy(data_p, value_p->get_raw_pointer(byte_size), byte_size);
+    return nullptr;
+    }
+
+  // Get value
+  SkInstance * instance_p = SkInstance::new_instance(data_type_p->get_key_class());
+  FMemory::Memcpy(instance_p->allocate_raw(byte_size), data_p, byte_size);
   return instance_p;
   }
 

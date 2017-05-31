@@ -32,6 +32,7 @@
 #ifdef A_INL_IN_CPP
   #include <AgogCore/AString.inl>
 #endif
+#include <AgogCore/AObjReusePool.hpp>
 #include <AgogCore/APArray.hpp>
 #include <stdio.h>      // Uses:  _vsnprintf, _snprintf
 #include <stdlib.h>     // Uses:  wcstombs
@@ -64,6 +65,9 @@
 
 void AString::initialize()
   {
+  // Initialize pool of string refs
+  AStringRef::get_pool().reset(AgogCore::get_app_info()->get_pool_init_string_ref(), AgogCore::get_app_info()->get_pool_incr_string_ref());
+
   // Initialize constants
   const_cast<AString&>(ms_comma) = ",";
   const_cast<AString&>(ms_dos_break) = "\r\n";
@@ -76,6 +80,9 @@ void AString::deinitialize()
   // Deinitialize constants
   const_cast<AString&>(ms_comma) = AString::ms_empty;
   const_cast<AString&>(ms_dos_break) = AString::ms_empty;
+
+  // Get rid of pool memory
+  AStringRef::get_pool().empty();
   }
 
 //---------------------------------------------------------------------------------------
