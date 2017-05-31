@@ -17,6 +17,9 @@
 
 ((Integer idx) code)
 
+  // This is implemented in C++ for additional speed.
+  // Here is the equivalent script for reference:
+  /*
   [
   !idx: 0
   
@@ -26,4 +29,5 @@
     code(idx)
     idx++
     ]
-  ]  
+  ]
+  */  
