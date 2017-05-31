@@ -200,9 +200,11 @@ void USkookumScriptBehaviorComponent::BeginPlay()
     {
     Super::BeginPlay();
 
-    SK_ASSERTX(m_component_instance_p != nullptr, a_str_format("SkookumScriptBehaviorComponent '%S' on actor '%S' has no SkookumScript instance upon BeginPlay. This means its InitializeComponent() method was never called during initialization. Please check your initialization sequence and make sure this component gets properly initialized.", *GetName(), *GetOwner()->GetName()));
-
-    m_component_instance_p->method_call(ms_symbol_on_begin_play);
+    SK_ASSERTX(m_component_instance_p.is_valid(), a_str_format("SkookumScriptBehaviorComponent '%S' on actor '%S' has no SkookumScript instance upon BeginPlay. This means its InitializeComponent() method was never called during initialization. Please check your initialization sequence and make sure this component gets properly initialized.", *GetName(), *GetOwner()->GetName()));
+    if (m_component_instance_p.is_valid())
+      {
+      m_component_instance_p->method_call(ms_symbol_on_begin_play);
+      }
     }
   }
 
@@ -210,7 +212,10 @@ void USkookumScriptBehaviorComponent::BeginPlay()
 
 void USkookumScriptBehaviorComponent::EndPlay(const EEndPlayReason::Type end_play_reason)
   {
-  m_component_instance_p->method_call(ms_symbol_on_end_play, SkUEEEndPlayReason::new_instance(end_play_reason));
+  if (m_component_instance_p.is_valid())
+    {
+    m_component_instance_p->method_call(ms_symbol_on_end_play, SkUEEEndPlayReason::new_instance(end_play_reason));
+    }
 
   Super::EndPlay(end_play_reason);
   }
@@ -220,7 +225,7 @@ void USkookumScriptBehaviorComponent::EndPlay(const EEndPlayReason::Type end_pla
 void USkookumScriptBehaviorComponent::UninitializeComponent()
   {
   // Delete SkookumScript instance if present
-  if (m_component_instance_p)
+  if (m_component_instance_p.is_valid())
     {
     SK_MAD_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_gameplay, "SkookumScript must be in gameplay mode when UninitializeComponent() is invoked.");
 
@@ -246,7 +251,7 @@ void USkookumScriptBehaviorComponent::UninitializeComponent()
 
 void USkookumScriptBehaviorComponent::OnUnregister()
   {
-  SK_MAD_ASSERTX(!m_component_instance_p, "Instance should have been destroyed at this point.");
+  SK_MAD_ASSERTX(m_component_instance_p.is_null(), "Instance should have been destroyed at this point.");
 
   Super::OnUnregister();
   }

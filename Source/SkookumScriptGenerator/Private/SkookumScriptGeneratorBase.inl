@@ -24,6 +24,7 @@
 
 #if WITH_EDITOR
   #include "Engine/Blueprint.h"
+  #include "Engine/UserDefinedStruct.h"
   #include "Engine/UserDefinedEnum.h"
 #endif
 
@@ -380,7 +381,8 @@ FString FSkookumScriptGeneratorHelper::skookify_var_name(const FString & name, b
   skookum_name.AppendChars(TEXT("@@"), scope == VarScope_instance ? 1 : (scope == VarScope_class ? 2 : 0));
   bool is_boolean = name.Len() > 2 && name[0] == 'b' && isupper(name[1]);
   bool was_upper = true;
-  bool was_underscore = true;
+  bool was_underscore = false;
+
   for (int32 i = int32(is_boolean); i < name.Len(); ++i)
     {
     TCHAR c = name[i];
@@ -397,12 +399,12 @@ FString FSkookumScriptGeneratorHelper::skookify_var_name(const FString & name, b
      || (c >= TCHAR('a') && c <= TCHAR('z')))
       {
       // Yes, append it
-      bool is_upper = isupper(c) != 0 || isdigit(c) != 0;
+      bool is_upper = FChar::IsUpper(c) || FChar::IsDigit(c);
       if (is_upper && !was_upper && !was_underscore)
         {
         skookum_name.AppendChar('_');
         }
-      skookum_name.AppendChar(tolower(c));
+      skookum_name.AppendChar(FChar::ToLower(c));
       was_upper = is_upper;
       was_underscore = false;
       }
@@ -415,6 +417,17 @@ FString FSkookumScriptGeneratorHelper::skookify_var_name(const FString & name, b
         was_underscore = true;
         }
       }
+    }
+
+  // Check for initial underscore and digits
+  if (FChar::IsDigit(skookum_name[0]) 
+   || (skookum_name[0] == '_' && skookum_name.Len() >= 2 && FChar::IsDigit(skookum_name[1])))
+    {
+    skookum_name = TEXT("p") + skookum_name; // Prepend an alpha character to make it a valid identifier
+    }
+  else if (skookum_name[0] == '_')
+    {
+    skookum_name = skookum_name.RightChop(1); // Chop off initial underscore if present
     }
 
   // Check for reserved keywords and append underscore if found
@@ -701,6 +714,18 @@ FString FSkookumScriptGeneratorBase::get_skookified_enum_val_name_by_index(UEnum
 
 //---------------------------------------------------------------------------------------
 
+FString FSkookumScriptGeneratorBase::get_skookified_default_enum_val_name_by_id(UEnum * enum_p, const FString & id)
+  {
+  int32 index = enum_p->GetIndexByNameString(id);
+  if (index == INDEX_NONE)
+    {
+    index = 0;
+    }
+  return get_skookified_enum_val_name_by_index(enum_p, index);
+  }
+
+//---------------------------------------------------------------------------------------
+
 FString FSkookumScriptGeneratorBase::get_skookum_class_name(UField * type_p)
   {
   UObject * obj_p = type_p;
@@ -926,7 +951,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_default_initializer(UFunction *
         case SkTypeID_Boolean:         default_value = default_value.ToLower(); break;
         case SkTypeID_String:          default_value = TEXT("\"") + default_value + TEXT("\""); break;
         case SkTypeID_Name:            default_value = (default_value == TEXT("None") ? TEXT("Name!none") : TEXT("Name!(\"") + default_value + TEXT("\")")); break;
-        case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".") + skookify_var_name(default_value, false, VarScope_class); break;
+        case SkTypeID_Enum:            default_value = get_enum(param_p)->GetName() + TEXT(".") + get_skookified_default_enum_val_name_by_id(get_enum(param_p), default_value); break;
         case SkTypeID_Vector2:         default_value = TEXT("Vector2!xy") + default_value; break;
         case SkTypeID_Vector3:         default_value = TEXT("Vector3!xyz(") + default_value + TEXT(")"); break;
         case SkTypeID_Vector4:         default_value = TEXT("Vector4!xyzw") + default_value; break;
@@ -1111,6 +1136,13 @@ FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type
         is_reflected_data = true;
         asset_p = blueprint_p;
         }
+      }
+
+    UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(type_p);
+    if (struct_p)
+      {
+      is_reflected_data = true;
+      asset_p = struct_p;
       }
 
     UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(type_p);
