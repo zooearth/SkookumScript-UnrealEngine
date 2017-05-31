@@ -86,6 +86,7 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
 
     static SkClass *       get_sk_class_from_ue_class(UClass * ue_class_p);
     static UClass *        get_ue_class_from_sk_class(SkClass * sk_class_p);
+    static SkClass *       get_sk_class_from_ue_struct(UScriptStruct * ue_struct_p);
     static UScriptStruct * get_ue_struct_from_sk_class(SkClass * sk_class_p);
     static UStruct *       get_ue_struct_or_class_from_sk_class(SkClass * sk_class_p);
     static UClass *        get_static_ue_class_from_sk_class_super(SkClassDescBase * sk_class_p);
@@ -102,7 +103,7 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
     static bool            resolve_raw_data_static(SkClass * sk_class_p);
     static void            resolve_raw_data(SkClass * sk_class_p, UStruct * ue_struct_or_class_p);
     static void            resolve_raw_data_struct(SkClass * sk_class_p, const TCHAR * ue_struct_name_p);
-    static bool            resolve_raw_data_funcs(SkClass * sk_class_p);
+    static bool            resolve_raw_data_funcs(SkClass * sk_class_p, UStruct * ue_struct_or_class_p = nullptr);
 
     static void *          get_raw_pointer_entity(SkInstance * obj_p);
     static SkInstance *    access_raw_data_entity(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
@@ -112,6 +113,7 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
     static SkInstance *    access_raw_data_enum(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
     static SkInstance *    access_raw_data_color(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
     static SkInstance *    access_raw_data_list(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
+    static SkInstance *    access_raw_data_user_struct(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
 
     template<class _BindingClass>
     static SkInstance *    access_raw_data_struct(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
@@ -559,6 +561,14 @@ inline UClass * SkUEClassBindingHelper::get_ue_class_from_sk_class(SkClass * sk_
   #endif
 
   return ue_class_p;
+  }
+
+//---------------------------------------------------------------------------------------
+
+inline SkClass * SkUEClassBindingHelper::get_sk_class_from_ue_struct(UScriptStruct * ue_struct_p)
+  {
+  // No fast lookup right now as this is not called at runtime
+  return find_sk_class_from_ue_struct(ue_struct_p);
   }
 
 //---------------------------------------------------------------------------------------

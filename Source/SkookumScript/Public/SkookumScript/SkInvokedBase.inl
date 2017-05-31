@@ -150,23 +150,6 @@ A_INLINE void SkInvokedBase::abort_common(
 //=======================================================================================
 
 //---------------------------------------------------------------------------------------
-// Returns dynamic reference pool. Pool created first call and reused on successive calls.
-// 
-// #Notes
-//   Uses Scott Meyers' tip "Make sure that objects are initialized before they're used"
-//   from "Effective C++" [Item 47 in 1st & 2nd Editions and Item 4 in 3rd Edition]
-//   This is instead of using a non-local static object for a singleton.
-//   
-// #Modifiers  static
-// #Author(s)  Conan Reis
-A_INLINE AObjReusePool<SkInvokedExpression> & SkInvokedExpression::get_pool()
-  {
-  static AObjReusePool<SkInvokedExpression> s_pool(SkookumScript::get_app_info()->get_pool_init_iexpr(), SkookumScript::get_app_info()->get_pool_incr_iexpr());
-
-  return s_pool;
-  }
-
-//---------------------------------------------------------------------------------------
 // Retrieves an invoked expression object from the dynamic pool and
 //             initializes it for use.  This should be used instead of 'new' because it
 //             prevents unnecessary allocations by reusing previously allocated objects.
@@ -331,6 +314,14 @@ A_INLINE void SkInvokedContextBase::data_destroy_vars(
     // Remove temporary reference from delay_collect_p, but do not garbage collect it
     delay_collect_p->dereference_delay();
     }
+  }
+
+//---------------------------------------------------------------------------------------
+// 
+A_INLINE void SkInvokedContextBase::data_empty()
+  {
+  data_destroy_vars(0, m_data.get_length());
+  m_data.empty();
   }
 
 //---------------------------------------------------------------------------------------
