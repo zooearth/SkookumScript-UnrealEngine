@@ -238,9 +238,10 @@ class SK_API SkInvokedExpression : public SkInvokedBase
 
   // Pool Allocation Methods
 
-    static SkInvokedExpression *                pool_new(const SkExpressionBase & expr, SkInvokedBase * caller_p, SkObjectBase * scope_p);
-    static void                                 pool_delete(SkInvokedExpression * iexpr_p);
-    static AObjReusePool<SkInvokedExpression> & get_pool();
+    static SkInvokedExpression * pool_new(const SkExpressionBase & expr, SkInvokedBase * caller_p, SkObjectBase * scope_p);
+    static void                  pool_delete(SkInvokedExpression * iexpr_p);
+
+    static A_FORCEINLINE AObjReusePool<SkInvokedExpression> & get_pool() { return ms_pool; }
 
   protected:
 
@@ -256,6 +257,9 @@ class SK_API SkInvokedExpression : public SkInvokedBase
 
     // The expression that is being invoked
     const SkExpressionBase * m_expr_p;
+
+    // The global pool of SkInvokedExpressions
+    static AObjReusePool<SkInvokedExpression> ms_pool;
 
   };  // SkInvokedExpression
 
