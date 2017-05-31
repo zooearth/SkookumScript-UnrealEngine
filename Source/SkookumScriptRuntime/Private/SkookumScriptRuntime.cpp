@@ -39,8 +39,11 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Stats.h"
-#if WITH_EDITORONLY_DATA
+
+#if WITH_EDITOR
 #include "KismetCompilerModule.h"
+#include "Engine/UserDefinedStruct.h"
+#include "Engine/UserDefinedEnum.h"
 #endif
 
 #include <AgogCore/AMethodArg.hpp>
@@ -129,13 +132,17 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual bool  is_skookum_reflected_call(UFunction * function_p) const override;
       virtual bool  is_skookum_reflected_event(UFunction * function_p) const override;
 
-      virtual void  on_class_added_or_modified(UClass * ue_class_p, bool check_if_reparented) override;
-      virtual void  on_class_renamed(UClass * ue_class_p, const FString & old_class_name) override;
-      virtual void  on_class_deleted(UClass * ue_class_p) override;
+      virtual void  on_class_added_or_modified(UBlueprintGeneratedClass * ue_class_p, bool check_if_reparented) override;
+      virtual void  on_class_renamed(UBlueprintGeneratedClass * ue_class_p, const FString & old_class_name) override;
+      virtual void  on_class_deleted(UBlueprintGeneratedClass * ue_class_p) override;
 
-      virtual void  on_enum_added_or_modified(UEnum * ue_enum_p, bool check_if_reparented) override;
-      virtual void  on_enum_renamed(UEnum * ue_enum_p, const FString & old_enum_name) override;
-      virtual void  on_enum_deleted(UEnum * ue_enum_p) override;
+      virtual void  on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p, bool check_if_reparented) override;
+      virtual void  on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_class_name) override;
+      virtual void  on_struct_deleted(UUserDefinedStruct * ue_struct_p) override;
+
+      virtual void  on_enum_added_or_modified(UUserDefinedEnum * ue_enum_p, bool check_if_reparented) override;
+      virtual void  on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_enum_name) override;
+      virtual void  on_enum_deleted(UUserDefinedEnum * ue_enum_p) override;
 
     // Overridden from IBlueprintCompiler
 
@@ -1167,7 +1174,7 @@ bool FSkookumScriptRuntime::is_skookum_reflected_event(UFunction * function_p) c
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::on_class_added_or_modified(UClass * ue_class_p, bool check_if_reparented)
+void FSkookumScriptRuntime::on_class_added_or_modified(UBlueprintGeneratedClass * ue_class_p, bool check_if_reparented)
   {
   if (!is_dormant())
     {
@@ -1199,7 +1206,7 @@ void FSkookumScriptRuntime::on_class_added_or_modified(UClass * ue_class_p, bool
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::on_class_renamed(UClass * ue_class_p, const FString & old_class_name)
+void FSkookumScriptRuntime::on_class_renamed(UBlueprintGeneratedClass * ue_class_p, const FString & old_class_name)
   {
   if (!is_dormant())
     {
@@ -1209,7 +1216,7 @@ void FSkookumScriptRuntime::on_class_renamed(UClass * ue_class_p, const FString 
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::on_class_deleted(UClass * ue_class_p)
+void FSkookumScriptRuntime::on_class_deleted(UBlueprintGeneratedClass * ue_class_p)
   {
   if (!is_dormant())
     {
@@ -1219,7 +1226,49 @@ void FSkookumScriptRuntime::on_class_deleted(UClass * ue_class_p)
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntime::on_enum_added_or_modified(UEnum * ue_enum_p, bool check_if_reparented)
+void FSkookumScriptRuntime::on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p, bool check_if_reparented)
+  {
+  if (false && !is_dormant()) // MJB UUserDefinedStruct support disabled for now
+    {
+    // Generate script files for the new/changed class
+    m_generator.generate_class_script_files(ue_struct_p, true, true, check_if_reparented);
+
+    // Find associated SkClass if any
+    SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_struct(ue_struct_p);
+    if (sk_class_p)
+      {
+      // Re-resolve the raw data if applicable
+      if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p))
+        {
+        SkUEClassBindingHelper::resolve_raw_data(sk_class_p, ue_struct_p);
+        }
+      }
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_class_name)
+  {
+  if (false && !is_dormant()) // MJB UUserDefinedStruct support disabled for now
+    {
+    m_generator.rename_class_script_files(ue_struct_p, old_class_name);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_struct_deleted(UUserDefinedStruct * ue_struct_p)
+  {
+  if (false && !is_dormant()) // MJB UUserDefinedStruct support disabled for now
+    {
+    m_generator.delete_class_script_files(ue_struct_p);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_enum_added_or_modified(UUserDefinedEnum * ue_enum_p, bool check_if_reparented)
   {
   if (!is_dormant())
     {
@@ -1230,7 +1279,7 @@ void FSkookumScriptRuntime::on_enum_added_or_modified(UEnum * ue_enum_p, bool ch
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntime::on_enum_renamed(UEnum * ue_enum_p, const FString & old_enum_name)
+void FSkookumScriptRuntime::on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_enum_name)
   {
   if (!is_dormant())
     {
@@ -1240,7 +1289,7 @@ void FSkookumScriptRuntime::on_enum_renamed(UEnum * ue_enum_p, const FString & o
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntime::on_enum_deleted(UEnum * ue_enum_p)
+void FSkookumScriptRuntime::on_enum_deleted(UUserDefinedEnum * ue_enum_p)
   {
   if (!is_dormant())
     {
@@ -1261,7 +1310,7 @@ void FSkookumScriptRuntime::PreCompile(UBlueprint * blueprint_p)
 void FSkookumScriptRuntime::PostCompile(UBlueprint * blueprint_p)
   {
   // Slap a USkookumScriptInstanceProperty onto the newly generated class
-  UClass * ue_class_p = blueprint_p->GeneratedClass;
+  UBlueprintGeneratedClass * ue_class_p = Cast<UBlueprintGeneratedClass>(blueprint_p->GeneratedClass);
   if (ue_class_p)
     {
     on_class_added_or_modified(ue_class_p, false);
