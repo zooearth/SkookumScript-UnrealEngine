@@ -32,6 +32,11 @@
 #include <AgogCore/AObjReusePool.hpp>
 #include <AgogCore/AConstructDestruct.hpp>
 
+//=======================================================================================
+// Data Definitions
+//=======================================================================================
+
+AObjReusePool<AStringRef> AStringRef::ms_pool;
 
 //=======================================================================================
 // Method Definitions

@@ -75,8 +75,8 @@ class SK_API SkDataInstance : public SkInstance
 
   // Pool Allocation Methods
 
-    static SkDataInstance *                 new_instance(SkClass * class_p);
-    static AObjReusePool<SkDataInstance> &  get_pool();
+    static SkDataInstance * new_instance(SkClass * class_p);
+    static A_FORCEINLINE AObjReusePool<SkDataInstance> & get_pool() { return ms_pool; }
 
   protected:
 
@@ -104,6 +104,9 @@ class SK_API SkDataInstance : public SkInstance
     // Called when a mismatch is detected - alerts the user and returns nil
     SkInstance ** on_magic_marker_mismatch(uint32_t data_idx) const;
   #endif
+
+    // The global pool of SkDataInstances
+    static AObjReusePool<SkDataInstance> ms_pool;
 
   };  // SkDataInstance
 
