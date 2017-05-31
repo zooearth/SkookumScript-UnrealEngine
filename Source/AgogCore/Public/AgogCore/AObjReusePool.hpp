@@ -94,7 +94,7 @@ class AObjReusePool
 
   // Common Methods
 
-    AObjReusePool(uint32_t initial_size, uint32_t expand_size);
+    AObjReusePool(uint32_t initial_size = 0, uint32_t expand_size = 0);
     ~AObjReusePool();
 
 
@@ -123,6 +123,7 @@ class AObjReusePool
     void          recycle(_ObjectType * obj_p);
     void          recycle_all(_ObjectType ** objs_a, uint length);
 
+    void          reset(uint32_t initial_size, uint32_t expand_size, bool pre_allocate = true);
     void          add_block();
     void          empty();
     void          remove_expanded();
@@ -215,7 +216,10 @@ inline AObjReusePool<_ObjectType>::AObjReusePool(
   m_initial_size(initial_size),
   m_expand_size(expand_size)
   {
-  add_block();
+  if (initial_size)
+    {
+    add_block();
+    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -260,14 +264,14 @@ inline _ObjectType * AObjReusePool<_ObjectType>::allocate()
       }
   #endif
 
-  if (!m_pool_first_p)
+  // Unlink one object from the linked list of free objects
+  AllocObject * obj_p = m_pool_first_p;
+  if (!obj_p)
     {
     // No free objects, so make more
     add_block();
+    obj_p = m_pool_first_p;
     }
-
-  // Unlink one object from the linked list of free objects
-  AllocObject * obj_p = m_pool_first_p;
   m_pool_first_p = static_cast<AllocObject *>(*obj_p->get_pool_unused_next());
 
   #ifdef AORPOOL_ALLOCATION_TRACKING
@@ -360,6 +364,23 @@ void AObjReusePool<_ObjectType>::recycle_all(
     #endif
     }
   m_pool_first_p = next_obj_p;
+  }
+
+
+//---------------------------------------------------------------------------------------
+// Empties and resets the pool
+template<class _ObjectType>
+void AObjReusePool<_ObjectType>::reset(uint32_t initial_size, uint32_t expand_size, bool pre_allocate)
+  {
+  empty();
+
+  m_initial_size = initial_size;
+  m_expand_size  = expand_size;
+
+  if (initial_size && pre_allocate)
+    {
+    add_block();
+    }
   }
 
 //---------------------------------------------------------------------------------------

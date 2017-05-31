@@ -26,6 +26,7 @@
 #include "Settings/ProjectPackagingSettings.h"
 #include "Interfaces/IPluginManager.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/UserDefinedStruct.h"
 
 #include "Bindings/SkUEReflectionmanager.hpp"
 
@@ -102,6 +103,14 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files()
         {
         generate_class_script_files(ue_class_p, true, true, true);
         }
+      }
+
+    // Re-generate classes for all user defined structs
+    TArray<UObject*> struct_array;
+    GetObjectsOfClass(UUserDefinedStruct::StaticClass(), struct_array);
+    for (UObject * obj_p : struct_array)
+      {
+      generate_class_script_files(static_cast<UUserDefinedStruct *>(obj_p), true, true, true);
       }
 
     // Re-generate classes for all user defined enums
@@ -320,7 +329,11 @@ bool FSkookumScriptRuntimeGenerator::can_export_property(UProperty * var_p, int3
 
   // Accept all known static struct types
   UStructProperty * struct_var_p = Cast<UStructProperty>(var_p);
-  if (struct_var_p && (!struct_var_p->Struct || (get_skookum_struct_type(struct_var_p->Struct) == SkTypeID_UStruct && !m_runtime_interface_p->is_static_struct_known_to_skookum(struct_var_p->Struct))))
+  if (struct_var_p && (!struct_var_p->Struct 
+   || (get_skookum_struct_type(struct_var_p->Struct) == SkTypeID_UStruct && !m_runtime_interface_p->is_static_struct_known_to_skookum(struct_var_p->Struct))
+   || struct_var_p->Struct->IsA<UUserDefinedStruct>())) // MJB reject UUserDefinedStructs for now
+//  if (struct_var_p && (!struct_var_p->Struct || (get_skookum_struct_type(struct_var_p->Struct) == SkTypeID_UStruct
+//    && !m_runtime_interface_p->is_static_struct_known_to_skookum(struct_var_p->Struct) && !struct_var_p->Struct->IsA<UUserDefinedStruct>()))) // MJB UUserDefinedStruct disabled for now
     {
     return false;
     }
@@ -655,6 +668,9 @@ void FSkookumScriptRuntimeGenerator::set_overlay_path()
 
 bool FSkookumScriptRuntimeGenerator::can_export_blueprint_function(UFunction * function_p) const
   {
+#if 1 // MJB Disable custom function support for now
+  return false;
+#else
   static FName s_user_construction_script_name(TEXT("UserConstructionScript"));
 
   // Only consider non-native (=script) functions that can be called from Blueprint event graphs
@@ -678,6 +694,7 @@ bool FSkookumScriptRuntimeGenerator::can_export_blueprint_function(UFunction * f
 
   // Passed all tests, so can export!
   return true;
+#endif
   }
 
 #endif // WITH_EDITORONLY_DATA

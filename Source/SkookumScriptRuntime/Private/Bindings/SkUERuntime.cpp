@@ -33,6 +33,8 @@
 
 #include "GenericPlatformProcess.h"
 #include "UObject/UObjectHash.h"
+#include "Engine/Blueprint.h"
+#include "Engine/UserDefinedStruct.h"
 #include <chrono>
 
 #include <AgogCore/AMethodArg.hpp>
@@ -548,7 +550,7 @@ void SkUERuntime::bind_compiled_scripts(
     // Yes, sync all reflected types/variables/routines to UE
     sync_all_reflected_to_ue(true);
     
-    // Also re-resolve the raw data of all dynamic classes
+    // Also re-resolve the raw data of all dynamic classes and structs
     #if WITH_EDITORONLY_DATA
       TArray<UObject*> blueprint_array;
       GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array, true, RF_ClassDefaultObject);
@@ -564,6 +566,20 @@ void SkUERuntime::bind_compiled_scripts(
               {
               SkUEClassBindingHelper::resolve_raw_data(sk_class_p, blueprint_p->GeneratedClass);
               }
+            }
+          }
+        }
+      TArray<UObject*> struct_array;
+      GetObjectsOfClass(UUserDefinedStruct::StaticClass(), struct_array, true, RF_ClassDefaultObject);
+      for (UObject * obj_p : struct_array)
+        {
+        UUserDefinedStruct * struct_p = static_cast<UUserDefinedStruct *>(obj_p);
+        SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_struct(struct_p);
+        if (sk_class_p)
+          {
+          if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p))
+            {
+            SkUEClassBindingHelper::resolve_raw_data(sk_class_p, struct_p);
             }
           }
         }
