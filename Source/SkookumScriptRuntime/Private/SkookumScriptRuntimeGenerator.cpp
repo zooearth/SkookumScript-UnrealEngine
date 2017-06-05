@@ -30,7 +30,7 @@
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Engine/UserDefinedStruct.h"
 
-#include "Bindings/SkUEReflectionmanager.hpp"
+#include "Bindings/SkUEReflectionManager.hpp"
 
 #include <SkookumScript/SkDebug.hpp>
 
