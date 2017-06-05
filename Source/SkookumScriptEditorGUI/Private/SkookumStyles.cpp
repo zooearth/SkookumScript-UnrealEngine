@@ -19,7 +19,7 @@
 //=======================================================================================
 
 #include "SkookumStyles.h"
-#include "Interfaces/IPluginmanager.h"
+#include "Interfaces/IPluginManager.h"
 #include "SlateGameResources.h"
 #include "SlateStyle.h"
 
