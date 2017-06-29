@@ -15,17 +15,10 @@
 // # Author(s): Conan Reis
 //---------------------------------------------------------------------------------------
 
-(+(ItemClass_ item) code)
+(+(ItemClass_ item) code) ThisClass_
 
   [
   // $Revisit - CReis Rewrite as C++ call
-  !count: length
-  !idx:   0
-  
-  loop
-    [
-    if idx >= count [exit]
-    branch code(at(idx))
-    idx++
-    ]
+  length.do[branch code(at(idx))]
+  this
   ]  

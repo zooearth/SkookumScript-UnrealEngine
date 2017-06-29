@@ -95,6 +95,12 @@ class SK_API SkBrain
       static tSkSessionGUID ms_session_guid;  // GUID of the compiler session that this program was compiled with
       static tSkRevision    ms_revision;      // Revision of this program associated with the above session GUID
 
+    // Extra debug info
+
+      static AString ms_project_name;         // Name of project this program was generated from
+      static AString ms_project_path;         // Path to project ini file this program was generated from
+      static AString ms_default_project_path; // Path to default project ini file this program was generated from
+
     // Common Classes
 
       static SkClass * ms_boolean_class_p;
@@ -188,7 +194,7 @@ class SK_API SkBrain
     static void deinitialize_classes();
     static void deinitialize_program();
     static void deinitialize();
-    static void compact();
+    static void compact(bool purge_deleted_members);
 
     static void register_builtin_bindings(); // Call if built-in bindings need to be registered prior to initialize_post_load begin called
 

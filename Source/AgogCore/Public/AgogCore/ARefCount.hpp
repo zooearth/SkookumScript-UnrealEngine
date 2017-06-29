@@ -59,6 +59,7 @@ class ARefCountMix
   // Common Methods
 
     ARefCountMix()                                      : m_ref_count(0u)  {}
+    ARefCountMix(eALeaveMemoryUnchanged)                {}
     ARefCountMix(uint32_t init_refs)                    : m_ref_count(init_refs)  {}
     ARefCountMix(const ARefCountMix & ref)              : m_ref_count(0u)  {}  // Reference count not copied
 
