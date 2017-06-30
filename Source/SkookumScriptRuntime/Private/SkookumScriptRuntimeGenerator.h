@@ -63,19 +63,21 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
                    FSkookumScriptRuntimeGenerator(ISkookumScriptRuntimeInterface * runtime_interface_p);
     virtual       ~FSkookumScriptRuntimeGenerator();
 
+    bool           reload_skookumscript_ini();
+
     eSkProjectMode get_project_mode() const { return m_project_mode; }
     FString        get_project_file_path();
     FString        get_default_project_file_path();
     int32          get_overlay_path_depth() const;
     void           delete_all_class_script_files();
-    void           generate_all_class_script_files();
+    void           generate_all_class_script_files(bool generate_data, bool check_if_reparented);
     FString        make_project_editable();
     UBlueprint *   load_blueprint_asset(const FString & class_path, bool * sk_class_deleted_p);
 
     void           generate_class_script_files(UField * type_p, bool generate_data, bool even_if_not_game_class, bool check_if_reparented);
-    void           rename_class_script_files(UField * type_p, const FString & old_class_name);
-    void           rename_class_script_files(UField * type_p, const FString & old_class_name, const FString & new_class_name);
-    void           delete_class_script_files(UField * type_p);
+    void           rename_class_script_files(UObject * type_p, const FString & old_class_name);
+    void           rename_class_script_files(UObject * type_p, const FString & old_class_name, const FString & new_class_name);
+    void           delete_class_script_files(UObject * type_p);
     void           generate_used_class_script_files();
 
     // FSkookumScriptGeneratorBase interface implementation
@@ -87,6 +89,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
   protected:
 
     void           initialize_paths();
+    bool           initialize_generation_targets();
     void           set_overlay_path();
     bool           can_export_blueprint_function(UFunction * function_p) const;
 
@@ -102,6 +105,8 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
 
     FString         m_project_file_path;
     FString         m_default_project_file_path;
+
+    GenerationTargetBase m_targets[2]; // Indexed by eClassScope (engine or project)
 
     FString         m_package_name_key;
     FString         m_package_path_key;

@@ -30,14 +30,14 @@
 
 //---------------------------------------------------------------------------------------
 // SkookumScript atomic Enumeration class
-class SK_API SkEnum : public SkClassBindingSimpleZero<SkEnum, SkEnumType>
+class SK_API SkEnum : public SkClassBindingSimpleZero<SkEnum, tSkEnum>
   {
   public:
 
     // Class Methods
 
-    static SkInstance *   new_instance(SkEnumType value, SkClass * enum_class_p);
-    static ANamed *       get_class_data_enum_name(SkClass * enum_class_p, SkEnumType enum_value);
+    static SkInstance *   new_instance(tSkEnum value, SkClass * enum_class_p);
+    static ANamed *       get_class_data_enum_name(SkClass * enum_class_p, tSkEnum enum_value);
 
     static void           register_bindings();
     static SkClass *      get_class();
@@ -48,7 +48,7 @@ class SK_API SkEnum : public SkClassBindingSimpleZero<SkEnum, SkEnumType>
 // Inline Methods
 //=======================================================================================
 
-inline SkInstance * SkEnum::new_instance(SkEnumType value, SkClass * enum_class_p)
+inline SkInstance * SkEnum::new_instance(tSkEnum value, SkClass * enum_class_p)
   {
   SkInstance * instance_p = SkInstance::new_instance(enum_class_p);
 

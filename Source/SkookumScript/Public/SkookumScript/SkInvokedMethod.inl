@@ -55,6 +55,14 @@ A_INLINE SkInvokedMethod::SkInvokedMethod(SkInvokedBase * caller_p, SkObjectBase
   }
 
 //---------------------------------------------------------------------------------------
+// Constructor when no actual method exists
+A_INLINE SkInvokedMethod::SkInvokedMethod(SkInvokedBase * caller_p, SkObjectBase * scope_p, uint32_t data_size, SkInstance ** data_mem_pp)
+  : SkInvokedContextBase(caller_p, scope_p), m_method_p(nullptr)
+  {
+  m_data.set_custom_memory_empty_unsafe(data_mem_pp, data_size);
+  }
+
+//---------------------------------------------------------------------------------------
 // Destructor
 A_INLINE SkInvokedMethod::~SkInvokedMethod()
   {

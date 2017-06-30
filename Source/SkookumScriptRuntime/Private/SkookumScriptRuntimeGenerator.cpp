@@ -47,12 +47,22 @@ FSkookumScriptRuntimeGenerator::FSkookumScriptRuntimeGenerator(ISkookumScriptRun
 
   // Set up project and overlay paths
   initialize_paths();
+
+  // Initialize GenerationTargetBases
+  initialize_generation_targets();
   }
 
 //---------------------------------------------------------------------------------------
 
 FSkookumScriptRuntimeGenerator::~FSkookumScriptRuntimeGenerator()
   {
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptRuntimeGenerator::reload_skookumscript_ini()
+  {
+  return initialize_generation_targets();
   }
 
 //---------------------------------------------------------------------------------------
@@ -91,7 +101,7 @@ void FSkookumScriptRuntimeGenerator::delete_all_class_script_files()
 
 //---------------------------------------------------------------------------------------
 // Generate SkookumScript class script files for all known blueprint assets
-void FSkookumScriptRuntimeGenerator::generate_all_class_script_files()
+void FSkookumScriptRuntimeGenerator::generate_all_class_script_files(bool generate_data, bool check_if_reparented)
   {
   if (!m_overlay_path.IsEmpty())
     {
@@ -103,7 +113,7 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files()
       UClass * ue_class_p = static_cast<UBlueprint *>(obj_p)->GeneratedClass;
       if (ue_class_p)
         {
-        generate_class_script_files(ue_class_p, true, true, true);
+        generate_class_script_files(ue_class_p, generate_data, true, check_if_reparented);
         }
       }
 
@@ -112,7 +122,7 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files()
     GetObjectsOfClass(UUserDefinedStruct::StaticClass(), struct_array);
     for (UObject * obj_p : struct_array)
       {
-      generate_class_script_files(static_cast<UUserDefinedStruct *>(obj_p), true, true, true);
+      generate_class_script_files(static_cast<UUserDefinedStruct *>(obj_p), generate_data, true, check_if_reparented);
       }
 
     // Re-generate classes for all user defined enums
@@ -120,7 +130,7 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files()
     GetObjectsOfClass(UUserDefinedEnum::StaticClass(), enum_array);
     for (UObject * obj_p : enum_array)
       {
-      generate_class_script_files(static_cast<UUserDefinedEnum *>(obj_p), true, true, false);
+      generate_class_script_files(static_cast<UUserDefinedEnum *>(obj_p), generate_data, true, check_if_reparented);
       }
 
     // Re-generate the ECollisionChannel enum class in the Project-generated overlay as it gets customized by the game project
@@ -329,13 +339,17 @@ bool FSkookumScriptRuntimeGenerator::can_export_property(UProperty * var_p, int3
     return false;
     }
 
-  // Accept all known static struct types
+  // Accept all known static struct types plus all user generated structs
   UStructProperty * struct_var_p = Cast<UStructProperty>(var_p);
-  if (struct_var_p && (!struct_var_p->Struct 
-   || (get_skookum_struct_type(struct_var_p->Struct) == SkTypeID_UStruct && !m_runtime_interface_p->is_static_struct_known_to_skookum(struct_var_p->Struct))
-   || struct_var_p->Struct->IsA<UUserDefinedStruct>())) // MJB reject UUserDefinedStructs for now
-//  if (struct_var_p && (!struct_var_p->Struct || (get_skookum_struct_type(struct_var_p->Struct) == SkTypeID_UStruct
-//    && !m_runtime_interface_p->is_static_struct_known_to_skookum(struct_var_p->Struct) && !struct_var_p->Struct->IsA<UUserDefinedStruct>()))) // MJB UUserDefinedStruct disabled for now
+  if (struct_var_p && (!struct_var_p->Struct || (get_skookum_struct_type(struct_var_p->Struct) == SkTypeID_UStruct
+   && !m_runtime_interface_p->is_static_struct_known_to_skookum(struct_var_p->Struct) && !struct_var_p->Struct->IsA<UUserDefinedStruct>())))
+    {
+    return false;
+    }
+
+  // Accept all known static enum types plus all UUserDefinedEnums
+  UEnum * enum_p = get_enum(var_p);
+  if (enum_p && !m_runtime_interface_p->is_static_enum_known_to_skookum(enum_p) && !enum_p->IsA<UUserDefinedEnum>())
     {
     return false;
     }
@@ -347,11 +361,28 @@ bool FSkookumScriptRuntimeGenerator::can_export_property(UProperty * var_p, int3
     return false;
     }
 
-  // Accept all known static enum types plus all UUserDefinedEnums
-  UEnum * enum_p = get_enum(var_p);
-  if (enum_p && !m_runtime_interface_p->is_static_enum_known_to_skookum(enum_p) && !enum_p->IsA<UUserDefinedEnum>())
+  // Accept delegates as long as their signatures have acceptable parameters
+  UFunction * signature_function_p = nullptr;
+  UDelegateProperty * delegate_p = Cast<UDelegateProperty>(var_p);
+  if (delegate_p)
     {
-    return false;
+    signature_function_p = delegate_p->SignatureFunction;
+    }
+  UMulticastDelegateProperty * multicast_delegate_p = Cast<UMulticastDelegateProperty>(var_p);
+  if (multicast_delegate_p)
+    {
+    signature_function_p = multicast_delegate_p->SignatureFunction;
+    }
+  if (signature_function_p)
+    {
+    // Reject if any of the parameter types is unsupported 
+    for (TFieldIterator<UProperty> param_it(signature_function_p); param_it; ++param_it)
+      {
+      if (!can_export_property(*param_it, include_priority + 1, referenced_flags))
+        {
+        return false;
+        }
+      }
     }
 
   return true;
@@ -379,7 +410,7 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p
   {
   SK_ASSERTX(!m_overlay_path.IsEmpty(), "Overlay path for script generation not set!");
 
-  // Do not generate any script files in commandlet mode
+  // Do not generate any script files in commandlet mode, or if explicitly skipped
   if (IsRunningCommandlet())
     {
     return;
@@ -430,7 +461,7 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p
     bool anything_changed = save_text_file_if_changed(*meta_file_path, meta_body);
 
     // Create members
-    if (generate_data)
+    if (generate_data && !m_targets[ClassScope_project].is_type_skipped(type_p->GetFName()))
       {
       // Is it a class or struct?
       UStruct * struct_or_class_p = Cast<UStruct>(type_p);
@@ -442,6 +473,19 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p
         if (save_text_file_if_changed(*data_file_path, data_body))
           {
           anything_changed = true;
+          }
+
+        // Generate ctor/dtor/assignment method scripts for user defined structs
+        if (struct_or_class_p->IsA<UUserDefinedStruct>())
+          {
+          // Using logical OR here so that all four functions always get called
+          if (save_text_file_if_changed(*(class_path / TEXT("!().sk")), FString::Printf(TEXT("() %s\r\n"), *class_name))
+            | save_text_file_if_changed(*(class_path / TEXT("!copy().sk")), FString::Printf(TEXT("(%s other) %s\r\n"), *class_name, *class_name))
+            | save_text_file_if_changed(*(class_path / TEXT("assign().sk")), FString::Printf(TEXT("(%s other) %s\r\n"), *class_name, *class_name))
+            | save_text_file_if_changed(*(class_path / TEXT("!!().sk")), FString::Printf(TEXT("() %s\r\n"), *class_name)))
+            {
+            anything_changed = true;
+            }
           }
 
         // Generate methods for custom events and Blueprint functions
@@ -537,7 +581,7 @@ void FSkookumScriptRuntimeGenerator::generate_used_class_script_files()
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::rename_class_script_files(UField * type_p, const FString & old_class_name)
+void FSkookumScriptRuntimeGenerator::rename_class_script_files(UObject * type_p, const FString & old_class_name)
   {
   // Rename this class
   FString new_class_name = get_skookum_class_name(type_p);
@@ -555,7 +599,7 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UField * type_p, 
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::rename_class_script_files(UField * type_p, const FString & old_class_name, const FString & new_class_name)
+void FSkookumScriptRuntimeGenerator::rename_class_script_files(UObject * type_p, const FString & old_class_name, const FString & new_class_name)
   {
 #if !PLATFORM_EXCEPTIONS_DISABLED
   try
@@ -565,7 +609,7 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UField * type_p, 
     const FString this_class_path = get_skookum_class_path(type_p, 0, 0, &this_class_name);
     // Construct old path form new path
     FString replace_from = new_class_name;
-    FString replace_to = skookify_class_name(old_class_name);
+    FString replace_to = skookify_class_name(FName(*old_class_name), NAME_None);
     // If we are replacing a parent name, append a dot to avoid accidentally modifying the class name itself
     if (this_class_name != new_class_name)
       {
@@ -590,8 +634,22 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UField * type_p, 
           {
           report_error(FString::Printf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_class_path, *this_class_path));
           }
+
         // Regenerate the meta file to correctly reflect the Blueprint it originated from
-        generate_class_script_files(type_p, false, false, false);
+        UField * type_to_generate_p = Cast<UField>(type_p);
+        #if WITH_EDITOR
+          if (!type_to_generate_p)
+            {
+            // If it's not a field, must be a blueprint
+            type_to_generate_p = Cast<UField>(CastChecked<UBlueprint>(type_p)->GeneratedClass);
+            SK_MAD_ASSERTX(type_to_generate_p, a_str_format("rename_class_script_files() called with uncompiled Blueprint '%S'!", *type_p->GetName()));
+            }
+        #endif
+        if (type_to_generate_p)
+          {
+          generate_class_script_files(type_to_generate_p, false, false, false);
+          }
+
         // Inform the runtime module of the change
         m_runtime_interface_p->on_class_scripts_changed_by_generator(old_class_name, ISkookumScriptRuntimeInterface::ChangeType_deleted);
         m_runtime_interface_p->on_class_scripts_changed_by_generator(new_class_name, ISkookumScriptRuntimeInterface::ChangeType_created);
@@ -613,7 +671,7 @@ void FSkookumScriptRuntimeGenerator::rename_class_script_files(UField * type_p, 
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::delete_class_script_files(UField * type_p)
+void FSkookumScriptRuntimeGenerator::delete_class_script_files(UObject * type_p)
   {
   FString class_name;
   const FString directory_to_delete = get_skookum_class_path(type_p, 0, 0, &class_name);
@@ -651,6 +709,25 @@ void FSkookumScriptRuntimeGenerator::initialize_paths()
   }
 
 //---------------------------------------------------------------------------------------
+
+bool FSkookumScriptRuntimeGenerator::initialize_generation_targets()
+  {
+  GenerationTargetBase::eState target_state = m_targets[ClassScope_engine].initialize(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir(), TEXT("UE4"));
+  m_current_target_p = &m_targets[ClassScope_engine];
+  if (!FPaths::GameDir().IsEmpty())
+    {
+    GenerationTargetBase::eState project_target_state = m_targets[ClassScope_project].initialize(FPaths::GameDir(), FApp::GetGameName(), &m_targets[ClassScope_engine]);
+    m_current_target_p = &m_targets[ClassScope_project];
+    if (project_target_state > target_state)
+      {
+      target_state = project_target_state;
+      }
+    }
+
+  return target_state == GenerationTargetBase::State_valid_changed;
+  }
+
+//---------------------------------------------------------------------------------------
 // Set overlay path and depth
 void FSkookumScriptRuntimeGenerator::set_overlay_path()
   {
@@ -670,9 +747,6 @@ void FSkookumScriptRuntimeGenerator::set_overlay_path()
 
 bool FSkookumScriptRuntimeGenerator::can_export_blueprint_function(UFunction * function_p) const
   {
-#if 1 // MJB Disable custom function support for now
-  return false;
-#else
   static FName s_user_construction_script_name(TEXT("UserConstructionScript"));
 
   // Only consider non-native (=script) functions that can be called from Blueprint event graphs
@@ -696,7 +770,6 @@ bool FSkookumScriptRuntimeGenerator::can_export_blueprint_function(UFunction * f
 
   // Passed all tests, so can export!
   return true;
-#endif
   }
 
 #endif // WITH_EDITORONLY_DATA

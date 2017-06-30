@@ -68,10 +68,10 @@ class SK_API SkActorClass : public SkClass
 
     // Serialization Methods
 
-      virtual SkInstance * object_id_lookup(SkObjectIDBase * obj_id_p, SkInvokedBase * caller_p = nullptr) const override;
+      virtual SkInstance * object_id_lookup(const SkBindName & name, SkInvokedBase * caller_p = nullptr) const override;
 
       #if (SKOOKUM & SK_CODE_IN)
-        //virtual SkClass * object_id_validate(SkObjectIDBase * obj_id_p) const;
+        //virtual SkClass * object_id_validate(SkObjectID * obj_id_p) const;
       #endif
 
       virtual bool demand_unload() override;

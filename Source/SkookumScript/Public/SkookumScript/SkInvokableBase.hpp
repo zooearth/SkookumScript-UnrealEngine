@@ -102,9 +102,10 @@ class SK_API SkInvokableBase : public SkQualifier
     uint16_t                          get_user_data() const                      { return m_user_data; }
     void                              set_user_data(uint32_t user_data)          { m_user_data = (uint16_t)user_data; }
     virtual eSkInvokable              get_invoke_type() const = 0;
-    virtual bool                      is_bound() const = 0;
     virtual bool                      is_class_member() const = 0;
-    virtual bool                      is_placeholder();
+    virtual bool                      is_bound() const = 0;
+    virtual bool                      is_empty() const;
+    virtual bool                      is_placeholder() const;
     virtual const SkClosureInfoBase * get_closure_info() const;
     //virtual SkInvokableBase * evaluate(SkObjectBase * scope_p, SkInvokedBase * caller_p) = 0;
     //virtual SkInvokableBase * give_result(SkInstance * result_p, SkInvokableBase * sub_expr_p, SkInvokedBase * caller_p) = 0;

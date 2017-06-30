@@ -51,6 +51,7 @@ class SK_API SkInvokedMethod : public SkInvokedContextBase
 
     SkInvokedMethod(SkInvokedBase * caller_p, SkObjectBase * scope_p, SkMethodBase * method_p);
     SkInvokedMethod(SkInvokedBase * caller_p, SkObjectBase * scope_p, SkMethodBase * method_p, SkInstance ** data_mem_pp);
+    SkInvokedMethod(SkInvokedBase * caller_p, SkObjectBase * scope_p, uint32_t data_size, SkInstance ** data_mem_pp);
     ~SkInvokedMethod();
 
   // Methods

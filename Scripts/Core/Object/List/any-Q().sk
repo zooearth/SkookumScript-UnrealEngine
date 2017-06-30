@@ -15,6 +15,9 @@
 
 ((ItemClass_ item) Boolean test) Boolean
 
+  // This is implemented in C++ for additional speed.
+  // Here is the equivalent script for reference:
+  /*
   [
   !count:   length
   !idx:     0
@@ -37,3 +40,4 @@
 
   result?
   ]  
+  */

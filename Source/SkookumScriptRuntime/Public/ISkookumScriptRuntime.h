@@ -70,6 +70,8 @@ class ISkookumScriptRuntime : public IModuleInterface
 
       virtual void  set_editor_interface(ISkookumScriptRuntimeEditorInterface * editor_interface_p) = 0;
 
+      virtual bool  is_connected_to_ide() const = 0;
+      virtual void  on_application_focus_changed(bool is_active) = 0;
       virtual void  on_editor_map_opened() = 0;
       virtual void  show_ide(const FString & focus_class_name, const FString & focus_member_name, bool is_data_member, bool is_class_member) = 0;
       virtual void  freshen_compiled_binaries_if_have_errors() = 0;
@@ -81,9 +83,9 @@ class ISkookumScriptRuntime : public IModuleInterface
       virtual bool  is_skookum_reflected_call(UFunction * function_p) const = 0;
       virtual bool  is_skookum_reflected_event(UFunction * function_p) const = 0;
 
-      virtual void  on_class_added_or_modified(UBlueprintGeneratedClass * ue_class_p, bool check_if_reparented) = 0;
-      virtual void  on_class_renamed(UBlueprintGeneratedClass * ue_class_p, const FString & old_class_name) = 0;
-      virtual void  on_class_deleted(UBlueprintGeneratedClass * ue_class_p) = 0;
+      virtual void  on_class_added_or_modified(UBlueprint * blueprint_p, bool check_if_reparented) = 0;
+      virtual void  on_class_renamed(UBlueprint * blueprint_p, const FString & old_class_name) = 0;
+      virtual void  on_class_deleted(UBlueprint * blueprint_p) = 0;
 
       virtual void  on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p, bool check_if_reparented) = 0;
       virtual void  on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_class_name) = 0;

@@ -131,6 +131,10 @@
   #define SK_API
 #endif
 
+class SkInstance;
+class SkClass;
+struct SkBindName;
+
 //---------------------------------------------------------------------------------------
 // Interface for SkookumScript to interact with its app
 class SkAppInfo
@@ -166,17 +170,27 @@ class SkAppInfo
     virtual uint32_t get_pool_init_icoroutine() const { return 896; }
     virtual uint32_t get_pool_incr_icoroutine() const { return 128; }
 
+    //---------------------------------------------------------------------------------------
+    // Handling of custom bind names
+    // SkBindName is a placeholder structure used by the app to hold a name symbol in its native format
+    virtual void          bind_name_construct(SkBindName * bind_name_p, const AString & value) const = 0;
+    virtual void          bind_name_destruct(SkBindName * bind_name_p) const = 0;
+    virtual void          bind_name_assign(SkBindName * bind_name_p, const AString & value) const = 0;
+    virtual AString       bind_name_as_string(const SkBindName & bind_name) const = 0;
+    virtual SkInstance *  bind_name_new_instance(const SkBindName & bind_name) const = 0;
+    virtual SkClass *     bind_name_class() const = 0;
+
   };
 
 //=======================================================================================
 // Global Types
 //=======================================================================================
 
-typedef int32_t   SkIntegerType;
-typedef f32       SkRealType;
-typedef char      SkCharType;
-typedef bool      SkBooleanType;
-typedef uint32_t  SkEnumType;
+typedef int32_t   tSkInteger;
+typedef f32       tSkReal;
+typedef char      tSkChar;
+typedef bool      tSkBoolean;
+typedef uint32_t  tSkEnum;
 
 //=======================================================================================
 // Global Structures
@@ -284,7 +298,8 @@ enum eSkAnnotation
   // Annotations used at runtime
   SkAnnotation_reflected_cpp    = 1 << 1, // This class was auto-generated via reflection from C++ code
   SkAnnotation_reflected_data   = 1 << 2, // This class was auto-generated from data (e.g. a Blueprint class)
-  SkAnnotation_ue4_blueprint    = 1 << 3, // $UE4-specific Expose this method to the UE4 Blueprint system
+  SkAnnotation_invokable        = 1 << 3, // This class represents an invokable instance and must be qualified with a signature
+  SkAnnotation_ue4_blueprint    = 1 << 6, // $UE4-specific Expose this method to the UE4 Blueprint system
   };
 
 // What we are applying annotations to
@@ -459,6 +474,39 @@ class SK_API SkookumScript
 
   };  // SkookumScript
 
+//---------------------------------------------------------------------------------------
+// User data to store an engine-specific name (e.g. UE4 FName)
+struct SkBindName
+  {
+  #if (SKOOKUM & SK_DEBUG)
+    uint64_t  m_data[2]; // 16 bytes in debug builds
+  #else
+    uint64_t  m_data;    // 8 bytes in release builds
+  #endif
+
+  SkBindName(const AString & name) { SkookumScript::get_app_info()->bind_name_construct(this, name); }
+  ~SkBindName()                    { SkookumScript::get_app_info()->bind_name_destruct(this); }
+
+  void         operator = (const AString & name)  { SkookumScript::get_app_info()->bind_name_assign(this, name); }
+  AString      as_string() const                  { return SkookumScript::get_app_info()->bind_name_as_string(*this); }
+  SkInstance * new_instance() const               { return SkookumScript::get_app_info()->bind_name_new_instance(*this); }
+
+  static SkClass * get_class()                    { return SkookumScript::get_app_info()->bind_name_class(); }
+
+  #if (SKOOKUM & SK_COMPILED_IN)
+    SkBindName(const void ** binary_pp);
+    void assign_binary(const void ** binary_pp);
+  #endif
+
+  #if (SKOOKUM & SK_COMPILED_OUT)
+    void     as_binary(void ** binary_pp) const;
+    uint32_t as_binary_length() const;
+  #endif
+
+  // Copy constructing and assignment to other bind name unsupported for now
+  SkBindName(const SkBindName & other) = delete;
+  void operator = (const SkBindName & other) = delete;
+  };
 
 //=======================================================================================
 // Inline Methods
@@ -496,3 +544,49 @@ inline void SkookumScript::reset_time()
   ms_sim_time  = 0.0;
   ms_sim_delta = 0.0f;
   }
+
+#if (SKOOKUM & SK_COMPILED_IN)
+
+//---------------------------------------------------------------------------------------
+// Construct a bind name from binary
+inline SkBindName::SkBindName(const void ** binary_pp)
+  { 
+  uint32_t length = A_BYTE_STREAM_UI16_INC(binary_pp);
+  AString string(*(const char **)binary_pp, length, true);
+  (*(uint8_t **)binary_pp) += length + 1u;
+  SkookumScript::get_app_info()->bind_name_construct(this, string); 
+  }
+
+//---------------------------------------------------------------------------------------
+// Assign binary data to a bind name
+inline void SkBindName::assign_binary(const void ** binary_pp) 
+  { 
+  uint32_t length = A_BYTE_STREAM_UI16_INC(binary_pp);
+  AString string(*(const char **)binary_pp, length, true);
+  (*(uint8_t **)binary_pp) += length + 1u;
+  SkookumScript::get_app_info()->bind_name_assign(this, string); 
+  }
+
+#endif
+
+#if (SKOOKUM & SK_COMPILED_OUT)
+
+//---------------------------------------------------------------------------------------
+// Store bind name as binary data
+inline void SkBindName::as_binary(void ** binary_pp) const 
+  { 
+  AString string = SkookumScript::get_app_info()->bind_name_as_string(*this);
+  uint16_t length = (uint16_t)string.get_length();
+  A_BYTE_STREAM_OUT16(binary_pp, &length);
+  ::memcpy(*binary_pp, string.as_cstr(), length + 1u); // Serialize including the terminating 0
+  (*(uint8_t **)binary_pp) += length + 1u;  
+  }
+
+//---------------------------------------------------------------------------------------
+// Get length of bind name binary data
+inline uint32_t SkBindName::as_binary_length() const 
+  { 
+  return SkookumScript::get_app_info()->bind_name_as_string(*this).get_length() + 3u;
+  }
+
+#endif

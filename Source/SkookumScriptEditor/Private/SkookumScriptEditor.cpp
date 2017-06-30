@@ -396,9 +396,9 @@ void FSkookumScriptEditor::on_object_modified(UObject * obj_p)
   {
   // Is this a blueprint?
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-  if (blueprint_p && blueprint_p->GeneratedClass)
+  if (blueprint_p)
     {    
-    get_runtime()->on_class_added_or_modified(CastChecked<UBlueprintGeneratedClass>(blueprint_p->GeneratedClass), false);
+    get_runtime()->on_class_added_or_modified(blueprint_p, false);
     }
 
   // Is this a struct?
@@ -452,9 +452,9 @@ void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const
   if (asset_data.AssetClass == s_blueprint_class_name)
     {
     UBlueprint * blueprint_p = FindObjectChecked<UBlueprint>(ANY_PACKAGE, *asset_data.AssetName.ToString());
-    if (blueprint_p && blueprint_p->GeneratedClass)
+    if (blueprint_p)
       {
-      get_runtime()->on_class_renamed(CastChecked<UBlueprintGeneratedClass>(blueprint_p->GeneratedClass), FPaths::GetBaseFilename(old_object_path));
+      get_runtime()->on_class_renamed(blueprint_p, FPaths::GetBaseFilename(old_object_path));
       }
     }
   else if (asset_data.AssetClass == s_struct_class_name)
@@ -487,9 +487,9 @@ void FSkookumScriptEditor::on_in_memory_asset_created(UObject * obj_p)
 void FSkookumScriptEditor::on_in_memory_asset_deleted(UObject * obj_p)
   {
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-  if (blueprint_p && blueprint_p->GeneratedClass)
+  if (blueprint_p)
     {
-    get_runtime()->on_class_deleted(CastChecked<UBlueprintGeneratedClass>(blueprint_p->GeneratedClass));
+    get_runtime()->on_class_deleted(blueprint_p);
     }
 
   UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(obj_p);
@@ -518,9 +518,9 @@ void FSkookumScriptEditor::on_map_opened(const FString & file_name, bool as_temp
 void FSkookumScriptEditor::on_new_asset(UObject * obj_p)
   {
   UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-  if (blueprint_p && blueprint_p->GeneratedClass)
+  if (blueprint_p)
     {
-    get_runtime()->on_class_added_or_modified(CastChecked<UBlueprintGeneratedClass>(blueprint_p->GeneratedClass), true);
+    get_runtime()->on_class_added_or_modified(blueprint_p, true);
     }
 
   UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(obj_p);
