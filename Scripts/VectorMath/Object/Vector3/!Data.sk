@@ -1,6 +1,6 @@
 
-&raw Real !@x
-&raw Real !@y
-&raw Real !@z
+&raw("X") Real !@x
+&raw("Y") Real !@y
+&raw("Z") Real !@z
 
 

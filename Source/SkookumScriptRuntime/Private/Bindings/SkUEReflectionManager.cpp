@@ -44,9 +44,84 @@
 #include <SkookumScript/SkInteger.hpp>
 #include <SkookumScript/SkReal.hpp>
 
+//=======================================================================================
+// Helper classes
+//=======================================================================================
+
+class Hacked_FScriptDelegate : public FScriptDelegate
+  {
+  public:
+    UFunction * get_signature() const
+      {
+      UObject * obj_p = Object.Get();
+      return obj_p->FindFunctionChecked(FunctionName);
+      }
+  };
+
+class Hacked_FMulticastScriptDelegate : public FMulticastScriptDelegate
+  {
+  public:
+    UFunction * get_signature() const
+      {
+      return static_cast<const Hacked_FScriptDelegate &>(InvocationList[0]).get_signature();
+      }
+  };
+
+//=======================================================================================
+// TypedName Implementation
+//=======================================================================================
+
+//---------------------------------------------------------------------------------------
+
+SkUEReflectionManager::TypedName::TypedName(const ASymbol & name, SkClassDescBase * sk_type_p)
+  : ANamed(name)
+  , m_byte_size(0) // Yet unknown
+  {
+  SkClass * sk_class_p = sk_type_p->get_key_class();
+  eContainerType container_type = ContainerType_scalar;
+  if (sk_class_p == SkBrain::ms_list_class_p)
+    {
+    container_type = ContainerType_array;
+    sk_class_p = sk_type_p->get_item_type()->get_key_class();
+    }
+  m_sk_class_p = sk_class_p;
+  m_sk_class_name = sk_class_p->get_name();
+  m_container_type = container_type;
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUEReflectionManager::TypedName::set_byte_size(UProperty * ue_property_p)
+  {
+  if (ue_property_p)
+    {
+    UArrayProperty * array_property_p = Cast<UArrayProperty>(ue_property_p);
+    m_byte_size = array_property_p ? array_property_p->Inner->GetSize() : ue_property_p->GetSize();
+    }
+  }
+
+//=======================================================================================
+// SkUEReflectionManager Implementation
+//=======================================================================================
+
 //---------------------------------------------------------------------------------------
 
 SkUEReflectionManager * SkUEReflectionManager::ms_singleton_p;
+
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_boolean         = { &fetch_k2_param_boolean        , &fetch_k2_value_boolean        , &assign_k2_value_boolean        , &store_sk_value_boolean         };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_integer         = { &fetch_k2_param_integer        , &fetch_k2_value_integer        , &assign_k2_value_integer        , &store_sk_value_integer         };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_real            = { &fetch_k2_param_real           , &fetch_k2_value_real           , &assign_k2_value_real           , &store_sk_value_real            };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_string          = { &fetch_k2_param_string         , &fetch_k2_value_string         , &assign_k2_value_string         , &store_sk_value_string          };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_vector2         = { &fetch_k2_param_vector2        , &fetch_k2_value_vector2        , &assign_k2_value_vector2        , &store_sk_value_vector2         };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_vector3         = { &fetch_k2_param_vector3        , &fetch_k2_value_vector3        , &assign_k2_value_vector3        , &store_sk_value_vector3         };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_vector4         = { &fetch_k2_param_vector4        , &fetch_k2_value_vector4        , &assign_k2_value_vector4        , &store_sk_value_vector4         };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_rotation_angles = { &fetch_k2_param_rotation_angles, &fetch_k2_value_rotation_angles, &assign_k2_value_rotation_angles, &store_sk_value_rotation_angles };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_transform       = { &fetch_k2_param_transform      , &fetch_k2_value_transform      , &assign_k2_value_transform      , &store_sk_value_transform       };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_struct_val      = { &fetch_k2_param_struct_val     , &fetch_k2_value_struct_val     , &assign_k2_value_struct_val     , &store_sk_value_struct_val      };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_struct_ref      = { &fetch_k2_param_struct_ref     , &fetch_k2_value_struct_ref     , &assign_k2_value_struct_ref     , &store_sk_value_struct_ref      };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_entity          = { &fetch_k2_param_entity         , &fetch_k2_value_entity         , &assign_k2_value_entity         , &store_sk_value_entity          };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_enum            = { &fetch_k2_param_enum           , &fetch_k2_value_enum           , &assign_k2_value_enum           , &store_sk_value_enum            };
+SkUEReflectionManager::ReflectedAccessors const SkUEReflectionManager::ms_accessors_array           = { &fetch_k2_param_array          , nullptr                        , &assign_k2_value_array          , &store_sk_value_array           };
 
 UScriptStruct * SkUEReflectionManager::ms_struct_vector2_p;
 UScriptStruct * SkUEReflectionManager::ms_struct_vector3_p;
@@ -114,6 +189,9 @@ void SkUEReflectionManager::clear(tSkUEOnFunctionRemovedFromClassFunc * on_funct
 
     reflected_class_p->m_functions.empty();
     }
+
+  // Also forget all cached delegate signatures
+  m_reflected_delegates.free_all();
   }
 
 //---------------------------------------------------------------------------------------
@@ -129,8 +207,9 @@ bool SkUEReflectionManager::sync_all_from_sk(tSkUEOnFunctionRemovedFromClassFunc
       }
     }
 
-  // Traverse Sk classes and gather methods that want to be exposed
+  // Traverse Sk classes & structs and gather methods that want to be exposed
   bool anything_changed = sync_class_from_sk_recursively(SkUEEntity::get_class(), on_function_removed_from_class_f);
+  anything_changed |= sync_class_from_sk_recursively(SkBrain::get_class("UStruct"), on_function_removed_from_class_f);
 
   // Now go and delete anything still marked for delete
   for (ReflectedClass * reflected_class_p : m_reflected_classes)
@@ -181,6 +260,7 @@ bool SkUEReflectionManager::sync_class_from_sk(SkClass * sk_class_p, tSkUEOnFunc
 
   // Make sure reflected classes exist for all classes that need to store an SkInstance
   if ((!reflected_class_p || !reflected_class_p->m_store_sk_instance)
+   && sk_class_p->is_entity_class()
    && does_class_need_instance_property(sk_class_p) 
    && !does_class_need_instance_property(sk_class_p->get_superclass()))
     {
@@ -313,15 +393,15 @@ bool SkUEReflectionManager::try_update_reflected_function(SkInvokableBase * sk_i
         *out_function_index_p = function_index.m_idx;
 
         // Can't update if signatures don't match
-        if (reflected_function_p->m_num_params != param_list.get_length()
-         || reflected_function_p->m_result_type.m_sk_class_name != sk_invokable_p->get_params().get_result_class()->get_key_class()->get_name())
+        if (reflected_function_p->m_num_params != param_list.get_length())
           {
           return false;
           }
-        if (reflected_function_p->m_type == ReflectedFunctionType_Call)
+        if (reflected_function_p->m_type == ReflectedFunctionType_call)
           {
           ReflectedCall * reflected_call_p = static_cast<ReflectedCall *>(reflected_function_p);
-          if (!have_identical_signatures(param_list, reflected_call_p->get_param_array()))
+          if (!have_identical_signatures(param_list, reflected_call_p->get_param_array())
+           || reflected_call_p->m_result.m_sk_class_name != sk_invokable_p->get_params().get_result_class()->get_key_class()->get_name())
             {
             return false;
             }
@@ -329,7 +409,7 @@ bool SkUEReflectionManager::try_update_reflected_function(SkInvokableBase * sk_i
           // Re-resolve pointers to parameter types to make sure they point to the correct SkClass objects
           rebind_params_to_sk(param_list, reflected_call_p->get_param_array());
           // Re-resolve result type too
-          reflected_call_p->m_result_type.m_sk_class_p = sk_invokable_p->get_params().get_result_class()->get_key_class();
+          reflected_call_p->m_result.m_sk_class_p = sk_invokable_p->get_params().get_result_class()->get_key_class();
           }
         else
           {
@@ -388,13 +468,13 @@ bool SkUEReflectionManager::add_reflected_call(SkInvokableBase * sk_invokable_p)
   uint32_t num_params = param_list.get_length();
 
   // Allocate reflected call
-  ReflectedCall * reflected_call_p = new(FMemory::Malloc(sizeof(ReflectedCall) + num_params * sizeof(ReflectedCallParam))) ReflectedCall(sk_invokable_p, num_params, params.get_result_class()->get_key_class());
+  ReflectedCall * reflected_call_p = new(FMemory::Malloc(sizeof(ReflectedCall) + num_params * sizeof(ReflectedCallParam))) ReflectedCall(sk_invokable_p, num_params, params.get_result_class());
 
   // Initialize parameters
   for (uint32_t i = 0; i < num_params; ++i)
     {
     const SkParameterBase * input_param = param_list[i];
-    new (&reflected_call_p->get_param_array()[i]) ReflectedCallParam(input_param->get_name(), input_param->get_expected_type()->get_key_class());
+    new (&reflected_call_p->get_param_array()[i]) ReflectedCallParam(input_param->get_name(), input_param->get_expected_type());
     }
 
   // Store reflected call in array
@@ -421,22 +501,22 @@ bool SkUEReflectionManager::add_reflected_event(SkMethodBase * sk_method_p)
     reflected_class_p->m_functions.remove(FunctionIndex(function_index));
     }
 
+  // Bind Sk method
+  bind_event_method(sk_method_p);
+
   // Parameters of the method we are creating
   const SkParameters & params = sk_method_p->get_params();
   const tSkParamList & param_list = params.get_param_list();
   uint32_t num_params = param_list.get_length();
 
-  // Bind Sk method
-  bind_event_method(sk_method_p);
-
   // Allocate reflected event
-  ReflectedEvent * reflected_event_p = new(FMemory::Malloc(sizeof(ReflectedEvent) + num_params * sizeof(ReflectedEventParam))) ReflectedEvent(sk_method_p, num_params, params.get_result_class()->get_key_class());
+  ReflectedEvent * reflected_event_p = new(FMemory::Malloc(sizeof(ReflectedEvent) + num_params * sizeof(ReflectedEventParam))) ReflectedEvent(sk_method_p, num_params);
 
   // Initialize parameters
   for (uint32_t i = 0; i < num_params; ++i)
     {
     const SkParameterBase * input_param_p = param_list[i];
-    new (&reflected_event_p->get_param_array()[i]) ReflectedEventParam(input_param_p->get_name(), input_param_p->get_expected_type()->get_key_class());
+    new (&reflected_event_p->get_param_array()[i]) ReflectedEventParam(input_param_p->get_name(), input_param_p->get_expected_type());
     }
 
   // Store reflected event in array
@@ -444,6 +524,58 @@ bool SkUEReflectionManager::add_reflected_event(SkMethodBase * sk_method_p)
 
   // This entry changed
   return true;
+  }
+
+//---------------------------------------------------------------------------------------
+
+SkUEReflectionManager::ReflectedDelegate * SkUEReflectionManager::add_reflected_delegate(const SkParameters * sk_params_p, UFunction * ue_function_p)
+  {
+  SK_ASSERTX(!m_reflected_delegates.get(sk_params_p), "Caller of add_reflected_delegate must ensure it does not already exist.");
+
+  // Allocate reflected event
+  const tSkParamList & param_list = sk_params_p->get_param_list();
+  uint32_t num_params = param_list.get_length();
+  ReflectedDelegate * reflected_delegate_p = new(FMemory::Malloc(sizeof(ReflectedEvent) + num_params * sizeof(ReflectedEventParam))) 
+    ReflectedDelegate(sk_params_p, num_params, ue_function_p->HasAllFunctionFlags(FUNC_HasOutParms), ue_function_p->ParmsSize);
+
+  // Allocate ReflectedPropertys to store temporary information
+  ReflectedProperty * param_info_array_p = a_stack_allocate(num_params, ReflectedProperty);
+  for (uint32_t i = 0; i < num_params; ++i)
+    {
+    new (param_info_array_p + i) ReflectedProperty();
+    }
+
+  // Reflect the parameters
+  bool success = reflect_ue_params(*sk_params_p, ue_function_p, param_info_array_p);
+  SK_ASSERTX(success, a_str_format("Failed to reflect delegate parameters for '%S'.", *ue_function_p->GetName()));
+
+  // Initialize parameters
+  for (uint32_t i = 0; i < num_params; ++i)
+    {
+    const SkParameterBase * input_param_p = param_list[i];
+
+    ReflectedEventParam * reflected_param_p = new (&reflected_delegate_p->get_param_array()[i])
+      ReflectedEventParam(input_param_p->get_name(), input_param_p->get_expected_type());
+
+    const ReflectedProperty & param_info = param_info_array_p[i];
+    reflected_param_p->set_byte_size(param_info.m_ue_property_p);
+    reflected_param_p->m_outer_storer_p   = param_info.m_outer_p->m_sk_value_storer_p;
+    reflected_param_p->m_inner_storer_p   = param_info.m_inner_p ? param_info.m_inner_p->m_sk_value_storer_p : nullptr;
+    reflected_param_p->m_outer_assigner_p = param_info.m_ue_property_p->HasAllPropertyFlags(CPF_OutParm) ? param_info.m_outer_p->m_k2_value_assigner_p : nullptr;
+    reflected_param_p->m_inner_fetcher_p  = param_info.m_inner_p ? param_info.m_inner_p->m_k2_value_fetcher_p : nullptr;
+    reflected_param_p->m_offset           = param_info.m_ue_property_p->GetOffset_ForUFunction();
+    }
+
+  // And destroy the ReflectedPropertys
+  for (uint32_t i = 0; i < num_params; ++i)
+    {
+    param_info_array_p[i].~ReflectedProperty();
+    }
+
+  // Store it
+  m_reflected_delegates.append(*reflected_delegate_p);
+
+  return reflected_delegate_p;
   }
 
 //---------------------------------------------------------------------------------------
@@ -466,7 +598,7 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
         {
         reflected_class_p->m_ue_static_class_p = ue_static_class_p = SkUEClassBindingHelper::get_static_ue_class_from_sk_class_super(reflected_function_p->m_sk_invokable_p->get_scope());
         }
-     if (ue_static_class_p)
+      if (ue_static_class_p)
         {
         anything_changed = true;
 
@@ -478,29 +610,32 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
           }
 
         // Now build UFunction
-        UFunction * ue_function_p;
-        if (reflected_function_p->m_type == ReflectedFunctionType_Event 
-         && (reflected_function_p->m_sk_invokable_p->get_scope()->get_annotation_flags() & SkAnnotation_reflected_data)
-         && !(reflected_function_p->m_sk_invokable_p->get_annotation_flags() & SkAnnotation_ue4_blueprint))
+        UFunction * ue_function_p = nullptr;
+        // Only for UClasses
+        if (reflected_function_p->m_sk_invokable_p->get_scope()->is_entity_class())
           {
-          // It's a Blueprint function or a custom event, look it up
-          ue_function_p = reflect_ue_function(reflected_function_p->m_sk_invokable_p, param_info_array_p, is_final);
-          }
-        else
-          {
-          // If function not there yet, build it
-          ue_function_p = build_ue_function(ue_static_class_p, reflected_function_p->m_sk_invokable_p, reflected_function_p->m_type, function_index, param_info_array_p, is_final);
+          if (reflected_function_p->m_type == ReflectedFunctionType_event 
+           && (reflected_function_p->m_sk_invokable_p->get_scope()->get_annotation_flags() & SkAnnotation_reflected_data)
+           && !(reflected_function_p->m_sk_invokable_p->get_annotation_flags() & SkAnnotation_ue4_blueprint))
+            {
+            // It's a Blueprint function or a custom event, look it up
+            ue_function_p = reflect_ue_function(reflected_function_p->m_sk_invokable_p, param_info_array_p);
+            }
+          else
+            {
+            // If function not there yet, build it
+            ue_function_p = build_ue_function(ue_static_class_p, reflected_function_p->m_sk_invokable_p, reflected_function_p->m_type, function_index, param_info_array_p, is_final);
+            }
           }
 
         // Fill in the parameter information
         if (ue_function_p)
           {
           reflected_function_p->m_ue_function_p = ue_function_p;
+          reflected_function_p->m_ue_params_size = ue_function_p->ParmsSize;
+          reflected_function_p->m_has_out_params = ue_function_p->HasAllFunctionFlags(FUNC_HasOutParms);
 
-          const ReflectedProperty & return_info = param_info_array_p[reflected_function_p->m_num_params];
-          reflected_function_p->m_result_type.m_byte_size = return_info.m_ue_property_p ? return_info.m_ue_property_p->GetSize() : 0;
-
-          if (reflected_function_p->m_type == ReflectedFunctionType_Call)
+          if (reflected_function_p->m_type == ReflectedFunctionType_call)
             {
             ReflectedCall * reflected_call_p = static_cast<ReflectedCall *>(reflected_function_p);
 
@@ -509,12 +644,16 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
               {
               const ReflectedProperty & param_info = param_info_array_p[i];
               ReflectedCallParam & param_entry = reflected_call_p->get_param_array()[i];
-              param_entry.m_byte_size = param_info.m_ue_property_p->GetSize();
-              param_entry.m_fetcher_p = param_info.m_k2_param_fetcher_p;
+              param_entry.set_byte_size(param_info.m_ue_property_p);
+              param_entry.m_outer_fetcher_p = param_info.m_outer_p->m_k2_param_fetcher_p;
+              param_entry.m_inner_fetcher_p = param_info.m_inner_p ? param_info.m_inner_p->m_k2_value_fetcher_p : nullptr;
               }
 
             // And return parameter
-            reflected_call_p->m_result_getter = return_info.m_sk_value_storer_p;
+            const ReflectedProperty & return_info = param_info_array_p[reflected_function_p->m_num_params];
+            reflected_call_p->m_result.set_byte_size(return_info.m_ue_property_p);
+            reflected_call_p->m_result.m_outer_storer_p = return_info.m_outer_p ? return_info.m_outer_p->m_sk_value_storer_p : nullptr;
+            reflected_call_p->m_result.m_inner_storer_p = return_info.m_inner_p ? return_info.m_inner_p->m_sk_value_storer_p : nullptr;
             }
           else
             {
@@ -524,15 +663,14 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
             for (uint32_t i = 0; i < reflected_function_p->m_num_params; ++i)
               {
               const ReflectedProperty & param_info = param_info_array_p[i];
-              ReflectedEventParam & param_entry = reflected_event_p->get_param_array()[i];
-              param_entry.m_byte_size = param_info.m_ue_property_p->GetSize();
-              param_entry.m_storer_p = param_info.m_sk_value_storer_p;
-              param_entry.m_assigner_p = param_info.m_ue_property_p->HasAllPropertyFlags(CPF_OutParm) ? param_info.m_k2_value_assigner_p : nullptr;
-              param_entry.m_offset = param_info.m_ue_property_p->GetOffset_ForUFunction();
+              ReflectedEventParam & event_param = reflected_event_p->get_param_array()[i];
+              event_param.set_byte_size(param_info.m_ue_property_p);
+              event_param.m_outer_storer_p   = param_info.m_outer_p->m_sk_value_storer_p;
+              event_param.m_inner_storer_p   = param_info.m_inner_p ? param_info.m_inner_p->m_sk_value_storer_p : nullptr;
+              event_param.m_outer_assigner_p = param_info.m_ue_property_p->HasAllPropertyFlags(CPF_OutParm) ? param_info.m_outer_p->m_k2_value_assigner_p : nullptr;
+              event_param.m_inner_fetcher_p  = param_info.m_inner_p ? param_info.m_inner_p->m_k2_value_fetcher_p : nullptr;
+              event_param.m_offset           = param_info.m_ue_property_p->GetOffset_ForUFunction();
               }
-
-            // And return parameter
-            reflected_event_p->m_result_getter = return_info.m_k2_value_fetcher_p;
             }
 
           // Clear parent class function cache if exists
@@ -548,7 +686,7 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
           // Invoke update callback if any
           if (on_function_updated_f)
             {
-            on_function_updated_f->invoke(ue_function_p, reflected_function_p->m_type == ReflectedFunctionType_Event);
+            on_function_updated_f->invoke(ue_function_p, reflected_function_p->m_type == ReflectedFunctionType_event);
             }
           }
 
@@ -601,14 +739,30 @@ bool SkUEReflectionManager::sync_all_to_ue(tSkUEOnFunctionUpdatedFunc * on_funct
 
 bool SkUEReflectionManager::does_class_need_instance_property(SkClass * sk_class_p)
   {
-  return (sk_class_p->get_annotation_flags() & SkAnnotation_reflected_data)
-      && (sk_class_p->get_total_data_count() || sk_class_p->find_instance_method(ASymbolX_ctor) || sk_class_p->find_instance_method(ASymbolX_dtor));
+  // Are we allowed to attach an instance property?
+  if (sk_class_p->get_annotation_flags() & SkAnnotation_reflected_data)
+    {
+    // Does class have data members?
+    if (sk_class_p->get_total_data_count()) return true;
+
+    // Does class have a non-empty constructor?
+    SkInvokableBase * ctor_p = sk_class_p->find_instance_method(ASymbolX_ctor);
+    if (ctor_p && !ctor_p->is_empty()) return true;
+
+    // Does class have a non-empty destructor?
+    SkInvokableBase * dtor_p = sk_class_p->get_instance_destructor_inherited();
+    if (dtor_p && !dtor_p->is_empty()) return true;
+    }
+
+  return false;
   }
 
 //---------------------------------------------------------------------------------------
 
 bool SkUEReflectionManager::add_instance_property_to_class(UClass * ue_class_p, SkClass * sk_class_p)
   {
+  // Do this even in commandlet mode so that classes are serialized out with the USkookumScriptInstanceProperty included
+
   bool success = false;
 
   // Name it like the class for simplicity
@@ -658,9 +812,9 @@ bool SkUEReflectionManager::can_ue_property_be_reflected(UProperty * ue_property
 bool SkUEReflectionManager::is_skookum_reflected_call(UFunction * function_p)
   {
   Native native_function_p = function_p->GetNativeFunc();
-  return native_function_p == (Native)&SkUEReflectionManager::exec_class_method
-      || native_function_p == (Native)&SkUEReflectionManager::exec_instance_method
-      || native_function_p == (Native)&SkUEReflectionManager::exec_coroutine;
+  return native_function_p == (Native)&SkUEReflectionManager::exec_sk_class_method
+      || native_function_p == (Native)&SkUEReflectionManager::exec_sk_instance_method
+      || native_function_p == (Native)&SkUEReflectionManager::exec_sk_coroutine;
   }
 
 //---------------------------------------------------------------------------------------
@@ -672,10 +826,10 @@ bool SkUEReflectionManager::is_skookum_reflected_event(UFunction * function_p)
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::exec_method(FFrame & stack, void * const result_p, SkClass * class_scope_p, SkInstance * this_p)
+void SkUEReflectionManager::exec_sk_method(FFrame & stack, void * const result_p, SkClass * class_scope_p, SkInstance * this_p)
   {
   const ReflectedCall & reflected_call = static_cast<const ReflectedCall &>(*ms_singleton_p->m_reflected_functions[stack.CurrentNativeFunction->RepOffset]);
-  SK_ASSERTX(reflected_call.m_type == ReflectedFunctionType_Call, "ReflectedFunction has bad type!");
+  SK_ASSERTX(reflected_call.m_type == ReflectedFunctionType_call, "ReflectedFunction has bad type!");
   SK_ASSERTX(reflected_call.m_sk_invokable_p->get_invoke_type() == SkInvokable_method, "Must be a method at this point.");
 
   SkMethodBase * method_p = static_cast<SkMethodBase *>(reflected_call.m_sk_invokable_p);
@@ -709,7 +863,7 @@ void SkUEReflectionManager::exec_method(FFrame & stack, void * const result_p, S
   for (uint32_t i = 0; i < reflected_call.m_num_params; ++i)
     {
     const ReflectedCallParam & call_param = call_params_p[i];
-    imethod.data_append_arg((*call_param.m_fetcher_p)(stack, call_param));
+    imethod.data_append_arg((*call_param.m_outer_fetcher_p)(stack, call_param));
     }
 
   // Done with stack - now increment the code ptr unless it is null
@@ -727,9 +881,9 @@ void SkUEReflectionManager::exec_method(FFrame & stack, void * const result_p, S
       SkInstance * result_instance_p = SkBrain::ms_nil_p;
       static_cast<SkMethod *>(method_p)->SkMethod::invoke(&imethod, nullptr, &result_instance_p); // We know it's a method so call directly
       // And pass back the result
-      if (reflected_call.m_result_getter)
+      if (reflected_call.m_result.m_outer_storer_p)
         {
-        (*reflected_call.m_result_getter)(result_p, result_instance_p, reflected_call.m_result_type);
+        (*reflected_call.m_result.m_outer_storer_p)(result_p, result_instance_p, reflected_call.m_result);
         }
       result_instance_p->dereference();
       }
@@ -739,27 +893,27 @@ void SkUEReflectionManager::exec_method(FFrame & stack, void * const result_p, S
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::exec_class_method(FFrame & stack, void * const result_p)
+void SkUEReflectionManager::exec_sk_class_method(FFrame & stack, void * const result_p)
   {
   SkClass * class_scope_p = SkUEClassBindingHelper::get_object_class((UObject *)this);
-  exec_method(stack, result_p, class_scope_p, nullptr);
+  exec_sk_method(stack, result_p, class_scope_p, nullptr);
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::exec_instance_method(FFrame & stack, void * const result_p)
+void SkUEReflectionManager::exec_sk_instance_method(FFrame & stack, void * const result_p)
   {
   SkInstance * this_p = SkUEEntity::new_instance((UObject *)this);
-  exec_method(stack, result_p, this_p->get_class(), this_p);
+  exec_sk_method(stack, result_p, this_p->get_class(), this_p);
   this_p->dereference();
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::exec_coroutine(FFrame & stack, void * const result_p)
+void SkUEReflectionManager::exec_sk_coroutine(FFrame & stack, void * const result_p)
   {
   const ReflectedCall & reflected_call = static_cast<const ReflectedCall &>(*ms_singleton_p->m_reflected_functions[stack.CurrentNativeFunction->RepOffset]);
-  SK_ASSERTX(reflected_call.m_type == ReflectedFunctionType_Call, "ReflectedFunction has bad type!");
+  SK_ASSERTX(reflected_call.m_type == ReflectedFunctionType_call, "ReflectedFunction has bad type!");
   SK_ASSERTX(reflected_call.m_sk_invokable_p->get_invoke_type() == SkInvokable_coroutine, "Must be a coroutine at this point.");
 
   // Get instance of this object
@@ -803,8 +957,8 @@ void SkUEReflectionManager::exec_coroutine(FFrame & stack, void * const result_p
   icoroutine_p->data_ensure_size(reflected_call.m_num_params);
   for (uint32_t i = 0; i < reflected_call.m_num_params; ++i)
     {
-    const ReflectedCallParam & param_entry = param_entry_array[i];
-    icoroutine_p->data_append_arg((*param_entry.m_fetcher_p)(stack, param_entry));
+    const ReflectedCallParam & call_param = param_entry_array[i];
+    icoroutine_p->data_append_arg((*call_param.m_outer_fetcher_p)(stack, call_param));
     }
 
   // Done with stack - now increment the code ptr unless it is null
@@ -829,72 +983,187 @@ void SkUEReflectionManager::exec_coroutine(FFrame & stack, void * const result_p
   }
 
 //---------------------------------------------------------------------------------------
-// Execute a blueprint event
-void SkUEReflectionManager::mthd_trigger_event(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+// Invoke a K2 (Blueprint) event
+// Arg lambda_invoker - Lambda with the signature (ReflectedEvent & reflected_event, void * k2_params_p)
+template<typename _EventType, typename _LambdaType>
+A_FORCEINLINE_OPTIMIZED void SkUEReflectionManager::invoke_k2_event(_EventType * reflected_event_p, SkInvokedMethod * scope_p, SkInstance ** result_pp, _LambdaType && invoker)
   {
-  uint32_t function_index = scope_p->get_invokable()->get_user_data();
-  const ReflectedEvent & reflected_event = static_cast<const ReflectedEvent &>(*ms_singleton_p->m_reflected_functions[function_index]);
-  SK_ASSERTX(reflected_event.m_type == ReflectedFunctionType_Event, "ReflectedFunction has bad type!");
-
   // Create parameters on stack
-  const ReflectedEventParam * event_params_p = reflected_event.get_param_array();
-  UFunction * ue_function_p = reflected_event.m_ue_function_p.Get(); // Invoke the first one
-  #if WITH_EDITORONLY_DATA
-    if (!ue_function_p)
-      {
-      ue_function_p = find_ue_function(reflected_event.m_sk_invokable_p);
-      SK_ASSERTX(ue_function_p, a_str_format("Cannot find UE counterpart of method %s@%s!", reflected_event.m_sk_invokable_p->get_scope()->get_name_cstr(), reflected_event.m_sk_invokable_p->get_name_cstr()));
-      }
-  #endif
-  uint8_t * k2_params_storage_p = a_stack_allocate(ue_function_p->ParmsSize, uint8_t);
-  for (uint32_t i = 0; i < reflected_event.m_num_params; ++i)
+  const ReflectedEventParam * event_params_p = reflected_event_p->get_param_array();
+  uint8_t * k2_params_p = a_stack_allocate(reflected_event_p->m_ue_params_size, uint8_t);
+  for (uint32_t i = 0; i < reflected_event_p->m_num_params; ++i)
     {
     const ReflectedEventParam & event_param = event_params_p[i];
-    (*event_param.m_storer_p)(k2_params_storage_p + event_param.m_offset, scope_p->get_arg(i), event_param);
+    (*event_param.m_outer_storer_p)(k2_params_p + event_param.m_offset, scope_p->get_arg(i), event_param);
     }
 
-  // Invoke K2 script event with parameters
-  AActor * actor_p = scope_p->this_as<SkUEActor>();
-  UFunction * ue_function_to_invoke_p = reflected_event.m_ue_function_to_invoke_p.Get();
-  #if WITH_EDITORONLY_DATA
-    if (!ue_function_to_invoke_p)
-      {
-      // Find Kismet copy of our method to invoke
-      ue_function_to_invoke_p = actor_p->FindFunctionChecked(*ue_function_p->GetName());
-      reflected_event.m_ue_function_to_invoke_p = ue_function_to_invoke_p;
-      }
-  #endif
-  // Check if this event is actually present in any Blueprint graph
-  SK_ASSERTX(ue_function_to_invoke_p->Script.Num() > 0, a_str_format("Warning: Call to '%S' on actor '%S' has no effect as no Blueprint event node named '%S' exists in any of its event graphs.", *ue_function_p->GetName(), *actor_p->GetName(), *ue_function_p->GetName()));
-  // Call the event function
-  actor_p->ProcessEvent(ue_function_to_invoke_p, k2_params_storage_p);
+  // Now perform the actual invocation
+  invoker(k2_params_p);
 
   // Copy back any outgoing parameters
-  if (ue_function_to_invoke_p->HasAllFunctionFlags(FUNC_HasOutParms))
+  if (reflected_event_p->m_has_out_params)
     {
-    for (uint32_t i = 0; i < reflected_event.m_num_params; ++i)
+    for (uint32_t i = 0; i < reflected_event_p->m_num_params; ++i)
       {
       const ReflectedEventParam & event_param = event_params_p[i];
-      if (event_param.m_assigner_p)
+      if (event_param.m_outer_assigner_p)
         {
-        (*event_param.m_assigner_p)(scope_p->get_arg(i), k2_params_storage_p + event_param.m_offset, event_param);
+        (*event_param.m_outer_assigner_p)(scope_p->get_arg(i), k2_params_p + event_param.m_offset, event_param);
         }
       }
     }
+  }
 
-  // And pass back the result
-  if (result_pp)
+//---------------------------------------------------------------------------------------
+// Execute a blueprint event
+void SkUEReflectionManager::mthd_invoke_k2_event(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+  {
+  AActor * actor_p = scope_p->this_as<SkUEActor>();
+  uint32_t function_index = scope_p->get_invokable()->get_user_data();
+  ReflectedEvent * reflected_event_p = static_cast<ReflectedEvent *>(ms_singleton_p->m_reflected_functions[function_index]);
+  SK_ASSERTX(reflected_event_p->m_type == ReflectedFunctionType_event, "ReflectedFunction has bad type!");
+
+  // Perform invocation
+  invoke_k2_event(reflected_event_p, scope_p, result_pp, [=](void * k2_params_p)
     {
-    if (reflected_event.m_result_getter)
+    // Invoke K2 script event with parameters
+    UFunction * ue_function_p = reflected_event_p->m_ue_function_to_invoke_p.Get();
+    if (!ue_function_p)
       {
-      *result_pp = (*reflected_event.m_result_getter)((uint8 *)k2_params_storage_p + ue_function_to_invoke_p->ReturnValueOffset, reflected_event.m_result_type);
+      // Find Kismet copy of our method to invoke
+      ue_function_p = reflected_event_p->m_ue_function_p.Get(); // Invoke the first one
+      #if WITH_EDITORONLY_DATA
+        if (!ue_function_p)
+          {
+          ue_function_p = find_ue_function(reflected_event_p->m_sk_invokable_p);
+          reflected_event_p->m_ue_function_p = ue_function_p;
+          SK_ASSERTX(ue_function_p, a_str_format("Cannot find UE counterpart of method %s@%s!", reflected_event_p->m_sk_invokable_p->get_scope()->get_name_cstr(), reflected_event_p->m_sk_invokable_p->get_name_cstr()));
+          }
+      #endif
+      ue_function_p = actor_p->FindFunctionChecked(*ue_function_p->GetName());
+      reflected_event_p->m_ue_function_to_invoke_p = ue_function_p;
+      reflected_event_p->m_ue_params_size = ue_function_p->ParmsSize;
+      reflected_event_p->m_has_out_params = ue_function_p->HasAllFunctionFlags(FUNC_HasOutParms);
       }
-    else
-      {
-      *result_pp = SkBrain::ms_nil_p;
-      }
+    // Check if this event is actually present in any Blueprint graph
+    SK_ASSERTX(ue_function_p->Script.Num() > 0, a_str_format("Warning: Call to '%S' on actor '%S' has no effect as no Blueprint event node named '%S' exists in any of its event graphs.", *ue_function_p->GetName(), *actor_p->GetName(), *ue_function_p->GetName()));
+    
+    // Call the event function
+    actor_p->ProcessEvent(ue_function_p, k2_params_p);
+
+    // Events don't have a return value, only out parameters
+    });
+  }
+
+//---------------------------------------------------------------------------------------
+// Generic constructor for user defined structs
+void SkUEReflectionManager::mthd_struct_ctor(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+  {
+  SkInstance * this_p = scope_p->get_this();
+  SkClass * sk_class_p = this_p->get_class();
+  UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 equivalent of struct '%s'.", sk_class_p->get_name_cstr()));
+  if (ue_struct_p)
+    {
+    void * data_p = this_p->allocate_raw(ue_struct_p->PropertiesSize);
+    ue_struct_p->InitializeStruct(data_p);
     }
-  return;
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUEReflectionManager::mthd_struct_ctor_copy(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+  {
+  SkInstance * this_p = scope_p->get_this();
+  SkInstance * that_p = scope_p->get_arg(SkArg_1);
+  SkClass * sk_class_p = this_p->get_class();
+  SK_ASSERTX(sk_class_p == that_p->get_class(), a_str_format("Copy construction of '%s' with '%s' not possible. Types must be identical.", sk_class_p->get_name_cstr(), that_p->get_class()->get_name_cstr()));
+  UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 equivalent of struct '%s'.", sk_class_p->get_name_cstr()));
+  if (ue_struct_p)
+    {
+    void * this_data_p = this_p->allocate_raw(ue_struct_p->PropertiesSize);
+    void * that_data_p = that_p->get_raw_pointer(ue_struct_p->PropertiesSize);
+    ue_struct_p->CopyScriptStruct(this_data_p, that_data_p);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+// Generic destructor for user defined structs
+void SkUEReflectionManager::mthd_struct_dtor(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+  {
+  SkInstance * this_p = scope_p->get_this();
+  SkClass * sk_class_p = this_p->get_class();
+  UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 equivalent of struct '%s'.", sk_class_p->get_name_cstr()));
+  if (ue_struct_p)
+    {
+    void * data_p = this_p->get_raw_pointer(ue_struct_p->PropertiesSize);
+    ue_struct_p->DestroyStruct(data_p);
+    this_p->deallocate_raw(ue_struct_p->PropertiesSize);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUEReflectionManager::mthd_struct_op_assign(SkInvokedMethod * scope_p, SkInstance ** result_pp)
+  {
+  SkInstance * this_p = scope_p->get_this();
+  SkInstance * that_p = scope_p->get_arg(SkArg_1);
+  SkClass * sk_class_p = this_p->get_class();
+  SK_ASSERTX(sk_class_p == that_p->get_class(), a_str_format("Assignment from type '%s' to '%s' not possible. Types must be identical.", that_p->get_class()->get_name_cstr(), sk_class_p->get_name_cstr()));
+  UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 equivalent of struct '%s'.", sk_class_p->get_name_cstr()));
+  if (ue_struct_p)
+    {
+    void * this_data_p = this_p->get_raw_pointer(ue_struct_p->PropertiesSize);
+    void * that_data_p = that_p->get_raw_pointer(ue_struct_p->PropertiesSize);
+    ue_struct_p->CopyScriptStruct(this_data_p, that_data_p);    
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUEReflectionManager::invoke_k2_delegate(const FScriptDelegate & script_delegate, const SkParameters * sk_params_p, SkInvokedMethod * scope_p, SkInstance ** result_pp)
+  {
+  if (script_delegate.IsBound())
+    {
+    // Do we know this function signature already?
+    ReflectedDelegate * reflected_delegate_p = m_reflected_delegates.get(sk_params_p);
+    if (!reflected_delegate_p)
+      {
+      // No, find it and cache it
+      reflected_delegate_p = add_reflected_delegate(sk_params_p, static_cast<const Hacked_FScriptDelegate &>(script_delegate).get_signature());
+      }
+
+    // Perform the actual invocation
+    invoke_k2_event(reflected_delegate_p, scope_p, result_pp, [=](void * k2_params_p)
+      {
+      script_delegate.ProcessDelegate<UObject>(k2_params_p);
+      });
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void SkUEReflectionManager::invoke_k2_delegate(const FMulticastScriptDelegate & script_delegate, const SkParameters * sk_params_p, SkInvokedMethod * scope_p, SkInstance ** result_pp)
+  {
+  if (script_delegate.IsBound())
+    {
+    // Do we know this function signature already?
+    ReflectedDelegate * reflected_delegate_p = m_reflected_delegates.get(sk_params_p);
+    if (!reflected_delegate_p)
+      {
+      // No, find it and cache it
+      reflected_delegate_p = add_reflected_delegate(sk_params_p, static_cast<const Hacked_FMulticastScriptDelegate &>(script_delegate).get_signature());
+      }
+
+    // Perform the actual invocation
+    invoke_k2_event(reflected_delegate_p, scope_p, result_pp, [=](void * k2_params_p)
+      {
+      script_delegate.ProcessMulticastDelegate<UObject>(k2_params_p);
+      });
+    }
   }
 
 //---------------------------------------------------------------------------------------
@@ -1028,14 +1297,27 @@ UFunction * SkUEReflectionManager::find_ue_function(SkInvokableBase * sk_invokab
 
 //---------------------------------------------------------------------------------------
 
-UFunction * SkUEReflectionManager::reflect_ue_function(SkInvokableBase * sk_invokable_p, ReflectedProperty * out_param_info_array_p, bool is_final)
+UFunction * SkUEReflectionManager::reflect_ue_function(SkInvokableBase * sk_invokable_p, ReflectedProperty * out_param_info_array_p)
   {
   // Find the function
   UFunction * ue_function_p = find_ue_function(sk_invokable_p);
-  if (!ue_function_p) return nullptr;
+  if (ue_function_p)
+    {
+    // Build reflected parameter list
+    if (reflect_ue_params(sk_invokable_p->get_params(), ue_function_p, out_param_info_array_p))
+      {
+      return ue_function_p;
+      }
+    }
 
-  // Now, build reflected parameter list
-  const tSkParamList & param_list = sk_invokable_p->get_params().get_param_list();
+  return nullptr;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool SkUEReflectionManager::reflect_ue_params(const SkParameters & sk_params, UFunction * ue_function_p, ReflectedProperty * out_param_info_array_p)
+  {
+  const tSkParamList & param_list = sk_params.get_param_list();
   uint32_t num_parameters = 0;
   for (TFieldIterator<UProperty> param_it(ue_function_p); param_it; ++param_it)
     {
@@ -1045,7 +1327,7 @@ UFunction * SkUEReflectionManager::reflect_ue_function(SkInvokableBase * sk_invo
       // Too many parameters?
       if (num_parameters > param_list.get_length())
         {
-        return nullptr;
+        return false;
         }
 
       // Reflect this parameter and check if successful
@@ -1053,7 +1335,7 @@ UFunction * SkUEReflectionManager::reflect_ue_function(SkInvokableBase * sk_invo
       if (!reflect_ue_property(param_p, out_param_info_p)
        || out_param_info_p->get_name() != param_list[num_parameters]->get_name())
         {
-        return nullptr;
+        return false;
         }
 
       // Got one more parameter
@@ -1061,13 +1343,8 @@ UFunction * SkUEReflectionManager::reflect_ue_function(SkInvokableBase * sk_invo
       }
     }
 
-  // Did we find fewer parameters than we need?
-  if (num_parameters < param_list.get_length())
-    {
-    return nullptr;
-    }
-
-  return ue_function_p;
+  // Did we find the exact number of parameters that we need?
+  return num_parameters == param_list.get_length();
   }
 
 //---------------------------------------------------------------------------------------
@@ -1075,123 +1352,96 @@ UFunction * SkUEReflectionManager::reflect_ue_function(SkInvokableBase * sk_invo
 bool SkUEReflectionManager::reflect_ue_property(UProperty * ue_property_p, ReflectedProperty * out_info_p)
   {
   // Based on Sk type, figure out the matching UProperty as well as fetcher and setter methods
-  tK2ParamFetcher  k2_param_fetcher_p = nullptr;
-  tK2ValueFetcher  k2_value_fetcher_p = nullptr;
-  tK2ValueAssigner k2_value_assigner_p = nullptr;
-  tSkValueStorer   sk_value_storer_p = nullptr;
+  const ReflectedAccessors * container_accessors_p = nullptr;
+  UProperty * ue_item_property_p = ue_property_p;
 
-  if (ue_property_p->IsA<UBoolProperty>())
+  // Is it an array? If so, remember that and look at item type instead
+  if (ue_property_p->IsA<UArrayProperty>())
     {
-    k2_param_fetcher_p  = &fetch_k2_param_boolean;
-    k2_value_fetcher_p  = &fetch_k2_value_boolean;
-    k2_value_assigner_p = &assign_k2_value_boolean;
-    sk_value_storer_p   = &store_sk_value_boolean;
+    container_accessors_p = &ms_accessors_array;
+    ue_item_property_p = static_cast<UArrayProperty *>(ue_property_p)->Inner;
     }
-  else if (ue_property_p->IsA<UIntProperty>())
+
+  const ReflectedAccessors * accessors_p = nullptr;
+  if (ue_item_property_p->IsA<UBoolProperty>())
     {
-    k2_param_fetcher_p  = &fetch_k2_param_integer;
-    k2_value_fetcher_p  = &fetch_k2_value_integer;
-    k2_value_assigner_p = &assign_k2_value_integer;
-    sk_value_storer_p   = &store_sk_value_integer;
+    accessors_p = &ms_accessors_boolean;
     }
-  else if (ue_property_p->IsA<UFloatProperty>())
+  else if (ue_item_property_p->IsA<UIntProperty>())
     {
-    k2_param_fetcher_p  = &fetch_k2_param_real;
-    k2_value_fetcher_p  = &fetch_k2_value_real;
-    k2_value_assigner_p = &assign_k2_value_real;
-    sk_value_storer_p   = &store_sk_value_real;
+    accessors_p = &ms_accessors_integer;
     }
-  else if (ue_property_p->IsA<UStrProperty>())
+  else if (ue_item_property_p->IsA<UFloatProperty>())
     {
-    k2_param_fetcher_p  = &fetch_k2_param_string;
-    k2_value_fetcher_p  = &fetch_k2_value_string;
-    k2_value_assigner_p = &assign_k2_value_string;
-    sk_value_storer_p   = &store_sk_value_string;
+    accessors_p = &ms_accessors_real;
     }
-  else if (ue_property_p->IsA<UStructProperty>())
+  else if (ue_item_property_p->IsA<UStrProperty>())
     {
-    UScriptStruct * struct_p = static_cast<UStructProperty *>(ue_property_p)->Struct;
+    accessors_p = &ms_accessors_string;
+    }
+  else if (ue_item_property_p->IsA<UStructProperty>())
+    {
+    UScriptStruct * struct_p = static_cast<UStructProperty *>(ue_item_property_p)->Struct;
     if (struct_p->GetFName() == ms_struct_vector2_p->GetFName())
       {
-      k2_param_fetcher_p  = &fetch_k2_param_vector2;
-      k2_value_fetcher_p  = &fetch_k2_value_vector2;
-      k2_value_assigner_p = &assign_k2_value_vector2;
-      sk_value_storer_p   = &store_sk_value_vector2;
+      accessors_p = &ms_accessors_vector2;
       }
     else if (struct_p->GetFName() == ms_struct_vector3_p->GetFName())
       {
-      k2_param_fetcher_p  = &fetch_k2_param_vector3;
-      k2_value_fetcher_p  = &fetch_k2_value_vector3;
-      k2_value_assigner_p = &assign_k2_value_vector3;
-      sk_value_storer_p   = &store_sk_value_vector3;
+      accessors_p = &ms_accessors_vector3;
       }
     else if (struct_p->GetFName() == ms_struct_vector4_p->GetFName())
       {
-      k2_param_fetcher_p  = &fetch_k2_param_vector4;
-      k2_value_fetcher_p  = &fetch_k2_value_vector4;
-      k2_value_assigner_p = &assign_k2_value_vector4;
-      sk_value_storer_p   = &store_sk_value_vector4;
+      accessors_p = &ms_accessors_vector4;
       }
     else if (struct_p->GetFName() == ms_struct_rotation_angles_p->GetFName())
       {
-      k2_param_fetcher_p  = &fetch_k2_param_rotation_angles;
-      k2_value_fetcher_p  = &fetch_k2_value_rotation_angles;
-      k2_value_assigner_p = &assign_k2_value_rotation_angles;
-      sk_value_storer_p   = &store_sk_value_rotation_angles;
+      accessors_p = &ms_accessors_rotation_angles;
       }
     else if (struct_p->GetFName() == ms_struct_transform_p->GetFName())
       {
-      k2_param_fetcher_p  = &fetch_k2_param_transform;
-      k2_value_fetcher_p  = &fetch_k2_value_transform;
-      k2_value_assigner_p = &assign_k2_value_transform;
-      sk_value_storer_p   = &store_sk_value_transform;
+      accessors_p = &ms_accessors_transform;
       }
-    else if (!struct_p->IsA<UUserDefinedStruct>()) // MJB reject UUserDefinedStructs for now
+    else
       {
       if (SkInstance::is_data_stored_by_val(struct_p->GetStructureSize()))
         {
-        k2_param_fetcher_p  = &fetch_k2_param_struct_val;
-        k2_value_fetcher_p  = &fetch_k2_value_struct_val;
-        k2_value_assigner_p = &assign_k2_value_struct_val;
-        sk_value_storer_p   = &store_sk_value_struct_val;
+        accessors_p = &ms_accessors_struct_val;
         }
       else
         {
-        k2_param_fetcher_p  = &fetch_k2_param_struct_ref;
-        k2_value_fetcher_p  = &fetch_k2_value_struct_ref;
-        k2_value_assigner_p = &assign_k2_value_struct_ref;
-        sk_value_storer_p   = &store_sk_value_struct_ref;
+        accessors_p = &ms_accessors_struct_ref;
         }
       }
     }
-  else if (ue_property_p->IsA<UByteProperty>() && static_cast<UByteProperty *>(ue_property_p)->Enum)
+  else if (ue_item_property_p->IsA<UByteProperty>() && static_cast<UByteProperty *>(ue_item_property_p)->Enum)
     {
-    k2_param_fetcher_p  = &fetch_k2_param_enum;
-    k2_value_fetcher_p  = &fetch_k2_value_enum;
-    k2_value_assigner_p = &assign_k2_value_enum;
-    sk_value_storer_p   = &store_sk_value_enum;
+    accessors_p = &ms_accessors_enum;
     }
-  else if (ue_property_p->IsA<UObjectProperty>())
+  else if (ue_item_property_p->IsA<UObjectProperty>())
     {
-    k2_param_fetcher_p  = &fetch_k2_param_entity;
-    k2_value_fetcher_p  = &fetch_k2_value_entity;
-    k2_value_assigner_p = &assign_k2_value_entity;
-    sk_value_storer_p   = &store_sk_value_entity;
+    accessors_p = &ms_accessors_entity;
     }
 
   // Set result
-  if (k2_param_fetcher_p && out_info_p)
+  if (accessors_p && out_info_p)
     {
-    FString var_name = FSkookumScriptGeneratorHelper::skookify_var_name(ue_property_p->GetName(), ue_property_p->IsA(UBoolProperty::StaticClass()), FSkookumScriptGeneratorHelper::VarScope_local);
+    FString var_name = FSkookumScriptGeneratorHelper::skookify_param_name(ue_property_p->GetName(), ue_property_p->IsA<UBoolProperty>());
     out_info_p->set_name(ASymbol::create(FStringToAString(var_name)));
-    out_info_p->m_ue_property_p       = ue_property_p;
-    out_info_p->m_k2_param_fetcher_p  = k2_param_fetcher_p;
-    out_info_p->m_k2_value_fetcher_p  = k2_value_fetcher_p;
-    out_info_p->m_k2_value_assigner_p = k2_value_assigner_p;
-    out_info_p->m_sk_value_storer_p   = sk_value_storer_p;
+    out_info_p->m_ue_property_p = ue_property_p;
+    if (container_accessors_p)
+      {
+      out_info_p->m_outer_p = container_accessors_p;
+      out_info_p->m_inner_p = accessors_p;
+      }
+    else
+      {
+      out_info_p->m_outer_p = accessors_p;
+      out_info_p->m_inner_p = nullptr;
+      }
     }
 
-  return k2_param_fetcher_p != nullptr;
+  return accessors_p != nullptr;
   }
 
 //---------------------------------------------------------------------------------------
@@ -1229,12 +1479,12 @@ UFunction * SkUEReflectionManager::build_ue_function(UClass * ue_class_p, SkInvo
     ue_function_p->FunctionFlags |= FUNC_Static;
     }
 
-  if (binding_type == ReflectedFunctionType_Call)
+  if (binding_type == ReflectedFunctionType_call)
     {
     ue_function_p->FunctionFlags |= FUNC_BlueprintCallable | FUNC_Native;
     ue_function_p->SetNativeFunc(sk_invokable_p->get_invoke_type() == SkInvokable_coroutine 
-      ? (Native)&SkUEReflectionManager::exec_coroutine
-      : (sk_invokable_p->is_class_member() ? (Native)&SkUEReflectionManager::exec_class_method : (Native)&SkUEReflectionManager::exec_instance_method));
+      ? (Native)&SkUEReflectionManager::exec_sk_coroutine
+      : (sk_invokable_p->is_class_member() ? (Native)&SkUEReflectionManager::exec_sk_class_method : (Native)&SkUEReflectionManager::exec_sk_instance_method));
     #if WITH_EDITOR
       ue_function_p->SetMetaData(TEXT("Tooltip"), *FString::Printf(TEXT("%S\n%S@%S()"), 
         sk_invokable_p->get_invoke_type() == SkInvokable_coroutine ? "Kick off SkookumScript coroutine" : "Call to SkookumScript method", 
@@ -1320,90 +1570,73 @@ UProperty * SkUEReflectionManager::build_ue_param(const ASymbol & sk_name, SkCla
 UProperty * SkUEReflectionManager::build_ue_property(const ASymbol & sk_name, SkClassDescBase * sk_type_p, UObject * ue_outer_p, ReflectedProperty * out_info_p, bool is_final)
   {
   // Based on Sk type, figure out the matching UProperty as well as fetcher and setter methods
-  UProperty *      ue_property_p = nullptr;
-  tK2ParamFetcher  k2_param_fetcher_p = nullptr;
-  tK2ValueFetcher  k2_value_fetcher_p = nullptr;
-  tK2ValueAssigner k2_value_assigner_p = nullptr;
-  tSkValueStorer   sk_value_storer_p = nullptr;
-  
-  FName ue_name(sk_name.as_cstr());
+  UProperty * ue_property_p = nullptr;
 
+  FName ue_name_outer(sk_name.as_cstr());
+
+  eContainerType container_type = ContainerType_scalar;
+  const ReflectedAccessors * container_accessors_p = nullptr;
+  FName ue_name(ue_name_outer);
+
+  // Is it a list? If so, remember that and store item type instead
+  if (sk_type_p->get_key_class() == SkList::get_class())
+    {
+    container_type = ContainerType_array;
+    container_accessors_p = &ms_accessors_array;
+    sk_type_p = sk_type_p->get_item_type();
+    ue_name = FName(*(FString(sk_name.as_cstr()) + "_item"));
+    }
+
+  const ReflectedAccessors * accessors_p = nullptr;
   if (sk_type_p == SkBoolean::get_class())
     {
     ue_property_p = NewObject<UBoolProperty>(ue_outer_p, ue_name, RF_Public);
-    k2_param_fetcher_p  = &fetch_k2_param_boolean;
-    k2_value_fetcher_p  = &fetch_k2_value_boolean;
-    k2_value_assigner_p = &assign_k2_value_boolean;
-    sk_value_storer_p   = &store_sk_value_boolean;
+    accessors_p = &ms_accessors_boolean;
     }
   else if (sk_type_p == SkInteger::get_class())
     {
     ue_property_p = NewObject<UIntProperty>(ue_outer_p, ue_name, RF_Public);
-    k2_param_fetcher_p  = &fetch_k2_param_integer;
-    k2_value_fetcher_p  = &fetch_k2_value_integer;
-    k2_value_assigner_p = &assign_k2_value_integer;
-    sk_value_storer_p   = &store_sk_value_integer;
+    accessors_p = &ms_accessors_integer;
     }
   else if (sk_type_p == SkReal::get_class())
     {
     ue_property_p = NewObject<UFloatProperty>(ue_outer_p, ue_name, RF_Public);
-    k2_param_fetcher_p  = &fetch_k2_param_real;
-    k2_value_fetcher_p  = &fetch_k2_value_real;
-    k2_value_assigner_p = &assign_k2_value_real;
-    sk_value_storer_p   = &store_sk_value_real;
+    accessors_p = &ms_accessors_real;
     }
   else if (sk_type_p == SkString::get_class())
     {
     ue_property_p = NewObject<UStrProperty>(ue_outer_p, ue_name, RF_Public);
-    k2_param_fetcher_p  = &fetch_k2_param_string;
-    k2_value_fetcher_p  = &fetch_k2_value_string;
-    k2_value_assigner_p = &assign_k2_value_string;
-    sk_value_storer_p   = &store_sk_value_string;
+    accessors_p = &ms_accessors_string;
     }
   else if (sk_type_p == SkVector2::get_class())
     {
     ue_property_p = NewObject<UStructProperty>(ue_outer_p, ue_name);
     static_cast<UStructProperty *>(ue_property_p)->Struct = ms_struct_vector2_p;
-    k2_param_fetcher_p  = &fetch_k2_param_vector2;
-    k2_value_fetcher_p  = &fetch_k2_value_vector2;
-    k2_value_assigner_p = &assign_k2_value_vector2;
-    sk_value_storer_p   = &store_sk_value_vector2;
+    accessors_p = &ms_accessors_vector2;
     }
   else if (sk_type_p == SkVector3::get_class())
     {
     ue_property_p = NewObject<UStructProperty>(ue_outer_p, ue_name);
     static_cast<UStructProperty *>(ue_property_p)->Struct = ms_struct_vector3_p;
-    k2_param_fetcher_p  = &fetch_k2_param_vector3;
-    k2_value_fetcher_p  = &fetch_k2_value_vector3;
-    k2_value_assigner_p = &assign_k2_value_vector3;
-    sk_value_storer_p   = &store_sk_value_vector3;
+    accessors_p = &ms_accessors_vector3;
     }
   else if (sk_type_p == SkVector4::get_class())
     {
     ue_property_p = NewObject<UStructProperty>(ue_outer_p, ue_name);
     static_cast<UStructProperty *>(ue_property_p)->Struct = ms_struct_vector4_p;
-    k2_param_fetcher_p  = &fetch_k2_param_vector4;
-    k2_value_fetcher_p  = &fetch_k2_value_vector4;
-    k2_value_assigner_p = &assign_k2_value_vector4;
-    sk_value_storer_p   = &store_sk_value_vector4;
+    accessors_p = &ms_accessors_vector4;
     }
   else if (sk_type_p == SkRotationAngles::get_class())
     {
     ue_property_p = NewObject<UStructProperty>(ue_outer_p, ue_name);
     static_cast<UStructProperty *>(ue_property_p)->Struct = ms_struct_rotation_angles_p;
-    k2_param_fetcher_p  = &fetch_k2_param_rotation_angles;
-    k2_value_fetcher_p  = &fetch_k2_value_rotation_angles;
-    k2_value_assigner_p = &assign_k2_value_rotation_angles;
-    sk_value_storer_p   = &store_sk_value_rotation_angles;
+    accessors_p = &ms_accessors_rotation_angles;
     }
   else if (sk_type_p == SkTransform::get_class())
     {
     ue_property_p = NewObject<UStructProperty>(ue_outer_p, ue_name);
     static_cast<UStructProperty *>(ue_property_p)->Struct = ms_struct_transform_p;
-    k2_param_fetcher_p  = &fetch_k2_param_transform;
-    k2_value_fetcher_p  = &fetch_k2_value_transform;
-    k2_value_assigner_p = &assign_k2_value_transform;
-    sk_value_storer_p   = &store_sk_value_transform;
+    accessors_p = &ms_accessors_transform;
     }
   else if (sk_type_p->get_key_class()->is_class(*SkEnum::get_class()))
     {
@@ -1412,10 +1645,7 @@ UProperty * SkUEReflectionManager::build_ue_property(const ASymbol & sk_name, Sk
       {
       ue_property_p = NewObject<UByteProperty>(ue_outer_p, ue_name);
       static_cast<UByteProperty *>(ue_property_p)->Enum = ue_enum_p;
-      k2_param_fetcher_p  = &fetch_k2_param_enum;
-      k2_value_fetcher_p  = &fetch_k2_value_enum;
-      k2_value_assigner_p = &assign_k2_value_enum;
-      sk_value_storer_p   = &store_sk_value_enum;
+      accessors_p = &ms_accessors_enum;
       }
     else if (is_final)
       {
@@ -1429,10 +1659,7 @@ UProperty * SkUEReflectionManager::build_ue_property(const ASymbol & sk_name, Sk
       {
       ue_property_p = NewObject<UObjectProperty>(ue_outer_p, ue_name, RF_Public);
       static_cast<UObjectProperty *>(ue_property_p)->PropertyClass = ue_class_p;
-      k2_param_fetcher_p  = &fetch_k2_param_entity;
-      k2_value_fetcher_p  = &fetch_k2_value_entity;
-      k2_value_assigner_p = &assign_k2_value_entity;
-      sk_value_storer_p   = &store_sk_value_entity;
+      accessors_p = &ms_accessors_entity;
       }
     else if (is_final)
       {
@@ -1448,17 +1675,11 @@ UProperty * SkUEReflectionManager::build_ue_property(const ASymbol & sk_name, Sk
       static_cast<UStructProperty *>(ue_property_p)->Struct = CastChecked<UScriptStruct>(ue_struct_p);
       if (SkInstance::is_data_stored_by_val(ue_struct_p->GetStructureSize()))
         {
-        k2_param_fetcher_p  = &fetch_k2_param_struct_val;
-        k2_value_fetcher_p  = &fetch_k2_value_struct_val;
-        k2_value_assigner_p = &assign_k2_value_struct_val;
-        sk_value_storer_p   = &store_sk_value_struct_val;
+        accessors_p = &ms_accessors_struct_val;
         }
       else
         {
-        k2_param_fetcher_p  = &fetch_k2_param_struct_ref;
-        k2_value_fetcher_p  = &fetch_k2_value_struct_ref;
-        k2_value_assigner_p = &assign_k2_value_struct_ref;
-        sk_value_storer_p   = &store_sk_value_struct_ref;
+        accessors_p = &ms_accessors_struct_ref;
         }
       }
     else if (is_final)
@@ -1467,15 +1688,26 @@ UProperty * SkUEReflectionManager::build_ue_property(const ASymbol & sk_name, Sk
       }
     }
 
-  // Set result
-  if (out_info_p)
+  // Create container property if desired
+  if (ue_property_p && container_type == ContainerType_array)
     {
-    out_info_p->set_name(sk_name);
-    out_info_p->m_ue_property_p       = ue_property_p;
-    out_info_p->m_k2_param_fetcher_p  = k2_param_fetcher_p;
-    out_info_p->m_k2_value_fetcher_p  = k2_value_fetcher_p;
-    out_info_p->m_k2_value_assigner_p = k2_value_assigner_p;
-    out_info_p->m_sk_value_storer_p   = sk_value_storer_p;
+    UArrayProperty * array_property_p = NewObject<UArrayProperty>(ue_outer_p, ue_name_outer);
+    array_property_p->Inner = ue_property_p;
+    ue_property_p = array_property_p;
+    }
+
+  // Set result
+  out_info_p->set_name(sk_name);
+  out_info_p->m_ue_property_p = ue_property_p;
+  if (container_accessors_p)
+    {
+    out_info_p->m_outer_p = container_accessors_p;
+    out_info_p->m_inner_p = accessors_p;
+    }
+  else
+    {
+    out_info_p->m_outer_p = accessors_p;
+    out_info_p->m_inner_p = nullptr;
     }
 
   return ue_property_p;
@@ -1485,10 +1717,28 @@ UProperty * SkUEReflectionManager::build_ue_property(const ASymbol & sk_name, Sk
 
 void SkUEReflectionManager::bind_event_method(SkMethodBase * sk_method_p)
   {
-  SK_ASSERTX(!sk_method_p->is_bound() || static_cast<SkMethodFunc *>(sk_method_p)->m_atomic_f == &mthd_trigger_event, a_str_format("Trying to bind Blueprint event method '%s' but it is already bound to a different atomic implementation!", sk_method_p->get_name_cstr_dbg()));
+  SK_ASSERTX(!sk_method_p->is_bound() 
+    || static_cast<SkMethodFunc *>(sk_method_p)->m_atomic_f == &mthd_invoke_k2_event
+    || static_cast<SkMethodFunc *>(sk_method_p)->m_atomic_f == &mthd_struct_ctor
+    || static_cast<SkMethodFunc *>(sk_method_p)->m_atomic_f == &mthd_struct_ctor_copy
+    || static_cast<SkMethodFunc *>(sk_method_p)->m_atomic_f == &mthd_struct_op_assign
+    || static_cast<SkMethodFunc *>(sk_method_p)->m_atomic_f == &mthd_struct_dtor,
+    a_str_format("Trying to bind Blueprint event method '%s' but it is already bound to a different atomic implementation!", sk_method_p->get_name_cstr_dbg()));
+
   if (!sk_method_p->is_bound())
     {
-    sk_method_p->get_scope()->register_method_func(sk_method_p->get_name(), &mthd_trigger_event, sk_method_p->is_class_member() ? SkBindFlag_class_no_rebind : SkBindFlag_instance_no_rebind);
+    // Default is generic event method
+    tSkMethodFunc func_p = &mthd_invoke_k2_event;
+    // Check for special methods of user defined structs
+    switch (sk_method_p->get_name_id())
+      {
+      case ASymbolId_ctor:      func_p = &mthd_struct_ctor;      break;
+      case ASymbolId_ctor_copy: func_p = &mthd_struct_ctor_copy; break;
+      case ASymbolId_assign:    func_p = &mthd_struct_op_assign; break;
+      case ASymbolId_dtor:      func_p = &mthd_struct_dtor;      break;
+      }
+    // Bind it
+    sk_method_p->get_scope()->register_method_func(sk_method_p->get_name(), func_p, sk_method_p->is_class_member() ? SkBindFlag_class_no_rebind : SkBindFlag_instance_no_rebind);
     }
   }
 
@@ -1512,7 +1762,7 @@ void SkUEReflectionManager::on_unknown_type(const ASymbol & sk_name, SkClassDesc
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_boolean(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_boolean(FFrame & stack, const ReflectedCallParam & value_type)
   {
   UBoolProperty::TCppType value = UBoolProperty::GetDefaultPropertyValue();
   stack.StepCompiledIn<UBoolProperty>(&value);
@@ -1521,7 +1771,7 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_boolean(FFrame & stack, const
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_integer(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_integer(FFrame & stack, const ReflectedCallParam & value_type)
   {
   UIntProperty::TCppType value = UIntProperty::GetDefaultPropertyValue();
   stack.StepCompiledIn<UIntProperty>(&value);
@@ -1530,7 +1780,7 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_integer(FFrame & stack, const
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_real(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_real(FFrame & stack, const ReflectedCallParam & value_type)
   {
   UFloatProperty::TCppType value = UFloatProperty::GetDefaultPropertyValue();
   stack.StepCompiledIn<UFloatProperty>(&value);
@@ -1539,7 +1789,7 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_real(FFrame & stack, const Ty
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_string(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_string(FFrame & stack, const ReflectedCallParam & value_type)
   {
   UStrProperty::TCppType value = UStrProperty::GetDefaultPropertyValue();
   stack.StepCompiledIn<UStrProperty>(&value);
@@ -1548,7 +1798,7 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_string(FFrame & stack, const 
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_vector2(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_vector2(FFrame & stack, const ReflectedCallParam & value_type)
   {
   FVector2D value(ForceInitToZero);
   stack.StepCompiledIn<UStructProperty>(&value);
@@ -1557,7 +1807,7 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_vector2(FFrame & stack, const
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_vector3(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_vector3(FFrame & stack, const ReflectedCallParam & value_type)
   {
   FVector value(ForceInitToZero);
   stack.StepCompiledIn<UStructProperty>(&value);
@@ -1566,7 +1816,7 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_vector3(FFrame & stack, const
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_vector4(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_vector4(FFrame & stack, const ReflectedCallParam & value_type)
   {
   FVector4 value(ForceInitToZero);
   stack.StepCompiledIn<UStructProperty>(&value);
@@ -1575,7 +1825,7 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_vector4(FFrame & stack, const
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_rotation_angles(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_rotation_angles(FFrame & stack, const ReflectedCallParam & value_type)
   {
   FRotator value(ForceInitToZero);
   stack.StepCompiledIn<UStructProperty>(&value);
@@ -1584,7 +1834,7 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_rotation_angles(FFrame & stac
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_transform(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_transform(FFrame & stack, const ReflectedCallParam & value_type)
   {
   FTransform value;
   stack.StepCompiledIn<UStructProperty>(&value);
@@ -1593,27 +1843,27 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_transform(FFrame & stack, con
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_struct_val(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_struct_val(FFrame & stack, const ReflectedCallParam & value_type)
   {
   void * user_data_p;
-  SkInstance * instance_p = SkInstance::new_instance_uninitialized_val(typed_name.m_sk_class_p, typed_name.m_byte_size, &user_data_p);
+  SkInstance * instance_p = SkInstance::new_instance_uninitialized_val(value_type.m_sk_class_p, value_type.m_byte_size, &user_data_p);
   stack.StepCompiledIn<UStructProperty>(user_data_p);
   return instance_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_struct_ref(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_struct_ref(FFrame & stack, const ReflectedCallParam & value_type)
   {
   void * user_data_p;
-  SkInstance * instance_p = SkInstance::new_instance_uninitialized_ref(typed_name.m_sk_class_p, typed_name.m_byte_size, &user_data_p);
+  SkInstance * instance_p = SkInstance::new_instance_uninitialized_ref(value_type.m_sk_class_p, value_type.m_byte_size, &user_data_p);
   stack.StepCompiledIn<UStructProperty>(user_data_p);
   return instance_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_entity(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_entity(FFrame & stack, const ReflectedCallParam & value_type)
   {
   UObject * obj_p = nullptr;
   stack.StepCompiledIn<UObjectPropertyBase>(&obj_p);
@@ -1622,208 +1872,246 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_entity(FFrame & stack, const 
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_param_enum(FFrame & stack, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_param_enum(FFrame & stack, const ReflectedCallParam & value_type)
   {
   UByteProperty::TCppType value = UByteProperty::GetDefaultPropertyValue();
   stack.StepCompiledIn<UByteProperty>(&value);
-  SkInstance * instance_p = typed_name.m_sk_class_p->new_instance();
-  instance_p->construct<SkEnum>(SkEnumType(value));  
+  SkInstance * instance_p = value_type.m_sk_class_p->new_instance();
+  instance_p->construct<SkEnum>(tSkEnum(value));  
+  return instance_p;
+  }
+
+//---------------------------------------------------------------------------------------
+// The parameter is an array of the type value_type
+SkInstance * SkUEReflectionManager::fetch_k2_param_array(FFrame & stack, const ReflectedCallParam & value_type)
+  {
+  UArrayProperty::TCppType array; // = FScriptArray
+  stack.StepCompiledIn<UArrayProperty>(&array);
+  SkInstance * instance_p = SkList::new_instance(array.Num());
+  SkInstanceList & list = instance_p->as<SkList>();
+  APArray<SkInstance> & list_instances = list.get_instances();
+  tK2ValueFetcher fetcher_p = value_type.m_inner_fetcher_p;
+  const uint8_t * item_array_p = (const uint8_t *)array.GetData();
+  size_t item_size = value_type.m_byte_size;
+  for (uint32_t i = array.Num(); i; --i)
+    {
+    list_instances.append(*(*fetcher_p)(item_array_p, value_type));
+    item_array_p += item_size;
+    }
   return instance_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_boolean(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_boolean(const void * value_p, const TypedName & value_type)
   {
   return SkBoolean::new_instance(*(const UBoolProperty::TCppType *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_integer(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_integer(const void * value_p, const TypedName & value_type)
   {
   return SkInteger::new_instance(*(const UIntProperty::TCppType *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_real(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_real(const void * value_p, const TypedName & value_type)
   {
   return SkReal::new_instance(*(const UFloatProperty::TCppType *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_string(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_string(const void * value_p, const TypedName & value_type)
   {
   return SkString::new_instance(FStringToAString(*(const UStrProperty::TCppType *)value_p));
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_vector2(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_vector2(const void * value_p, const TypedName & value_type)
   {
   return SkVector2::new_instance(*(const FVector2D *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_vector3(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_vector3(const void * value_p, const TypedName & value_type)
   {
   return SkVector3::new_instance(*(const FVector *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_vector4(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_vector4(const void * value_p, const TypedName & value_type)
   {
   return SkVector4::new_instance(*(const FVector4 *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_rotation_angles(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_rotation_angles(const void * value_p, const TypedName & value_type)
   {
   return SkRotationAngles::new_instance(*(const FRotator *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_transform(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_transform(const void * value_p, const TypedName & value_type)
   {
   return SkTransform::new_instance(*(const FTransform *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_struct_val(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_struct_val(const void * value_p, const TypedName & value_type)
   {
   void * user_data_p;
-  SkInstance * instance_p = SkInstance::new_instance_uninitialized_val(typed_name.m_sk_class_p, typed_name.m_byte_size, &user_data_p);
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(user_data_p), reinterpret_cast<const uint32_t *>(value_p), typed_name.m_byte_size);
+  SkInstance * instance_p = SkInstance::new_instance_uninitialized_val(value_type.m_sk_class_p, value_type.m_byte_size, &user_data_p);
+  FMemory::Memcpy(reinterpret_cast<uint32_t *>(user_data_p), reinterpret_cast<const uint32_t *>(value_p), value_type.m_byte_size);
   return instance_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_struct_ref(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_struct_ref(const void * value_p, const TypedName & value_type)
   {
   void * user_data_p;
-  SkInstance * instance_p = SkInstance::new_instance_uninitialized_ref(typed_name.m_sk_class_p, typed_name.m_byte_size, &user_data_p);
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(user_data_p), reinterpret_cast<const uint32_t *>(value_p), typed_name.m_byte_size);
+  SkInstance * instance_p = SkInstance::new_instance_uninitialized_ref(value_type.m_sk_class_p, value_type.m_byte_size, &user_data_p);
+  FMemory::Memcpy(reinterpret_cast<uint32_t *>(user_data_p), reinterpret_cast<const uint32_t *>(value_p), value_type.m_byte_size);
   return instance_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_entity(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_entity(const void * value_p, const TypedName & value_type)
   {
   return SkUEEntity::new_instance(*(UObject * const *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-SkInstance * SkUEReflectionManager::fetch_k2_value_enum(const void * value_p, const TypedName & typed_name)
+SkInstance * SkUEReflectionManager::fetch_k2_value_enum(const void * value_p, const TypedName & value_type)
   {
-  SkInstance * instance_p = typed_name.m_sk_class_p->new_instance();
-  instance_p->construct<SkEnum>(SkEnumType(*(const UByteProperty::TCppType *)value_p));
+  SkInstance * instance_p = value_type.m_sk_class_p->new_instance();
+  instance_p->construct<SkEnum>(tSkEnum(*(const UByteProperty::TCppType *)value_p));
   return instance_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_boolean(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_boolean(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
   dest_p->as<SkBoolean>() = *(const UBoolProperty::TCppType *)value_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_integer(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_integer(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
   dest_p->as<SkInteger>() = *(const UIntProperty::TCppType *)value_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_real(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_real(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
   dest_p->as<SkReal>() = *(const UFloatProperty::TCppType *)value_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_string(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_string(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
   dest_p->as<SkString>() = FStringToAString(*(const UStrProperty::TCppType *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_vector2(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_vector2(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
   dest_p->as<SkVector2>() = *(const FVector2D *)value_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_vector3(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_vector3(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
   dest_p->as<SkVector3>() = *(const FVector *)value_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_vector4(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_vector4(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
   dest_p->as<SkVector4>() = *(const FVector4 *)value_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_rotation_angles(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_rotation_angles(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
   dest_p->as<SkRotationAngles>() = *(const FRotator *)value_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_transform(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_transform(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
   dest_p->as<SkTransform>() = *(const FTransform *)value_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_struct_val(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_struct_val(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p->get_raw_pointer_val()), reinterpret_cast<const uint32_t *>(value_p), typed_name.m_byte_size);
+  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p->get_raw_pointer_val()), reinterpret_cast<const uint32_t *>(value_p), value_type.m_byte_size);
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_struct_ref(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_struct_ref(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p->get_raw_pointer_ref()), reinterpret_cast<const uint32_t *>(value_p), typed_name.m_byte_size);
+  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p->get_raw_pointer_ref()), reinterpret_cast<const uint32_t *>(value_p), value_type.m_byte_size);
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_entity(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_entity(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
   dest_p->as<SkUEEntity>() = *(UObject * const *)value_p;
   }
 
 //---------------------------------------------------------------------------------------
 
-void SkUEReflectionManager::assign_k2_value_enum(SkInstance * dest_p, const void * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_enum(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
-  dest_p->as<SkEnum>() = SkEnumType(*(const UByteProperty::TCppType *)value_p);
+  dest_p->as<SkEnum>() = tSkEnum(*(const UByteProperty::TCppType *)value_p);
   }
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_boolean(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+void SkUEReflectionManager::assign_k2_value_array(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
+  {
+  const UArrayProperty::TCppType * array_p = (const UArrayProperty::TCppType *)value_p; // = FScriptArray
+  SkInstanceList & list = dest_p->as<SkList>();
+  list.ensure_size_empty(array_p->Num()); // For now, delete and repopulate array
+  APArray<SkInstance> & list_instances = list.get_instances();
+  tK2ValueFetcher fetcher_p = value_type.m_inner_fetcher_p;
+  const uint8_t * item_array_p = (const uint8_t *)array_p->GetData();
+  size_t item_size = value_type.m_byte_size;
+  for (uint32_t i = array_p->Num(); i; --i)
+    {
+    list_instances.append(*(*fetcher_p)(item_array_p, value_type));
+    item_array_p += item_size;
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+uint32_t SkUEReflectionManager::store_sk_value_boolean(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   *((UBoolProperty::TCppType *)dest_p) = value_p->as<SkBoolean>();
   return sizeof(UBoolProperty::TCppType);
@@ -1831,7 +2119,7 @@ uint32_t SkUEReflectionManager::store_sk_value_boolean(void * dest_p, SkInstance
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_integer(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_integer(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   *((UIntProperty::TCppType *)dest_p) = value_p->as<SkInteger>();
   return sizeof(UIntProperty::TCppType);
@@ -1839,7 +2127,7 @@ uint32_t SkUEReflectionManager::store_sk_value_integer(void * dest_p, SkInstance
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_real(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_real(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   *((UFloatProperty::TCppType *)dest_p) = value_p->as<SkReal>();
   return sizeof(UFloatProperty::TCppType);
@@ -1847,7 +2135,7 @@ uint32_t SkUEReflectionManager::store_sk_value_real(void * dest_p, SkInstance * 
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_string(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_string(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   new (dest_p) UStrProperty::TCppType(value_p->as<SkString>().as_cstr());
   return sizeof(UStrProperty::TCppType);
@@ -1855,7 +2143,7 @@ uint32_t SkUEReflectionManager::store_sk_value_string(void * dest_p, SkInstance 
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_vector2(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_vector2(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   new (dest_p) FVector2D(value_p->as<SkVector2>());
   return sizeof(FVector2D);
@@ -1863,7 +2151,7 @@ uint32_t SkUEReflectionManager::store_sk_value_vector2(void * dest_p, SkInstance
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_vector3(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_vector3(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   new (dest_p) FVector(value_p->as<SkVector3>());
   return sizeof(FVector);
@@ -1871,7 +2159,7 @@ uint32_t SkUEReflectionManager::store_sk_value_vector3(void * dest_p, SkInstance
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_vector4(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_vector4(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   new (dest_p) FVector4(value_p->as<SkVector4>());
   return sizeof(FVector4);
@@ -1879,7 +2167,7 @@ uint32_t SkUEReflectionManager::store_sk_value_vector4(void * dest_p, SkInstance
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_rotation_angles(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_rotation_angles(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   new (dest_p) FRotator(value_p->as<SkRotationAngles>());
   return sizeof(FRotator);
@@ -1887,7 +2175,7 @@ uint32_t SkUEReflectionManager::store_sk_value_rotation_angles(void * dest_p, Sk
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_transform(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_transform(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   new (dest_p) FTransform(value_p->as<SkTransform>());
   return sizeof(FTransform);
@@ -1895,25 +2183,25 @@ uint32_t SkUEReflectionManager::store_sk_value_transform(void * dest_p, SkInstan
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_struct_val(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_struct_val(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   // Cast to uint32_t* hoping the compiler will get the hint and optimize the copy
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p), reinterpret_cast<uint32_t *>(SkInstance::get_raw_pointer_val(value_p)), typed_name.m_byte_size);
-  return typed_name.m_byte_size;
+  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p), reinterpret_cast<uint32_t *>(SkInstance::get_raw_pointer_val(value_p)), value_type.m_byte_size);
+  return value_type.m_byte_size;
   }
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_struct_ref(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_struct_ref(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   // Cast to uint32_t* hoping the compiler will get the hint and optimize the copy
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p), reinterpret_cast<uint32_t *>(SkInstance::get_raw_pointer_ref(value_p)), typed_name.m_byte_size);
-  return typed_name.m_byte_size;
+  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p), reinterpret_cast<uint32_t *>(SkInstance::get_raw_pointer_ref(value_p)), value_type.m_byte_size);
+  return value_type.m_byte_size;
   }
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_entity(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_entity(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   *((UObject **)dest_p) = value_p->as<SkUEEntity>();
   return sizeof(UObject *);
@@ -1921,7 +2209,7 @@ uint32_t SkUEReflectionManager::store_sk_value_entity(void * dest_p, SkInstance 
 
 //---------------------------------------------------------------------------------------
 
-uint32_t SkUEReflectionManager::store_sk_value_enum(void * dest_p, SkInstance * value_p, const TypedName & typed_name)
+uint32_t SkUEReflectionManager::store_sk_value_enum(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
   *((UByteProperty::TCppType *)dest_p) = (UByteProperty::TCppType)value_p->as<SkEnum>();
   return sizeof(UByteProperty::TCppType);
@@ -1929,52 +2217,21 @@ uint32_t SkUEReflectionManager::store_sk_value_enum(void * dest_p, SkInstance * 
 
 //---------------------------------------------------------------------------------------
 
-#if 0 // Currently unused
-void SkUEReflectionManager::ReflectedFunction::rebind_sk_invokable()
+uint32_t SkUEReflectionManager::store_sk_value_array(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
-  // Restore the invokable
-  SkClass * sk_class_p = SkBrain::get_class(m_sk_class_name);
-  SK_ASSERTX(sk_class_p, a_str_format("Could not find class `%s` while rebinding Blueprint exposed routines to new compiled binary.", m_sk_class_name.as_cstr()));
-  if (sk_class_p)
+  SkInstanceList & list = value_p->as<SkList>();
+  APArray<SkInstance> & list_instances = list.get_instances();
+  uint32_t num_items = list_instances.get_length();
+  uint32_t item_size = value_type.m_byte_size;
+  UArrayProperty::TCppType * array_p = new (dest_p) UArrayProperty::TCppType; // = FScriptArray
+  array_p->Add(num_items, item_size);
+  uint8_t * item_array_p = (uint8_t *)array_p->GetData();
+  tSkValueStorer storer_p = value_type.m_inner_storer_p;
+  for (uint32_t i = 0; i < num_items; ++i)
     {
-    SkInvokableBase * sk_invokable_p;
-    if (m_is_class_member)
-      {
-      sk_invokable_p = sk_class_p->get_class_methods().get(get_name());
-      }
-    else
-      {
-      sk_invokable_p = sk_class_p->get_instance_methods().get(get_name());
-      if (!sk_invokable_p)
-        {
-        sk_invokable_p = sk_class_p->get_coroutines().get(get_name());
-        }
-      }
-    SK_ASSERTX(sk_invokable_p, a_str_format("Could not find routine `%s@%s` while rebinding Blueprint exposed routines to new compiled binary.", get_name_cstr(), m_sk_class_name.as_cstr()));
-    if (m_type == ReflectedFunctionType_Event)
-      {
-      SkUEReflectionManager::bind_event_method(static_cast<SkMethodBase *>(sk_invokable_p));
-      }
-    m_sk_invokable_p = sk_invokable_p;
+    (*storer_p)(item_array_p, list_instances[i], value_type);
+    item_array_p += item_size;
     }
-
-  // Restore the parameter class pointers
-  if (m_type == ReflectedFunctionType_Call)
-    {
-    ReflectedCallParam * param_array_p = static_cast<ReflectedCall *>(this)->get_param_array();
-    for (uint32_t i = 0; i < m_num_params; ++i)
-      {
-      param_array_p[i].rebind_sk_class();
-      }
-    static_cast<ReflectedCall *>(this)->m_result_type.rebind_sk_class();
-    }
-  else
-    {
-    ReflectedEventParam * param_array_p = static_cast<ReflectedEvent *>(this)->get_param_array();
-    for (uint32_t i = 0; i < m_num_params; ++i)
-      {
-      param_array_p[i].rebind_sk_class();
-      }
-    }
+  return sizeof(UArrayProperty::TCppType);
   }
-#endif
+

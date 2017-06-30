@@ -65,6 +65,18 @@ public class SkookumScript : ModuleRules
         platformName = "Mac";
         platPathSuffixes.Add(platformName);
         useDebugCRT = true;
+        // On Mac, in library mode, always assume DLL since libs are universal for both dylib and static builds
+        if (!bFullSource)
+        {
+          Definitions.Add("SK_IS_DLL");
+        }
+        break;
+      case UnrealTargetPlatform.Linux:
+        bPlatformAllowed = true;
+        platformName = "Linux";
+        platPathSuffixes.Add(platformName);
+        useDebugCRT = true;
+        //UEBuildConfiguration.bForceEnableExceptions = true;
         break;
       case UnrealTargetPlatform.IOS:
         bPlatformAllowed = true;
@@ -87,12 +99,15 @@ public class SkookumScript : ModuleRules
         platPathSuffixes.Add(Path.Combine(platformName, "x64"));
         useDebugCRT = true;
         break;
-      case UnrealTargetPlatform.Linux:
-        bPlatformAllowed = true;
-        platformName = "Linux";
+      case UnrealTargetPlatform.XboxOne:
+        bPlatformAllowed = bFullSource;
+        platformName = "XONE";
         platPathSuffixes.Add(platformName);
-        useDebugCRT = true;
-        //UEBuildConfiguration.bForceEnableExceptions = true;
+        break;
+      case UnrealTargetPlatform.PS4:
+        bPlatformAllowed = bFullSource;
+        platformName = "PS4";
+        platPathSuffixes.Add(platformName);
         break;
     }
 

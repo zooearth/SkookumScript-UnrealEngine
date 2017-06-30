@@ -20,21 +20,10 @@
 
 ( Integer count
   (Integer idx) ItemClass_ item_gen
-) ThisClass_
+)
   [
   // Call internal constructor
   List@!()
   
-  !idx: length
-  !idx_last: idx + count
-  
-  loop
-    [
-    if idx >= idx_last [exit]
-    append(item_gen(idx))
-    idx++
-    ]
-  
-  // Return itself to allow stringization
-  this
+  count.do[append(item_gen(idx))]
   ]

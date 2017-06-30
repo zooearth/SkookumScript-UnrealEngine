@@ -1,6 +1,6 @@
 
-&raw Real !@pitch
-&raw Real !@yaw
-&raw Real !@roll
+&raw("Pitch") Real !@pitch
+&raw("Yaw")   Real !@yaw
+&raw("Roll")  Real !@roll
 
 

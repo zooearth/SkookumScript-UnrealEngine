@@ -180,6 +180,7 @@ class SK_API SkInvocation : public SkExpressionBase
     virtual eSkExprType     get_type() const override      { return SkExprType_invoke; }
     virtual SkInvokedBase * invoke(SkObjectBase * scope_p, SkInvokedBase * caller_p = nullptr, SkInstance ** result_pp = nullptr) const override;
     virtual bool            is_immediate(uint32_t * durational_idx_p = nullptr) const override;
+    virtual bool            is_debug_call() const override;
     virtual void            null_receiver(SkExpressionBase * receiver_p) override;
     virtual void            track_memory(AMemoryStats * mem_stats_p) const override;
 
