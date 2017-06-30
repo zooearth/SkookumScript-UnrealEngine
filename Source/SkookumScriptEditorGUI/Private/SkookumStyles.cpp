@@ -24,6 +24,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "SlateGameResources.h"
 #include "SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 
 #define IMAGE_BRUSH( RelativePath, ... )  FSlateImageBrush(ms_singleton_p->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
 #define BOX_BRUSH( RelativePath, ... )    FSlateBoxBrush(ms_singleton_p->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
@@ -45,8 +46,10 @@ void FSkookumStyles::Initialize()
     ms_singleton_p = FSlateGameResources::New(FSkookumStyles::GetStyleSetName(), content_path, content_path);
 
     // toolbar icons
-    ms_singleton_p->Set("SkookumScriptEditor.ShowIDE", new IMAGE_BRUSH("icon_ide_40x", Icon40x40));
-    ms_singleton_p->Set("SkookumScriptEditor.ShowIDE.Small", new IMAGE_BRUSH("icon_ide_40x", Icon20x20));
+    ms_singleton_p->Set("SkookumScriptEditor.ShowIDE_Connected", new IMAGE_BRUSH("icon_ide_connected_40x", Icon40x40));
+    ms_singleton_p->Set("SkookumScriptEditor.ShowIDE_Disconnected", new IMAGE_BRUSH("icon_ide_disconnected_40x", Icon40x40));
+    ms_singleton_p->Set("SkookumScriptEditor.ShowIDE_Connected.Small", new IMAGE_BRUSH("icon_ide_connected_40x", Icon20x20));
+    ms_singleton_p->Set("SkookumScriptEditor.ShowIDE_Disconnected.Small", new IMAGE_BRUSH("icon_ide_disconnected_40x", Icon20x20));
 
     FSlateStyleRegistry::RegisterSlateStyle(*ms_singleton_p);
     }

@@ -36,10 +36,6 @@
 // Global Structures
 //=======================================================================================
 
-// Pre-declarations
-class  SkObjectIDBase;
-
-
 enum eSkLoadStatus
   {
   SkLoadStatus_ok,
@@ -105,13 +101,6 @@ class SK_API SkRuntimeBase
       virtual SkBinaryHandle * get_binary_symbol_table() = 0;
     #endif
       virtual void             release_binary(SkBinaryHandle * handle_p) = 0;
-
-    // Object IDs
-
-      #if (SKOOKUM & SK_COMPILED_IN)
-        virtual SkObjectIDBase * object_id_binary_new(const void ** binary_pp) = 0;
-      #endif
-
 
     // Script Loading / Binding
 

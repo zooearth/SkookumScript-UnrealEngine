@@ -70,7 +70,7 @@ class SK_API SkInstanceList
     void                  empty();
     void                  empty_compact();
     void                  ensure_size(uint32_t needed)          { m_items.ensure_size(needed); }
-    void                  ensure_size_empty(uint32_t needed)    { m_items.ensure_size_empty(needed); }
+    void                  ensure_size_empty(uint32_t needed)    { empty(); m_items.ensure_size(needed); }
     void                  insert(SkInstance & instance, uint32_t pos, uint32_t count = 1);
     void                  insert_all(const SkInstanceList & list, uint32_t pos);
     bool                  remove(SkInstance & instance, uint32_t match = AMatch_first_found, uint32_t * find_pos_p = nullptr, uint32_t start_pos = 0u, uint32_t end_pos = ALength_remainder);

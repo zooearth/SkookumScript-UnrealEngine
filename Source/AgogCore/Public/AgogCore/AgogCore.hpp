@@ -190,6 +190,9 @@
   #define A_BITS64
   #define AGOG_LITTLE_ENDIAN_HOST   1    // Little endian
   #define __FUNCSIG__ __func__
+
+  #define NO_AGOG_PLACEMENT_NEW
+  #define A_NO_GLOBAL_EXCEPTION_CATCH
  
   // Use old POSIX call convention rather than new ISO convention
   #define _vsnprintf   vsnprintf
@@ -578,6 +581,13 @@
 
 #endif
 
+// A_FORCEINLINE_OPTIMIZED means to force inline unless it's an unoptimized build
+#ifdef A_UNOPTIMIZED
+  #define A_FORCEINLINE_OPTIMIZED
+#else
+  #define A_FORCEINLINE_OPTIMIZED A_FORCEINLINE
+#endif
+
 #ifdef _MSC_VER
   #pragma warning( disable : 4514 ) // unreferenced inline function has been removed
 #endif
@@ -863,6 +873,10 @@ enum eAErrAction
   AErrAction__action_mask = 0x0FF
   };
 
+//---------------------------------------------------------------------------------------
+// Enum used in constructors to indicate they should not initialize anything
+// User for hot-swapping the vtable of a class without changing its data
+enum eALeaveMemoryUnchanged { ALeaveMemoryUnchanged = 0 };
 
 //=======================================================================================
 // Global Functions

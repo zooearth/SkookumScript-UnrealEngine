@@ -30,7 +30,7 @@
 
 //---------------------------------------------------------------------------------------
 // SkookumScript atomic Integer class
-class SK_API SkInteger : public SkClassBindingSimpleZero<SkInteger, SkIntegerType>
+class SK_API SkInteger : public SkClassBindingSimpleZero<SkInteger, tSkInteger>
   {
   public:
 
