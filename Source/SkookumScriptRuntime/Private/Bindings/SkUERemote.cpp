@@ -67,7 +67,8 @@ SkUERemote::SkUERemote(FSkookumScriptRuntimeGenerator * runtime_generator_p) :
   m_data_idx(ADef_uint32),
   m_editor_interface_p(nullptr),
   m_runtime_generator_p(runtime_generator_p),
-  m_last_connected_to_ide(false)
+  m_last_connected_to_ide(false),
+  m_class_data_needs_to_be_regenerated(false)
   {
   }
 
@@ -262,8 +263,7 @@ TSharedPtr<FInternetAddr> SkUERemote::get_ip_address_ide()
 // #Author(s): Conan Reis
 bool SkUERemote::is_connected() const
   {
-  return this && m_socket_p
-    && (m_socket_p->GetConnectionState() == SCS_Connected);
+  return m_socket_p && (m_socket_p->GetConnectionState() == SCS_Connected);
   }
 
 //---------------------------------------------------------------------------------------
@@ -445,10 +445,11 @@ void SkUERemote::on_connect_change(eConnectState old_state)
   #if WITH_EDITORONLY_DATA
     if (m_runtime_generator_p
      && m_runtime_generator_p->get_project_mode() == SkProjectMode_read_only
-     && m_connect_state == SkRemoteBase::ConnectState_authenticated)
+     && m_connect_state == SkRemoteBase::ConnectState_connecting)
       {
       m_runtime_generator_p->delete_all_class_script_files();
-      m_runtime_generator_p->generate_all_class_script_files();
+      m_runtime_generator_p->generate_all_class_script_files(false, false);
+      m_class_data_needs_to_be_regenerated = true;
       }
   #endif
   }
@@ -599,28 +600,49 @@ void SkUERemote::get_project_info(SkProjectInfo * out_project_info_p)
   out_project_info_p->m_project_name = FStringToAString(FApp::GetGameName());
 
   // Get project paths if any
+  FString project_path;
+  FString default_project_path;
   #if WITH_EDITORONLY_DATA
     if (m_runtime_generator_p)
       {
-      out_project_info_p->m_project_path         = FStringToAString(m_runtime_generator_p->get_project_file_path());
-      out_project_info_p->m_default_project_path = FStringToAString(m_runtime_generator_p->get_default_project_file_path());
+      project_path = m_runtime_generator_p->get_project_file_path();
+      default_project_path = m_runtime_generator_p->get_default_project_file_path();
       }
     else
   #endif
       {
-      // Is there an Sk project file in the usual location?
-      FString project_path(FPaths::GameDir() / TEXT("Scripts") / TEXT("Skookum-project.ini"));
-      if (FPaths::FileExists(project_path))
-        { 
-        out_project_info_p->m_project_path = FStringToAString(FPaths::ConvertRelativePathToFull(project_path));
-        }
-      // Is there an Sk default project file in the usual location?
-      FString default_project_path(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("Scripts") / TEXT("Skookum-project-default.ini"));
-      if (FPaths::FileExists(default_project_path))
+      // Check if the compiled binary had project information stored in it
+      if (!SkBrain::ms_project_path.is_empty())
         {
-        out_project_info_p->m_default_project_path = FStringToAString(FPaths::ConvertRelativePathToFull(default_project_path));
+        project_path = AStringToFString(SkBrain::ms_project_path);
+        default_project_path = AStringToFString(SkBrain::ms_default_project_path);
+        if (out_project_info_p->m_project_name.is_empty())
+          {
+          out_project_info_p->m_project_name = SkBrain::ms_project_name;
+          }
+        }
+      else
+        {
+        // Can't get any good intelligence - improvise:
+
+        // Is there an Sk project file in the usual location?
+        project_path = FPaths::GameDir() / TEXT("Scripts") / TEXT("Skookum-project.ini");
+        if (FPaths::FileExists(project_path))
+          {
+          project_path = FPaths::ConvertRelativePathToFull(project_path);
+          }
+        // Is there an Sk default project file in the usual location?
+        default_project_path = IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("Scripts") / TEXT("Skookum-project-default.ini");
+        if (FPaths::FileExists(default_project_path))
+          {
+          default_project_path = FPaths::ConvertRelativePathToFull(default_project_path);
+          }
         }
       }
+  FPaths::MakePlatformFilename(project_path);
+  FPaths::MakePlatformFilename(default_project_path);
+  out_project_info_p->m_project_path = FStringToAString(project_path);
+  out_project_info_p->m_default_project_path = FStringToAString(default_project_path);
   }
 
 

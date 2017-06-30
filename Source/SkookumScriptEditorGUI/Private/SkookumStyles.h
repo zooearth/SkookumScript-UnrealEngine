@@ -20,6 +20,9 @@
 
 #pragma once
 
+#include "UObject/NameTypes.h"
+#include "Templates/SharedPointer.h"
+
 //---------------------------------------------------------------------------------------
 
 class FSkookumStyles

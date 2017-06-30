@@ -48,6 +48,13 @@ A_INLINE SkInstance::SkInstance()
   }
 
 //---------------------------------------------------------------------------------------
+// Constructor for hot swapping the vtable - does not initialize _anything_ except vtable
+A_INLINE SkInstance::SkInstance(eALeaveMemoryUnchanged)
+  : ARefCountMix<SkInstance>(ALeaveMemoryUnchanged)
+  {
+  }
+
+//---------------------------------------------------------------------------------------
 // Constructor
 // Returns:    itself
 // Arg         class_p - Class type for this instance

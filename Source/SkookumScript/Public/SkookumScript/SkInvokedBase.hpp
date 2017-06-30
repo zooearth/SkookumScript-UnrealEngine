@@ -241,7 +241,7 @@ class SK_API SkInvokedExpression : public SkInvokedBase
     static SkInvokedExpression * pool_new(const SkExpressionBase & expr, SkInvokedBase * caller_p, SkObjectBase * scope_p);
     static void                  pool_delete(SkInvokedExpression * iexpr_p);
 
-    static A_FORCEINLINE AObjReusePool<SkInvokedExpression> & get_pool() { return ms_pool; }
+    static AObjReusePool<SkInvokedExpression> & get_pool();
 
   protected:
 
@@ -348,13 +348,13 @@ class SK_API SkInvokedContextBase : public SkInvokedBase
       template <typename _UserType>
         _UserType * get_user_data() const;
     
-      void data_append_args_exprs(const APArrayBase<SkExpressionBase> & args, const SkInvokableBase & invokable_params, SkObjectBase * arg_scope_p);
-      void data_append_args(SkInstance ** arguments_pp, uint32_t arg_count, const SkInvokableBase & invokable_params);
+      void data_append_args_exprs(const APArrayBase<SkExpressionBase> & args, const SkParameters & invokable_params, SkObjectBase * arg_scope_p);
+      void data_append_args(SkInstance ** arguments_pp, uint32_t arg_count, const SkParameters & invokable_params);
       void data_append_arg(SkInstance * arg_p) { m_data.append(*arg_p); }
       void data_append_var();
       void data_append_vars_ref(SkInstance ** var_pp, uint32_t var_count);
       void data_ensure_size(uint32_t arg_count) { m_data.ensure_size(arg_count); }
-      void data_bind_return_args(const APArrayBase<SkIdentifierLocal> & return_args, const SkInvokableBase & invokable_params);
+      void data_bind_return_args(const APArrayBase<SkIdentifierLocal> & return_args, const SkParameters & invokable_params);
       void data_create_vars(uint32_t start_idx, uint32_t count);
       void data_destroy_vars(uint32_t start_idx, uint32_t count);
       void data_destroy_vars(uint32_t start_idx, uint32_t count, SkInstance * delay_collect_p);
@@ -381,7 +381,6 @@ class SK_API SkInvokedContextBase : public SkInvokedBase
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         SkAutoDestroyInstance(_ParamClasses... args) : SkInstance(SkObject::get_class())
           {
-          //A_DPRINT("SkAutoDestroyInstance::ctor() - called.\n");
           m_ref_count = 1u;
           // Call _UserType constructor on the user data area of this instance
           A_ASSERTX(as_data<_UserType>() == reinterpret_cast<_UserType *>(&m_user_data), "This only works for types that are stored by value.");
@@ -395,7 +394,7 @@ class SK_API SkInvokedContextBase : public SkInvokedBase
           // Call destructor for _UserType
           as_data<_UserType>()->~_UserType();
           // Change virtual table for this instance back to SkInstance
-          new (this) SkInstance();
+          new (this) SkInstance(ALeaveMemoryUnchanged);
           // Put it back on the pool for reuse
           delete_this();
           }
@@ -420,6 +419,17 @@ class SK_API SkInvokedContextBase : public SkInvokedBase
 //---------------------------------------------------------------------------------------
 // Storage specialization - SkInvokedBase stored indirectly as pointer in SkUserData rather than whole structure
 template<> inline SkInvokedBase * SkUserDataBase::as<SkInvokedBase>() const { return as_stored<AIdPtr<SkInvokedBase>>()->get_obj(); }
+
+#ifndef SK_IS_DLL
+
+//---------------------------------------------------------------------------------------
+// Get the global pool of SkInvokedExpressions
+A_FORCEINLINE AObjReusePool<SkInvokedExpression> & SkInvokedExpression::get_pool()
+  {
+  return ms_pool;
+  }
+
+#endif
 
 //---------------------------------------------------------------------------------------
 // Storage specialization - SkInvokedContextBase stored indirectly as pointer in SkUserData rather than whole structure
