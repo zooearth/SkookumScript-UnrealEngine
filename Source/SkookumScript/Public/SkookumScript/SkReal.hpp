@@ -30,7 +30,7 @@
 
 //---------------------------------------------------------------------------------------
 // SkookumScript atomic Real (floating point) class
-class SK_API SkReal : public SkClassBindingSimpleZero<SkReal, SkRealType>
+class SK_API SkReal : public SkClassBindingSimpleZero<SkReal, tSkReal>
   {
   public:
 

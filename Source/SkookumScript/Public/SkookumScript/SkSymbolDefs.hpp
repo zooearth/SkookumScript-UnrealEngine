@@ -310,9 +310,11 @@ const uint32_t ASymbolId_xor                = 0xf9cd8782;
 
   // Annotations
 const uint32_t ASymbolId_raw                = 0x1ab3db55;
+const uint32_t ASymbolId_name               = 0x5e237e06;
 const uint32_t ASymbolId_aka                = 0x0ae89ba7;
 const uint32_t ASymbolId_reflected_cpp      = 0xd46e9678;
 const uint32_t ASymbolId_reflected_data     = 0x52e21d21;
+const uint32_t ASymbolId_invokable          = 0x7709b14e;
 const uint32_t ASymbolId_blueprint          = 0x2645e266; // $Revisit MBreyer make this data driven 
 
   // C++ Reserved Words to watch for
@@ -325,6 +327,10 @@ const uint32_t ASymbolId_return             = 0xa79e3f0f;
 const uint32_t ASymbolId_switch             = 0x6fe94b18;
 const uint32_t ASymbolId_while              = 0xc0d455fd;
   
-  // Assert methods
+  // Special methods
+const uint32_t ASymbolId_ctor               = 0x9e6bffd3; // "!"
+const uint32_t ASymbolId_ctor_copy          = 0x567d9537; // "!copy"
+const uint32_t ASymbolId_assign             = 0x7222a9a1; // "assign"
+const uint32_t ASymbolId_dtor               = 0x812f1742; // "!!"
 const uint32_t ASymbolId_assert             = 0xb1ef4fab;
 const uint32_t ASymbolId_assert_no_leak     = 0x67f739d1;

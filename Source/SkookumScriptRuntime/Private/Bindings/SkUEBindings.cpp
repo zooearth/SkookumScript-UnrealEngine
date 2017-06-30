@@ -43,6 +43,8 @@
 #include "Engine/SkUEEntity.hpp"
 #include "Engine/SkUEEntityClass.hpp"
 #include "Engine/SkUESkookumScriptBehaviorComponent.hpp"
+#include "Engine/SkUEDelegate.hpp"
+#include "Engine/SkUEMulticastDelegate.hpp"
 
 //=======================================================================================
 // Engine-Generated
@@ -121,6 +123,10 @@ void SkUEBindings::begin_register_bindings()
   SkUESkookumScriptBehaviorComponent::register_bindings();
   SkUEName::register_bindings();
   SkUEName::get_class()->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_struct<SkUEName>);
+  SkUEDelegate::register_bindings();
+  SkUEDelegate::get_class()->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_struct<SkUEDelegate>);
+  SkUEMulticastDelegate::register_bindings();
+  SkUEMulticastDelegate::get_class()->register_raw_accessor_func(&SkUEClassBindingHelper::access_raw_data_struct<SkUEMulticastDelegate>);
   }
 
 //---------------------------------------------------------------------------------------

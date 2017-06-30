@@ -82,7 +82,7 @@ namespace UnrealBuildTool.Rules
     // Load SkookumScript.ini and return any ScriptSupportedModules specified
     public static List<string> GetSkookumScriptModuleNames(string PluginOrProjectRootDirectory, bool AddSkookumScriptRuntime = true)
     {
-      List<string> moduleList = new List<string>();
+      List<string> moduleList = null;
 
       // Load SkookumScript.ini and get ScriptSupportedModules
       string iniFilePath = Path.Combine(PluginOrProjectRootDirectory, "Config/SkookumScript.ini");
@@ -91,6 +91,11 @@ namespace UnrealBuildTool.Rules
         ConfigCacheIni ini = new ConfigCacheIni(new FileReference(iniFilePath));
         ini.GetArray("CommonSettings", "ScriptSupportedModules", out moduleList);
       }
+
+      if (moduleList == null)
+        {
+        moduleList = new List<string>();
+        }
 
       // Add additional modules needed for SkookumScript to function
       moduleList.Add("AgogCore");
