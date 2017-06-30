@@ -237,7 +237,7 @@ class SK_API SkClassUnaryBase : public SkClassDescBase
     // Data Member Methods
 
       virtual SkTypedName *    append_data_member(const ASymbol & name, SkClassDescBase * type_p) = 0;
-      virtual SkTypedNameRaw * append_data_member_raw(const ASymbol & name, SkClassDescBase * type_p) = 0;
+      virtual SkTypedNameRaw * append_data_member_raw(const ASymbol & name, SkClassDescBase * type_p, const AString & bind_name) = 0;
 
   };
 

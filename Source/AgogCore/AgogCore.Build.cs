@@ -83,6 +83,19 @@ public class AgogCore : ModuleRules
         platPathSuffixes.Add(platformName);
         useDebugCRT = true;
         Definitions.Add("A_PLAT_OSX");
+        // On Mac, in library mode, always assume DLL since libs are universal for both dylib and static builds
+        if (!bFullSource)
+        {
+          Definitions.Add("A_IS_DLL");
+        }
+        break;
+      case UnrealTargetPlatform.Linux:
+        bPlatformAllowed = true;
+        platformName = "Linux";
+        platPathSuffixes.Add(platformName);
+        useDebugCRT = true;
+        Definitions.Add("A_PLAT_LINUX64");
+        UEBuildConfiguration.bForceEnableExceptions = true;
         break;
       case UnrealTargetPlatform.IOS:
         bPlatformAllowed = true;
@@ -113,13 +126,10 @@ public class AgogCore : ModuleRules
         platformName = "XONE";
         Definitions.Add("A_PLAT_X_ONE");
         break;
-      case UnrealTargetPlatform.Linux:
-        bPlatformAllowed = true;
-        platformName = "Linux";
-        platPathSuffixes.Add(platformName);
-        useDebugCRT = true;
-        Definitions.Add("A_PLAT_LINUX64");
-        UEBuildConfiguration.bForceEnableExceptions = true;
+      case UnrealTargetPlatform.PS4:
+        bPlatformAllowed = bFullSource;
+        platformName = "PS4";
+        Definitions.Add("A_PLAT_PS4");
         break;
     }
 

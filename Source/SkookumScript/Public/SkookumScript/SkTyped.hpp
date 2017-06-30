@@ -89,21 +89,30 @@ struct SK_API SkTypedName : ANamed
 typedef APSortedLogical<SkTypedName, ASymbol> tSkTypedNames;
 
 //---------------------------------------------------------------------------------------
-// SkookumScript Typed Name + Raw data info
+// SkookumScript Typed Name + Raw data info + bind name
 struct SK_API SkTypedNameRaw : SkTypedName
   {
   SK_NEW_OPERATORS(SkTypedNameRaw);
 
   // Common Methods
 
-  SkTypedNameRaw() : m_raw_data_info(SkRawDataInfo_Invalid) {}
-  SkTypedNameRaw(const ASymbol & name, const SkClassDescBase * type_p) : SkTypedName(name, type_p), m_raw_data_info(SkRawDataInfo_Invalid) {}
+  SkTypedNameRaw();
+  SkTypedNameRaw(const ASymbol & name, const SkClassDescBase * type_p, const AString & bind_name);
 
   #if (SKOOKUM & SK_COMPILED_IN)
-    SkTypedNameRaw(const void ** binary_pp) : SkTypedName(binary_pp) {}
+    SkTypedNameRaw(const void ** binary_pp);
+    void assign_binary(const void ** binary_pp);
+  #endif
+
+  #if (SKOOKUM & SK_COMPILED_OUT)
+    void     as_binary(void ** binary_pp) const;
+    uint32_t as_binary_length() const;
   #endif
 
   // Data Members
+
+  // Lookup symbol used for binding this raw data member to engine data
+  SkBindName m_bind_name;
 
   // User data for the engine to store information about the 
   // offset, size, bit shift etc. of a raw data member if this is one

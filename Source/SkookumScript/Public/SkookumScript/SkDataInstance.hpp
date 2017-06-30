@@ -76,7 +76,7 @@ class SK_API SkDataInstance : public SkInstance
   // Pool Allocation Methods
 
     static SkDataInstance * new_instance(SkClass * class_p);
-    static A_FORCEINLINE AObjReusePool<SkDataInstance> & get_pool() { return ms_pool; }
+    static AObjReusePool<SkDataInstance> & get_pool();
 
   protected:
 
@@ -115,6 +115,16 @@ class SK_API SkDataInstance : public SkInstance
 // Inline Methods
 //=======================================================================================
 
+#ifndef SK_IS_DLL
+
+//---------------------------------------------------------------------------------------
+// Get the global pool of SkDataInstances
+A_FORCEINLINE AObjReusePool<SkDataInstance> & SkDataInstance::get_pool()
+  {
+  return ms_pool;
+  }
+
+#endif
 
 #ifndef A_INL_IN_CPP
 #include <SkookumScript/SkDataInstance.inl>

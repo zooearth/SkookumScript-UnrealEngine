@@ -1,7 +1,7 @@
 
-&raw Real !@r
-&raw Real !@g
-&raw Real !@b
-&raw Real !@a
+&raw("R") Real !@r
+&raw("G") Real !@g
+&raw("B") Real !@b
+&raw("A") Real !@a
 
 

@@ -69,7 +69,7 @@ enum eSkExprType
   SkExprType_identifier_class_member,  // [04] SkIdentifierClassMember @@random
   SkExprType_raw_member_assignment,    // [05] SkRawMemberAssignment @bob := value
   SkExprType_raw_member_invocation,    // [06] SkRawMemberModifyingInvocation @bob.negate
-  SkExprType_object_id,                // [07] SkObjectIDBase  MyClass@'some_name'
+  SkExprType_object_id,                // [07] SkObjectID  MyClass@'some_name'
   SkExprType_literal,                  // [08] SkLiteral (Boolean, Character, Integer, Real, String, Symbol, Class, nil, this, this_class, this_code, this_mind)
   SkExprType_literal_list,             // [09] SkLiteralList {elem1, elem2}
   SkExprType_closure_method,           // [10] SkLiteralClosure(Method)  ^[do_this do_that]
@@ -240,6 +240,8 @@ class SK_API SkExpressionBase
       virtual bool        is_loop(const ASymbol & loop_name) const  { return false; }
       virtual bool        is_immediate(uint32_t * durational_idx_p = nullptr) const;
       virtual bool        is_nil() const                            { return false; }
+      virtual bool        is_debug_call() const                     { return false; }
+      virtual bool        is_debug_class () const                   { return false; }
 
     // Called by SkInvokedExpression
 
