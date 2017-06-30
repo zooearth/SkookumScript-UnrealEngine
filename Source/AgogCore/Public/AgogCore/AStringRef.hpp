@@ -71,7 +71,7 @@ struct A_API AStringRef
     static AStringRef *  pool_new(const char * cstr_p, uint32_t length, uint32_t size, uint16_t ref_count, bool deallocate, bool read_only);
     static AStringRef *  pool_new_copy(const char * cstr_p, uint32_t length, uint16_t ref_count = 1u, bool read_only = false);
     static void          pool_delete(AStringRef * str_ref_p);
-    static A_FORCEINLINE AObjReusePool<AStringRef> & get_pool() { return ms_pool; }
+    static AObjReusePool<AStringRef> & get_pool();
 
   // Data Members
 
@@ -109,6 +109,17 @@ struct A_API AStringRef
 //=======================================================================================
 // Inline Methods
 //=======================================================================================
+
+#ifndef A_IS_DLL
+
+//---------------------------------------------------------------------------------------
+// Get the global pool of AStringRefs
+A_FORCEINLINE AObjReusePool<AStringRef> & AStringRef::get_pool()
+  {
+  return ms_pool;
+  }
+
+#endif
 
 #ifndef A_INL_IN_CPP
   #include <AgogCore/AStringRef.inl>

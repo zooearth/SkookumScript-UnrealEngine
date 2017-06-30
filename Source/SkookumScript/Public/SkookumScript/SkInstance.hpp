@@ -54,6 +54,7 @@ class SkMethodCallBase;
 class SkInvokedBase;
 class SkInvokedCoroutine;
 class SkInvokedMethod;
+struct SkClosureInvokeInfo;
 
 
 //---------------------------------------------------------------------------------------
@@ -116,6 +117,7 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
     SK_NEW_OPERATORS(SkInstance);
 
     SkInstance();
+    SkInstance(eALeaveMemoryUnchanged);
     virtual ~SkInstance() override;
 
     virtual bool is_metaclass() const;
@@ -182,218 +184,236 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
 
   // Method Invocation
 
-  //---------------------------------------------------------------------------------------
-  // This calls this instance's SkookumScript default constructor method !() according to
-  // its class type.
-  // 
-  // Examples:
-  //   Generally called in the constructor of a custom object derived from the SkInstance
-  //   class.
-  //   
-  // Notes:
-  //   This method allows for the delayed initialization of an object - i.e. after the
-  //   object has already been created.
-  void call_default_constructor();
+    //---------------------------------------------------------------------------------------
+    // This calls this instance's SkookumScript default constructor method !() according to
+    // its class type.
+    // 
+    // Examples:
+    //   Generally called in the constructor of a custom object derived from the SkInstance
+    //   class.
+    //   
+    // Notes:
+    //   This method allows for the delayed initialization of an object - i.e. after the
+    //   object has already been created.
+    void call_default_constructor();
 
-  //---------------------------------------------------------------------------------------
-  // Calls this instance's SkookumScript destructor method !!() according to its class type.
-  // 
-  // Examples: Generally called whenever the instance has no references to it.
-  void call_destructor();
+    //---------------------------------------------------------------------------------------
+    // Calls this instance's SkookumScript destructor method !!() according to its class type.
+    // 
+    // Examples: Generally called whenever the instance has no references to it.
+    void call_destructor();
 
-  //---------------------------------------------------------------------------------------
-  // Evaluates the method with 0 or more arguments and returns immediately
-  // 
-  // Params:
-  //   method_name: name of method to call
-  //   args_pp:
-  //     Optional pointers to object instances to use as arguments - each one present
-  //     should have its reference count incremented and each defaulted/skipped argument
-  //     should be a `nullptr` element. If `arg_count` is 0 this is ignored
-  //   arg_count:
-  //     number of arguments to use in `args_pp`. If it is 0 then no arguments are passed
-  //     and `args_pp` is ignored.
-  //   caller_p:
-  //     object that called/invoked this expression and that may await a result.  If it is
-  //     nullptr, then there is no object that needs to be notified when this invocation is
-  //     complete.
-  //   result_pp:
-  //     Pointer to a pointer to store the instance resulting from the invocation of this
-  //     expression.  If it is nullptr, then the result does not need to be returned and
-  //     only side-effects are desired.
-  //     
-  // Notes:
-  //   This is a convenience method to use instead of SkMethodCall<>::invoke_call() - if more arguments
-  //   or control is desired, then use SkMethodCall<>::invoke_call()
-  //   
-  // See:
-  //   method_call(), method_query(), SkMethodCall<>::invoke_call(), call_destructor(),
-  //   call_default_constructor()
-  virtual void method_call(
-    const ASymbol & method_name,
-    SkInstance **   args_pp,
-    uint32_t        arg_count,
-    SkInstance **   result_pp = nullptr,
-    SkInvokedBase * caller_p = nullptr
-    );
+    //---------------------------------------------------------------------------------------
+    // Evaluates the method with 0 or more arguments and returns immediately
+    // 
+    // Params:
+    //   method_name: name of method to call
+    //   args_pp:
+    //     Optional pointers to object instances to use as arguments - each one present
+    //     should have its reference count incremented and each defaulted/skipped argument
+    //     should be a `nullptr` element. If `arg_count` is 0 this is ignored
+    //   arg_count:
+    //     number of arguments to use in `args_pp`. If it is 0 then no arguments are passed
+    //     and `args_pp` is ignored.
+    //   caller_p:
+    //     object that called/invoked this expression and that may await a result.  If it is
+    //     nullptr, then there is no object that needs to be notified when this invocation is
+    //     complete.
+    //   result_pp:
+    //     Pointer to a pointer to store the instance resulting from the invocation of this
+    //     expression.  If it is nullptr, then the result does not need to be returned and
+    //     only side-effects are desired.
+    //     
+    // Notes:
+    //   This is a convenience method to use instead of SkMethodCall<>::invoke_call() - if more arguments
+    //   or control is desired, then use SkMethodCall<>::invoke_call()
+    //   
+    // See:
+    //   method_call(), method_query(), SkMethodCall<>::invoke_call(), call_destructor(),
+    //   call_default_constructor()
+    virtual void method_call(
+      const ASymbol & method_name,
+      SkInstance **   args_pp,
+      uint32_t        arg_count,
+      SkInstance **   result_pp = nullptr,
+      SkInvokedBase * caller_p = nullptr
+      );
 
-  //---------------------------------------------------------------------------------------
-  // Evaluates the method with 0/1 arguments and returns immediately
-  // 
-  // Params:
-  //   method_name: name of method to call
-  //   arg_p:
-  //     Optional pointer to object instance to use as an argument.  If it is present it
-  //     should have its reference count incremented.  If it is nullptr, then no arguments
-  //     are passed.
-  //   caller_p:
-  //     object that called/invoked this expression and that may await a result.  If it is
-  //     nullptr, then there is no object that needs to be notified when this invocation is
-  //     complete.
-  //   result_pp:
-  //     Pointer to a pointer to store the instance resulting from the invocation of this
-  //     expression.  If it is nullptr, then the result does not need to be returned and
-  //     only side-effects are desired.
-  //     
-  // Notes:
-  //   This is a convenience method to use instead of `method_call(name, args_pp, --)`
-  //   - if more arguments or control is desired, then use it instead
-  //   
-  // See:
-  //   method_call(), method_query(), SkMethodCall<>::invoke_call(), call_destructor(),
-  //   call_default_constructor()
-  void method_call(
-    const ASymbol & method_name,
-    SkInstance *    arg_p = nullptr,
-    SkInstance **   result_pp = nullptr,
-    SkInvokedBase * caller_p = nullptr
-    );
+    //---------------------------------------------------------------------------------------
+    // Evaluates the method with 0/1 arguments and returns immediately
+    // 
+    // Params:
+    //   method_name: name of method to call
+    //   arg_p:
+    //     Optional pointer to object instance to use as an argument.  If it is present it
+    //     should have its reference count incremented.  If it is nullptr, then no arguments
+    //     are passed.
+    //   caller_p:
+    //     object that called/invoked this expression and that may await a result.  If it is
+    //     nullptr, then there is no object that needs to be notified when this invocation is
+    //     complete.
+    //   result_pp:
+    //     Pointer to a pointer to store the instance resulting from the invocation of this
+    //     expression.  If it is nullptr, then the result does not need to be returned and
+    //     only side-effects are desired.
+    //     
+    // Notes:
+    //   This is a convenience method to use instead of `method_call(name, args_pp, --)`
+    //   - if more arguments or control is desired, then use it instead
+    //   
+    // See:
+    //   method_call(), method_query(), SkMethodCall<>::invoke_call(), call_destructor(),
+    //   call_default_constructor()
+    void method_call(
+      const ASymbol & method_name,
+      SkInstance *    arg_p = nullptr,
+      SkInstance **   result_pp = nullptr,
+      SkInvokedBase * caller_p = nullptr
+      );
 
-  //---------------------------------------------------------------------------------------
-  // Evaluates the method with 0/1 arguments and returns a Boolean `true` or
-  // `false` result immediately.
-  // 
-  // Returns: the result of the method call as `true` or `false`.
-  // 
-  // Params:
-  //   method_name: name of method to call
-  //   arg_p:
-  //     Optional argument to be passed to method.  If it is nullptr, then no arguments are
-  //     passed.
-  //   caller_p:
-  //     Object that called/invoked this expression and that may await a result.  If it is
-  //     `nullptr`, then there is no object that needs to be notified when this invocation
-  //     is complete.
-  // 
-  // Notes:
-  //   This is a convenience method to use instead of `method_call(name, args_pp, --)`
-  //   - if more arguments or control is desired, then use it instead
-  // 
-  // See: method_query(), SkMethodCall<>::invoke_call(), call_destructor(), call_default_constructor()
-  bool method_query(
-    const ASymbol & method_name,
-    SkInstance *    arg_p    = nullptr,
-    SkInvokedBase * caller_p = nullptr
-    );
+    //---------------------------------------------------------------------------------------
+    // Evaluates the method with 0/1 arguments and returns a Boolean `true` or
+    // `false` result immediately.
+    // 
+    // Returns: the result of the method call as `true` or `false`.
+    // 
+    // Params:
+    //   method_name: name of method to call
+    //   arg_p:
+    //     Optional argument to be passed to method.  If it is nullptr, then no arguments are
+    //     passed.
+    //   caller_p:
+    //     Object that called/invoked this expression and that may await a result.  If it is
+    //     `nullptr`, then there is no object that needs to be notified when this invocation
+    //     is complete.
+    // 
+    // Notes:
+    //   This is a convenience method to use instead of `method_call(name, args_pp, --)`
+    //   - if more arguments or control is desired, then use it instead
+    // 
+    // See: method_query(), SkMethodCall<>::invoke_call(), call_destructor(), call_default_constructor()
+    bool method_query(
+      const ASymbol & method_name,
+      SkInstance *    arg_p    = nullptr,
+      SkInvokedBase * caller_p = nullptr
+      );
 
-  // Coroutine related
+    // Coroutine related
 
-  // Instances do not update coroutines though their subclasses `SkMind` do.
-  void abort_coroutines_on_this(eSkNotify notify_caller = SkNotify_fail);
+    // Instances do not update coroutines though their subclasses `SkMind` do.
+    void abort_coroutines_on_this(eSkNotify notify_caller = SkNotify_fail);
 
-  //---------------------------------------------------------------------------------------
-  // Evaluates the coroutine call with 0 or more arguments.
-  // 
-  // Returns:
-  //   `nullptr` if the coroutine completed immediately or an invoked coroutine if the
-  //   coroutine has a deferred completion.
-  //   
-  // Params:  
-  //   coroutine_name:
-  //     name of the coroutine to call if it exists for this object. If the specified
-  //     coroutine does not exist for this object it will assert if `(SKOOKUM & SK_DEBUG)`
-  //     is set.
-  //   args_pp:
-  //     Optional pointers to object instances to use as arguments - each one present should
-  //     have its reference count incremented and each defaulted/skipped argument should be
-  //     a `nullptr` element.  If arg_count is 0 this is ignored
-  //   arg_count:
-  //     number of arguments to use in args_pp.  If it is 0 then no arguments are passed and
-  //     args_pp is ignored.
-  //   immediate:
-  //     if true the coroutine is invoked immediately (it may not be completed, but it will
-  //     be *started* immediately), if false the coroutine is scheduled for invocation on
-  //     the next update.
-  //   update_interval:
-  //     Specifies how often the coroutine should be updated in seconds.
-  //     (Default SkCall_interval_always)
-  //   caller_p:
-  //     object that called/invoked this expression and that may await a result - call its
-  //     `pending_deferred()` method with the result of this method as necessary.  If it is
-  //     `nullptr`, then there is no object that needs to be notified when this invocation
-  //     is complete.
-  //   updater_p:
-  //    Mind object that will update this invoked coroutine as needed - generally same
-  //    updater as the caller.  If nullptr the caller's updater is used and if the caller is
-  //    nullptr scope_p is used.
-  //             
-  // See:       coroutine_invoke()
-  // Author(s): Conan Reis
-  SkInvokedCoroutine * coroutine_call(const ASymbol & coroutine_name, SkInstance ** args_pp, uint32_t arg_count, bool immediate = true, f32 update_interval = SkCall_interval_always, SkInvokedBase * caller_p = nullptr, SkMind * updater_p = nullptr);
+    //---------------------------------------------------------------------------------------
+    // Evaluates the coroutine call with 0 or more arguments.
+    // 
+    // Returns:
+    //   `nullptr` if the coroutine completed immediately or an invoked coroutine if the
+    //   coroutine has a deferred completion.
+    //   
+    // Params:  
+    //   coroutine_name:
+    //     name of the coroutine to call if it exists for this object. If the specified
+    //     coroutine does not exist for this object it will assert if `(SKOOKUM & SK_DEBUG)`
+    //     is set.
+    //   args_pp:
+    //     Optional pointers to object instances to use as arguments - each one present should
+    //     have its reference count incremented and each defaulted/skipped argument should be
+    //     a `nullptr` element.  If arg_count is 0 this is ignored
+    //   arg_count:
+    //     number of arguments to use in args_pp.  If it is 0 then no arguments are passed and
+    //     args_pp is ignored.
+    //   immediate:
+    //     if true the coroutine is invoked immediately (it may not be completed, but it will
+    //     be *started* immediately), if false the coroutine is scheduled for invocation on
+    //     the next update.
+    //   update_interval:
+    //     Specifies how often the coroutine should be updated in seconds.
+    //     (Default SkCall_interval_always)
+    //   caller_p:
+    //     object that called/invoked this expression and that may await a result - call its
+    //     `pending_deferred()` method with the result of this method as necessary.  If it is
+    //     `nullptr`, then there is no object that needs to be notified when this invocation
+    //     is complete.
+    //   updater_p:
+    //    Mind object that will update this invoked coroutine as needed - generally same
+    //    updater as the caller.  If nullptr the caller's updater is used and if the caller is
+    //    nullptr scope_p is used.
+    //             
+    // See:       coroutine_invoke()
+    // Author(s): Conan Reis
+    SkInvokedCoroutine * coroutine_call(const ASymbol & coroutine_name, SkInstance ** args_pp, uint32_t arg_count, bool immediate = true, f32 update_interval = SkCall_interval_always, SkInvokedBase * caller_p = nullptr, SkMind * updater_p = nullptr);
 
-  //---------------------------------------------------------------------------------------
-  // Evaluates the coroutine call with 0/1 arguments.
-  // 
-  // Returns:
-  //   `nullptr` if the coroutine completed immediately or an invoked coroutine if the
-  //   coroutine has a deferred completion.
-  //   
-  // Params:  
-  //   coroutine_name:
-  //     name of the coroutine to call if it exists for this object. If the specified
-  //     coroutine does not exist for this object it will assert if `(SKOOKUM & SK_DEBUG)`
-  //     is set.
-  //   arg_p:
-  //     pointer to an object to use as an argument to the coroutine. If it is nullptr then
-  //     no argument is passed.
-  //   immediate:
-  //     if true the coroutine is invoked immediately (it may not be completed, but it will
-  //     be *started* immediately), if false the coroutine is scheduled for invocation on
-  //     the next update.
-  //   update_interval:
-  //     Specifies how often the coroutine should be updated in seconds.
-  //     (Default SkCall_interval_always)
-  //   caller_p:
-  //     object that called/invoked this expression and that may await a result - call its
-  //     `pending_deferred()` method with the result of this method as necessary.  If it is
-  //     `nullptr`, then there is no object that needs to be notified when this invocation
-  //     is complete.
-  //   updater_p:
-  //    Mind object that will update this invoked coroutine as needed - generally same
-  //    updater as the caller.  If nullptr the caller's updater is used and if the caller is
-  //    nullptr scope_p is used.
-  //             
-  // See:       coroutine_invoke()
-  // Author(s): Conan Reis
-  SkInvokedCoroutine * coroutine_call(const ASymbol & coroutine_name, SkInstance * arg_p = nullptr, bool immediate = true, f32 update_interval = SkCall_interval_always, SkInvokedBase * caller_p = nullptr, SkMind * updater_p = nullptr);
+    //---------------------------------------------------------------------------------------
+    // Evaluates the coroutine call with 0/1 arguments.
+    // 
+    // Returns:
+    //   `nullptr` if the coroutine completed immediately or an invoked coroutine if the
+    //   coroutine has a deferred completion.
+    //   
+    // Params:  
+    //   coroutine_name:
+    //     name of the coroutine to call if it exists for this object. If the specified
+    //     coroutine does not exist for this object it will assert if `(SKOOKUM & SK_DEBUG)`
+    //     is set.
+    //   arg_p:
+    //     pointer to an object to use as an argument to the coroutine. If it is nullptr then
+    //     no argument is passed.
+    //   immediate:
+    //     if true the coroutine is invoked immediately (it may not be completed, but it will
+    //     be *started* immediately), if false the coroutine is scheduled for invocation on
+    //     the next update.
+    //   update_interval:
+    //     Specifies how often the coroutine should be updated in seconds.
+    //     (Default SkCall_interval_always)
+    //   caller_p:
+    //     object that called/invoked this expression and that may await a result - call its
+    //     `pending_deferred()` method with the result of this method as necessary.  If it is
+    //     `nullptr`, then there is no object that needs to be notified when this invocation
+    //     is complete.
+    //   updater_p:
+    //    Mind object that will update this invoked coroutine as needed - generally same
+    //    updater as the caller.  If nullptr the caller's updater is used and if the caller is
+    //    nullptr scope_p is used.
+    //             
+    // See:       coroutine_invoke()
+    // Author(s): Conan Reis
+    SkInvokedCoroutine * coroutine_call(const ASymbol & coroutine_name, SkInstance * arg_p = nullptr, bool immediate = true, f32 update_interval = SkCall_interval_always, SkInvokedBase * caller_p = nullptr, SkMind * updater_p = nullptr);
 
-    // Overriding from SkObjectBase
+    //---------------------------------------------------------------------------------------
+    // Invoke the object represented by this SkInstance (e.g. if this SkInstance is an SkClosure)
+    virtual SkInvokedBase * invoke(
+      SkObjectBase * scope_p,
+      SkInvokedBase * caller_p,
+      SkInstance ** result_pp,
+      const SkClosureInvokeInfo & invoke_info,
+      const SkExpressionBase * invoking_expr_p) const;
 
-      virtual SkInstance *  as_new_instance() const override                            { reference(); return const_cast<SkInstance *>(this); }
-      virtual eSkObjectType get_obj_type() const override                               { return SkObjectType_instance; }
-      virtual SkInstance *  get_topmost_scope() const override;
-      virtual SkInstance *  get_data_by_name(const ASymbol & name) const;
-      virtual bool          set_data_by_name(const ASymbol & name, SkInstance * data_p);
+    //---------------------------------------------------------------------------------------
+    // Invoke the object represented by this SkInstance (e.g. if this SkInstance is an SkClosure)
+    virtual void invoke_as_method(
+      SkObjectBase * scope_p,
+      SkInvokedBase * caller_p,
+      SkInstance ** result_pp,
+      const SkClosureInvokeInfo & invoke_info,
+      const SkExpressionBase * invoking_expr_p) const;
 
-    // Reference count related
+  // Overriding from SkObjectBase
 
-      virtual bool is_ref_counted() const                                               { return true; }
-      virtual void on_no_references();
+    virtual SkInstance *  as_new_instance() const override                            { reference(); return const_cast<SkInstance *>(this); }
+    virtual eSkObjectType get_obj_type() const override                               { return SkObjectType_instance; }
+    virtual SkInstance *  get_topmost_scope() const override;
+    virtual SkInstance *  get_data_by_name(const ASymbol & name) const;
+    virtual bool          set_data_by_name(const ASymbol & name, SkInstance * data_p);
 
-      #ifdef SK_INSTANCE_REF_DBG
-        void reference() const;
-        void reference(uint32_t increment_by) const;
-      #endif
+  // Reference count related
+
+    virtual bool is_ref_counted() const                                               { return true; }
+    virtual void on_no_references();
+
+    #ifdef SK_INSTANCE_REF_DBG
+      void reference() const;
+      void reference(uint32_t increment_by) const;
+    #endif
 
   // Class Methods
 
@@ -409,7 +429,7 @@ class SK_API SkInstance : public SkObjectBase, public ARefCountMix<SkInstance>
     static SkInstance * new_instance_uninitialized_val(SkClass * class_p, uint32_t byte_size, void ** user_data_pp);
     static SkInstance * new_instance_uninitialized_ref(SkClass * class_p, uint32_t byte_size, void ** user_data_pp);
 
-    static A_FORCEINLINE AObjReusePool<SkInstance> & get_pool() { return ms_pool; }
+    static AObjReusePool<SkInstance> & get_pool();
 
     static bool   is_data_stored_by_val(uint32_t byte_size) { return byte_size <= sizeof(tUserData); }
 
@@ -519,6 +539,17 @@ inline SkInstance * SkInstance::new_instance(SkClass * class_p, const _UserType 
 
   return instance_p;
   }
+
+#ifndef SK_IS_DLL
+
+//---------------------------------------------------------------------------------------
+// Get the global pool of SkInstances
+A_FORCEINLINE AObjReusePool<SkInstance> & SkInstance::get_pool()
+  {
+  return ms_pool;
+  }
+
+#endif
 
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkInstance.inl>

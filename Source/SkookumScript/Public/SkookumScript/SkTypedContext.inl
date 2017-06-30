@@ -37,7 +37,7 @@
 A_INLINE SkTypeContext::SkTypeContext() :
   m_obj_scope_p(nullptr),
   m_params_p(nullptr),
-  m_top_scope(SkNestReason_Invocation, 0),
+  m_top_scope(SkNestReason_invocation, 0),
   m_current_scope_p(&m_top_scope),
   m_current_vars_p(&m_top_scope.m_vars),
   m_capture_current_p(nullptr)
@@ -110,7 +110,7 @@ A_INLINE bool SkTypeContext::is_locals() const
 A_INLINE void SkTypeContext::nest_locals(eSkNestReason nest_reason)
   {
   // $Revisit - CReis [Memory] These structures should come from a memory pool
-  ScopeVars * inner_scope_p = SK_NEW(ScopeVars)(nest_reason, nest_reason == SkNestReason_Invocation ? 0 : m_current_scope_p->m_data_idx_count);
+  ScopeVars * inner_scope_p = SK_NEW(ScopeVars)(nest_reason, nest_reason == SkNestReason_invocation ? 0 : m_current_scope_p->m_data_idx_count);
 
   m_current_scope_p = inner_scope_p;
   m_current_vars_p = &inner_scope_p->m_vars;
@@ -130,8 +130,8 @@ A_INLINE void SkTypeContext::unnest_locals(eSkUnnestAction unnest_action)
   m_current_scope_p = outer_scope_p;
   m_current_vars_p = &outer_scope_p->m_vars;
 
-  if (inner_scope_p->m_nest_reason == SkNestReason_Exploratory 
-   && unnest_action == eSkUnnestAction_Accept)
+  if (inner_scope_p->m_nest_reason == SkNestReason_exploratory 
+   && unnest_action == SkUnnestAction_accept)
     {
     // Remember past variables
     if (inner_scope_p->m_var_history.is_filled())

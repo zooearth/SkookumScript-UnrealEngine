@@ -221,7 +221,8 @@ A_INLINE SkTypedName * SkMetaClass::append_data_member(
 // Author(s):   Conan Reis
 A_INLINE SkTypedNameRaw * SkMetaClass::append_data_member_raw(
   const ASymbol &   name,
-  SkClassDescBase * type_p
+  SkClassDescBase * type_p,
+  const AString &   bind_name
   )
   {
   SK_ERRORX("Raw class data is not supported. The parser should make sure this gets never called.");
@@ -379,7 +380,27 @@ A_INLINE SkClass * SkClass::find_common_class(const SkClass & cls) const
 // Author(s):    Conan Reis
 A_INLINE bool SkClass::is_class(const SkClass & cls) const
   {
-  return (&cls == this) || (m_superclass_p && m_superclass_p->is_class(cls));
+  const SkClass * class_p = this;
+  do 
+    {
+    if (class_p == &cls) return true;
+    class_p = class_p->m_superclass_p;
+    } while (class_p);
+  return false;
+  }
+
+//---------------------------------------------------------------------------------------
+//  Determines if this class is equal to or a subclass of (derived from) a class named 'name_id'
+// Author(s):    Markus Breyer
+A_INLINE bool SkClass::is_class(uint32_t name_id) const
+  {
+  const SkClass * class_p = this;
+  do
+    {
+    if (class_p->get_name_id() == name_id) return true;
+    class_p = class_p->m_superclass_p;
+    } while (class_p);
+  return false;
   }
 
 //---------------------------------------------------------------------------------------
@@ -824,10 +845,11 @@ A_INLINE SkTypedName * SkClass::append_data_member(
 // Adds a raw instance data member with the specified name to this class.
 A_INLINE SkTypedNameRaw * SkClass::append_data_member_raw(
   const ASymbol &   name,
-  SkClassDescBase * type_p
+  SkClassDescBase * type_p,
+  const AString &   bind_name
   )
   {
-  return append_instance_data_raw(name, type_p);
+  return append_instance_data_raw(name, type_p, bind_name);
   }
 
 

@@ -56,18 +56,18 @@ typedef AVArrayLogical<AIdPtr<SkNamedIndexed>, ASymbol> tSkNamedIndexedArray;
 //---------------------------------------------------------------------------------------
 // Why we are nesting
 enum eSkNestReason
-{
-  SkNestReason_Invocation,   // The nested block will be invoked in its own invoked context scope
-  SkNestReason_Exploratory,  // The nested block is in the same invoked context scope as its parent scope, but might get discarded when backtracking
-};
+  {
+  SkNestReason_invocation,   // The nested block will be invoked in its own invoked context scope
+  SkNestReason_exploratory,  // The nested block is in the same invoked context scope as its parent scope, but might get discarded when backtracking
+  };
 
 //---------------------------------------------------------------------------------------
-// Why we are unnesting
+// How we are unnesting
 enum eSkUnnestAction
-{
-  eSkUnnestAction_Accept,  // The nested block will be invoked in its own invoked context scope
-  eSkUnnestAction_Reject,  // The nested block is in the same invoked context scope as its parent scope, but might get discarded when backtracking
-};
+  {
+  SkUnnestAction_accept,  // The nested block will be invoked in its own invoked context scope
+  SkUnnestAction_reject,  // The nested block is in the same invoked context scope as its parent scope, but might get discarded when backtracking
+  };
 
 //---------------------------------------------------------------------------------------
 // Notes      Class Type Scope Context - used to track variable scope & type when
