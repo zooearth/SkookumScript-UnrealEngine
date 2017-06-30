@@ -34,6 +34,7 @@
 #include <SkookumScript/SkInstance.hpp>
 
 #include "Engine/World.h"
+#include "UObject/PropertyPortFlags.h"
 
 //=======================================================================================
 // Method Definitions
@@ -113,6 +114,41 @@ void USkookumScriptInstanceProperty::SerializeItem(FArchive & ar, void * data_p,
   {
   // This property merely reserves storage but doesn't store any actual data
   // So there's no need to serialize anything here
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString USkookumScriptInstanceProperty::GetCPPType(FString * extended_type_text_p, uint32 cpp_export_flags) const
+  {
+  // This property reserves storage - return dummy place holders
+  #if WITH_EDITORONLY_DATA
+    return TEXT("struct { void * m_p; uint32 id; }");
+  #else
+    return TEXT("void *");
+  #endif
+  }
+
+//---------------------------------------------------------------------------------------
+
+void USkookumScriptInstanceProperty::ExportTextItem(FString & value_str, const void * data_p, const void * default_data_p, UObject * owner_p, int32 port_flags, UObject * export_root_scope_p) const
+  {
+  // This property merely reserves storage but doesn't store any actual data
+  // So return nullptr just to return something
+  value_str += (port_flags & PPF_ExportCpp) ? TEXT("nullptr") : TEXT("NULL");
+  }
+
+//---------------------------------------------------------------------------------------
+
+const TCHAR * USkookumScriptInstanceProperty::ImportText_Internal(const TCHAR * buffer_p, void * data_p, int32 port_flags, UObject * owner_p, FOutputDevice * error_text_p) const
+  {
+  // Consume the identifier that we stored ("NULL")
+  FString temp; 
+  buffer_p = UPropertyHelpers::ReadToken(buffer_p, temp);
+
+  // Initialize value
+  InitializeValueInternal(data_p);
+
+  return buffer_p;
   }
 
 //---------------------------------------------------------------------------------------

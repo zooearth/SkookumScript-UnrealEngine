@@ -106,6 +106,7 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
     static bool            resolve_raw_data_funcs(SkClass * sk_class_p, UStruct * ue_struct_or_class_p = nullptr);
 
     static void *          get_raw_pointer_entity(SkInstance * obj_p);
+    static void *          get_raw_pointer_null(SkInstance * obj_p);
     static SkInstance *    access_raw_data_entity(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
     static SkInstance *    access_raw_data_boolean(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
     static SkInstance *    access_raw_data_integer(void * obj_p, tSkRawDataInfo raw_data_info, SkClassDescBase * data_type_p, SkInstance * value_p);
@@ -148,6 +149,7 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
       ASymbolId_Vector3         = 0x5ecd5133,
       ASymbolId_Rotation        = 0xd00afaa7,
       ASymbolId_RotationAngles  = 0x81d74f22,
+      ASymbolId_UStruct         = 0xe07d6ad5,
       };
 
     static const FName NAME_Entity;
@@ -203,18 +205,15 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
 
         // Special constructor meant for just replacing vtable
         // Leaves class & user data unchanged
-        SkRawDataInstance()
-          {
-          m_ref_count = 1;
-          }
+        SkRawDataInstance(eALeaveMemoryUnchanged) : SkInstance(ALeaveMemoryUnchanged) {}
 
         virtual void on_no_references() override
           {
           // Change virtual table for this instance back to SkInstance
-          new (this) SkInstance();
+          new (this) SkInstance(ALeaveMemoryUnchanged);
           // Important: Do not call destructor here
           // Put it back on the pool for reuse
-          delete_this();
+          SkInstance::delete_this();
           }
       };
 

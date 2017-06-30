@@ -212,31 +212,6 @@ A_INLINE SkParser::SkParser(
   const AString &      str
   ) :
   AString(str),
-  m_customizations_p(get_customization_defaults()),
-  m_flags(ms_default_flags),
-  m_member_type(SkMember__invalid),
-  m_current_block_p(nullptr)
-  {
-  reset_scope();
-  }
-
-//---------------------------------------------------------------------------------------
-// Constructor
-// 
-// Returns: itself
-// Params:
-//   str: string to parse
-//   customizations_p:
-//      Customized settings and behavior for the parser - if nullptr it uses the default
-//      one stored in `ms_defaults_p` which is set with SkParser::set_custom_defaults().
-//
-// Author(s):   Conan Reis
-A_INLINE SkParser::SkParser(
-  const AString &      str,
-  SkParserCustomBase * customizations_p // = nullptr
-) :
-  AString(str),
-  m_customizations_p(customizations_p),
   m_flags(ms_default_flags),
   m_member_type(SkMember__invalid),
   m_current_block_p(nullptr)
@@ -282,12 +257,10 @@ A_INLINE SkParser::SkParser(
 // Author(s): Conan Reis
 A_INLINE SkParser::SkParser(
   const char *         cstr_p,
-  uint32_t             length,          // = ALength_calculate
-  bool                 persistent_b,    // = true
-  SkParserCustomBase * customizations_p // = nullptr
+  uint32_t             length,        // = ALength_calculate
+  bool                 persistent_b   // = true
   ) :
   AString(cstr_p, length, persistent_b),
-  m_customizations_p(customizations_p ? customizations_p : get_customization_defaults()),
   m_flags(ms_default_flags),
   m_member_type(SkMember__invalid),
   m_current_block_p(nullptr)

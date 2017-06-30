@@ -2,7 +2,8 @@
 // Iterates over each item in the list calling supplied immediate closure `test` with
 // each item as an argument and stops with first `test` that returns false.
 //
-// # Returns: `true` if test returns true for any item, otherwise `false`
+// # Returns:
+//   `true` if test returns true for all items, otherwise `false` including when empty
 //
 // # Examples:
 //   {3 4 5}.all?[item.pow2?]  // false
@@ -15,25 +16,36 @@
 
 ((ItemClass_ item) Boolean test) Boolean
 
+  // This is implemented in C++ for additional speed.
+  // Here is the equivalent script for reference:
+  /*
   [
   !count:   length
-  !idx:     0
-  !result?: true
+  !result?: false
   
-  loop
+  if count > 0
     [
-    if idx >= count
-        [
-        exit
-        ]
-      not test(at(idx))
-        [
-        result?: false
-        exit
-        ]
-
-    idx++
+    !idx: 0
+    result?: true
+    count--
+    
+    loop
+      [
+      if not test(at(idx))
+          [
+          result?: false
+          exit
+          ]
+        idx >= count
+          [
+          exit
+          ]
+          
+      idx++
+      ]
     ]
 
   result?
-  ]  
+  ]
+  */
+  

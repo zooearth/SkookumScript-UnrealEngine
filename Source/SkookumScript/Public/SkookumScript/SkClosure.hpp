@@ -35,6 +35,59 @@
 //=======================================================================================
 
 //---------------------------------------------------------------------------------------
+// Stores formal parameters and actual arguments for invoking a closure
+struct SkClosureInvokeInfo
+  {
+  SkClosureInvokeInfo() {}
+  SkClosureInvokeInfo(const SkParameters * params_p, APCompactArray<SkExpressionBase> * send_args_p, APCompactArray<SkIdentifierLocal> * return_args_p);
+  ~SkClosureInvokeInfo();
+
+  #if (SKOOKUM & SK_COMPILED_IN)
+    SkClosureInvokeInfo(const void ** binary_pp);
+  #endif
+
+  #if (SKOOKUM & SK_COMPILED_OUT)
+    void     as_binary(void ** binary_pp) const;
+    uint32_t as_binary_length() const;
+  #endif
+
+  #if defined(SK_AS_STRINGS)
+    AString as_code() const;
+  #endif
+
+  #if (SKOOKUM & SK_DEBUG)
+    SkExpressionBase * find_expr_by_pos(uint pos, eSkExprFind type = SkExprFind_all) const;
+    eAIterateResult    iterate_expressions(SkApplyExpressionBase * apply_expr_p, const SkInvokableBase * invokable_p = nullptr);
+  #endif
+
+  void track_memory(AMemoryStats * mem_stats_p) const;
+
+  // Pointer to parameters (e.g. for invoking UE4 delegates - redundant for SkClosures)
+  ARefPtr<SkParameters> m_params_p;
+
+  // Array of dynamic expressions to be invoked and have their instance results passed
+  // to the method/coroutine.
+  //   - Arguments fill the parameters based on the order of their index position
+  //   - Arguments that are nullptr indicate that they should be filled with the
+  //     corresponding default argument from the parameter list
+  //
+  // $Revisit - CReis Future: Each default expression could be put directly in place [the
+  // same data structure as the parameter list could be used, but a mechanism so that
+  // they are not deleted more than once must be determined].  This future plan for
+  // argument lists requires that the available invokables (and their parameter lists)
+  // are in memory and that it is possible to determine the class scope of the
+  // invokable call.  [See SkInvokedContextBase::data_append_args()]
+  APCompactArray<SkExpressionBase> m_arguments;
+
+  // Return argument bindings
+  //   - Argument identifiers fill the return parameters based on the order of their index position
+  //   - Argument identifiers that are nullptr indicate that they are skipped/ignored.
+  // $Revisit - [Memory] CReis since few closures use return args it would save memory
+  // to have this class without them and a separate SkInvokeClosureRArgs with them.
+  APCompactArray<SkIdentifierLocal> m_return_args;
+  };
+
+//---------------------------------------------------------------------------------------
 // #Description
 //   Wrapper for a method/coroutine, the receiver object (this) that it acts on and any
 //   captured variables from its source scope (where its literal was defined).
@@ -70,102 +123,115 @@ class SK_API SkClosure : public SkInstance
     virtual SkInstance *  get_topmost_scope() const override;
     virtual void          on_no_references() override;
 
-  //---------------------------------------------------------------------------------------
-  // Evaluates the closure as a method with 0 or more arguments and returns immediately
-  // 
-  // Params:
-  //   method_name: name of method to call
-  //   args_pp:
-  //     Optional pointers to object instances to use as arguments - each one present
-  //     should have its reference count incremented and each defaulted/skipped argument
-  //     should be a `nullptr` element. If `arg_count` is 0 this is ignored
-  //   arg_count:
-  //     number of arguments to use in `args_pp`. If it is 0 then no arguments are passed
-  //     and `args_pp` is ignored.
-  //   caller_p:
-  //     object that called/invoked this expression and that may await a result.  If it is
-  //     nullptr, then there is no object that needs to be notified when this invocation is
-  //     complete.
-  //   result_pp:
-  //     Pointer to a pointer to store the instance resulting from the invocation of this
-  //     expression.  If it is nullptr, then the result does not need to be returned and
-  //     only side-effects are desired.
-  //     
-  // Notes:
-  //   Essentially the same as calling `some_closure(---)` in script.
-  //   
-  // See:
-  //   method_call(), method_query(), SkMethodCall<>::invoke_call(), call_destructor(),
-  //   call_default_constructor()
-  void closure_method_call(
-    SkInstance **   args_pp,
-    uint32_t        arg_count,
-    SkInstance **   result_pp = nullptr,
-    SkInvokedBase * caller_p = nullptr
-    );
+    virtual SkInvokedBase * invoke(
+      SkObjectBase * scope_p,
+      SkInvokedBase * caller_p,
+      SkInstance ** result_pp,
+      const SkClosureInvokeInfo & invoke_info,
+      const SkExpressionBase * invoking_expr_p) const override;
 
-  //---------------------------------------------------------------------------------------
-  // Evaluates the closure as a method and returns immediately
-  // 
-  // Params:
-  //   method_name: name of method to call
-  //   arg_p:
-  //     Optional pointer to object instance to use as an argument.  If it is present it
-  //     should have its reference count incremented.  If it is nullptr, then no arguments
-  //     are passed.
-  //   caller_p:
-  //     object that called/invoked this expression and that may await a result.  If it is
-  //     nullptr, then there is no object that needs to be notified when this invocation is
-  //     complete.
-  //   result_pp:
-  //     Pointer to a pointer to store the instance resulting from the invocation of this
-  //     expression.  If it is nullptr, then the result does not need to be returned and
-  //     only side-effects are desired.
-  //     
-  // Notes:
-  //   Essentially the same as calling `some_closure(---)` in script.
-  //   This is a convenience method to use instead of `closure_method_call(name, args_pp, --)`
-  //   - if more arguments or control is desired, then use it instead
-  //   
-  // See:
-  //   method_call(), method_query(), SkMethodCall<>::invoke_call(), call_destructor(),
-  //   call_default_constructor()
-  inline void closure_method_call(
-    SkInstance *    arg_p     = nullptr,
-    SkInstance **   result_pp = nullptr,
-    SkInvokedBase * caller_p  = nullptr
-    )
-    {
-    closure_method_call(&arg_p, arg_p ? 1u : 0u, result_pp, caller_p);
-    }
+    virtual void invoke_as_method(
+      SkObjectBase * scope_p,
+      SkInvokedBase * caller_p,
+      SkInstance ** result_pp,
+      const SkClosureInvokeInfo & invoke_info,
+      const SkExpressionBase * invoking_expr_p) const override;
 
-  //---------------------------------------------------------------------------------------
-  // Evaluates the closure as a method with 0/1 arguments and returns a Boolean `true` or
-  // `false` result immediately.
-  // 
-  // Returns: the result of the method call as `true` or `false`.
-  // 
-  // Params:
-  //   method_name: name of method to call
-  //   arg_p:
-  //     Optional argument to be passed to method.  If it is nullptr, then no arguments are
-  //     passed.
-  //   caller_p:
-  //     Object that called/invoked this expression and that may await a result.  If it is
-  //     `nullptr`, then there is no object that needs to be notified when this invocation
-  //     is complete.
-  // 
-  // Notes:
-  //   Essentially the same as calling `!result?: some_closure(---)` in script.
-  //   This is a convenience method to use instead of `closure_method_call(name, args_pp, --)`
-  //   - if more arguments or control is desired, then use it instead
-  // 
-  // See: method_query(), SkMethodCall<>::invoke_call(), call_destructor(), call_default_constructor()
-  bool closure_method_query(
-    SkInstance *    arg_p    = nullptr,
-    SkInvokedBase * caller_p = nullptr
-    );
+    //---------------------------------------------------------------------------------------
+    // Evaluates the closure as a method with 0 or more arguments and returns immediately
+    // 
+    // Params:
+    //   method_name: name of method to call
+    //   args_pp:
+    //     Optional pointers to object instances to use as arguments - each one present
+    //     should have its reference count incremented and each defaulted/skipped argument
+    //     should be a `nullptr` element. If `arg_count` is 0 this is ignored
+    //   arg_count:
+    //     number of arguments to use in `args_pp`. If it is 0 then no arguments are passed
+    //     and `args_pp` is ignored.
+    //   caller_p:
+    //     object that called/invoked this expression and that may await a result.  If it is
+    //     nullptr, then there is no object that needs to be notified when this invocation is
+    //     complete.
+    //   result_pp:
+    //     Pointer to a pointer to store the instance resulting from the invocation of this
+    //     expression.  If it is nullptr, then the result does not need to be returned and
+    //     only side-effects are desired.
+    //     
+    // Notes:
+    //   Essentially the same as calling `some_closure(---)` in script.
+    //   
+    // See:
+    //   method_call(), method_query(), SkMethodCall<>::invoke_call(), call_destructor(),
+    //   call_default_constructor()
+    void closure_method_call(
+      SkInstance **   args_pp,
+      uint32_t        arg_count,
+      SkInstance **   result_pp = nullptr,
+      SkInvokedBase * caller_p = nullptr
+      );
 
+    //---------------------------------------------------------------------------------------
+    // Evaluates the closure as a method and returns immediately
+    // 
+    // Params:
+    //   method_name: name of method to call
+    //   arg_p:
+    //     Optional pointer to object instance to use as an argument.  If it is present it
+    //     should have its reference count incremented.  If it is nullptr, then no arguments
+    //     are passed.
+    //   caller_p:
+    //     object that called/invoked this expression and that may await a result.  If it is
+    //     nullptr, then there is no object that needs to be notified when this invocation is
+    //     complete.
+    //   result_pp:
+    //     Pointer to a pointer to store the instance resulting from the invocation of this
+    //     expression.  If it is nullptr, then the result does not need to be returned and
+    //     only side-effects are desired.
+    //     
+    // Notes:
+    //   Essentially the same as calling `some_closure(---)` in script.
+    //   This is a convenience method to use instead of `closure_method_call(name, args_pp, --)`
+    //   - if more arguments or control is desired, then use it instead
+    //   
+    // See:
+    //   method_call(), method_query(), SkMethodCall<>::invoke_call(), call_destructor(),
+    //   call_default_constructor()
+    inline void closure_method_call(
+      SkInstance *    arg_p     = nullptr,
+      SkInstance **   result_pp = nullptr,
+      SkInvokedBase * caller_p  = nullptr
+      )
+      {
+      closure_method_call(&arg_p, arg_p ? 1u : 0u, result_pp, caller_p);
+      }
+
+    //---------------------------------------------------------------------------------------
+    // Evaluates the closure as a method with 0/1 arguments and returns a Boolean `true` or
+    // `false` result immediately.
+    // 
+    // Returns: the result of the method call as `true` or `false`.
+    // 
+    // Params:
+    //   method_name: name of method to call
+    //   arg_p:
+    //     Optional argument to be passed to method.  If it is nullptr, then no arguments are
+    //     passed.
+    //   caller_p:
+    //     Object that called/invoked this expression and that may await a result.  If it is
+    //     `nullptr`, then there is no object that needs to be notified when this invocation
+    //     is complete.
+    // 
+    // Notes:
+    //   Essentially the same as calling `!result?: some_closure(---)` in script.
+    //   This is a convenience method to use instead of `closure_method_call(name, args_pp, --)`
+    //   - if more arguments or control is desired, then use it instead
+    // 
+    // See: method_query(), SkMethodCall<>::invoke_call(), call_destructor(), call_default_constructor()
+    bool closure_method_query(
+      SkInstance *    arg_p    = nullptr,
+      SkInvokedBase * caller_p = nullptr
+      );
 
   // Class Methods
 

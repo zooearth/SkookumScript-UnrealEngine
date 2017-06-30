@@ -60,6 +60,9 @@ enum eSkObjectType
   // SkClosure
   SkObjectType_closure,
 
+  // An invokable instance other than a closure
+  SkObjectType_invokable,
+
   // SkMetaClass
   SkObjectType_meta_class,
 
