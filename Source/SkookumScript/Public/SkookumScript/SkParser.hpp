@@ -87,7 +87,8 @@ variable-name    = name-predicate
 data-name        = '@' | '@@' variable-name
 reserved-ident   = 'nil' | 'this' | 'this_class' | 'this_code' | 'this_mind'
 object-id        = [class-name] '@' ['?' | '#'] symbol-literal
-method-name      = name-predicate | constructor-name | destructor-name | convert-name
+method-name-core = name-predicate | constructor-name | destructor-name
+method-name-conv = convert-name
 name-predicate   = instance-name ['?']
 constructor-name = '!' [instance-name]
 destructor-name  = '!!'
@@ -124,34 +125,36 @@ define-temporary = '!' ws variable-name
 
 Invocations:
 ----------------------
-invocation       = invoke-call | invoke-cascade | invoke-apply | instantiation
-                   | invoke-operator | index-operator | slice-operator
-invoke-operator  = expression bracketed-args
-index-operator   = expression '{' ws expression ws '}' [ws binding]
-slice-operator   = expression '{' ws range-literal [wsr expression] ws '}'
-invoke-call      = ([expression ws '.'] invoke-selector) | operator-call
-invoke-cascade   = expression ws '.' ws '[' {ws invoke-selector | operator-selector}2+ ws ']'
-invoke-apply     = expression ws '%' invoke-selector
-instantiation    = class-instance | expression '!' [instance-name] invocation args
-invoke-selector  = method-call | coroutine-call
-method-call      = [scope] method-name invocation-args
-coroutine-call   = [scope] coroutine-name invocation-args
-operator-call    = (prefix-operator ws expression) | (expression ws operator-selector)
-operator-selector= postfix-operator | (binary-operator ws expression)
-prefix-operator  = 'not'
-binary-operator  = math-operator | compare-operator | logical-operator | ':='
-math-operator    = '+' | '+=' | '-' | '-=' | '*' | '*=' | '/' | '/='
-compare-operator = '=' | '~=' | '>' | '>=' | '<' | '<='
-logical-operator = 'and' | 'or' | 'xor' | 'nand' | 'nor' | 'nxor'
-postfix-operator = '++' | '--'
-invocation-args  = [bracketed-args] | closure-tail-args
-bracketed-args   = '(' ws [send-args ws] [';' ws return-args ws] ')'
-closure-tail-args = ws send-args ws closure [ws ';' ws return-args]
-send-args        = [argument] {ws [',' ws] [argument]}
-return-args      = [return-arg] {ws [',' ws] [return-arg]}
-argument*        = [named-spec ws] expression
-return-arg*      = [named-spec ws] variable-ident | define-temporary
-named-spec       = variable-name ws ':'
+invocation           = invoke-call | invoke-cascade | invoke-apply | instantiation
+                       | invoke-operator | index-operator | slice-operator
+invoke-operator      = expression bracketed-args
+index-operator       = expression '{' ws expression ws '}' [ws binding]
+slice-operator       = expression '{' ws range-literal [wsr expression] ws '}'
+invoke-call          = (expression ws '.' invoke-selector) | invoke-selector-core | operator-call
+invoke-cascade       = expression ws '.' ws '[' {ws invoke-selector | operator-selector}2+ ws ']'
+invoke-apply         = expression ws '%' invoke-selector
+instantiation        = class-instance | expression '!' [instance-name] invocation args
+invoke-selector-core = method-call-core | coroutine-call
+invoke-selector      = method-call-core | method-call-conv | coroutine-call
+method-call-core     = [scope] method-name-core invocation-args
+method-call-conv     = [scope] method-name-conv invocation-args
+coroutine-call       = [scope] coroutine-name invocation-args
+operator-call        = (prefix-operator ws expression) | (expression ws operator-selector)
+operator-selector    = postfix-operator | (binary-operator ws expression)
+prefix-operator      = 'not'
+binary-operator      = math-operator | compare-operator | logical-operator | ':='
+math-operator        = '+' | '+=' | '-' | '-=' | '*' | '*=' | '/' | '/='
+compare-operator     = '=' | '~=' | '>' | '>=' | '<' | '<='
+logical-operator     = 'and' | 'or' | 'xor' | 'nand' | 'nor' | 'nxor'
+postfix-operator     = '++' | '--'
+invocation-args      = [bracketed-args] | closure-tail-args
+bracketed-args       = '(' ws [send-args ws] [';' ws return-args ws] ')'
+closure-tail-args    = ws send-args ws closure [ws ';' ws return-args]
+send-args            = [argument] {ws [',' ws] [argument]}
+return-args          = [return-arg] {ws [',' ws] [return-arg]}
+argument*            = [named-spec ws] expression
+return-arg*          = [named-spec ws] variable-ident | define-temporary
+named-spec           = variable-name ws ':'
 
   * only trailing arguments may be named
 
@@ -175,7 +178,7 @@ class           = class-name
 meta-class      = '<' class-name '>'
 class-union     = '<' class-unary {'|' class-unary}1+ '>'
 list-class      = List '{' ws [class-desc ws] '}'
-invoke-class    = ['_' | '+'] parameters
+invoke-class    = [class-name] ['_' | '+'] parameters
 
 Whitespace:
 ----------------------
@@ -248,7 +251,7 @@ class SkMethodBase;
 class SkMethodCallBase;
 class SkMethodFunc;
 class SkMethodToOperator;
-class SkObjectIDBase;
+class SkObjectID;
 class SkParameterBase;
 class SkTypedClass;
 class SkUnaryParam;
@@ -262,21 +265,6 @@ class SkUnaryParam;
 
 
 #endif // (SKOOKUM & SK_CODE_IN)
-
-//---------------------------------------------------------------------------------------
-// Custom behavior and settings for SkParser.
-// 
-// A reference to this structure is stored in each SkParser object `m_customizations_p`
-// member which is either passed in the constructor or it uses the default one stored in
-// `SkParser::ms_defaults_p` which is set with SkParser::set_custom_defaults().
-struct SkParserCustomBase
-  {
-  #if (SKOOKUM & SK_CODE_IN)
-    virtual SkObjectIDBase * object_id_new(const ASymbol & name, SkClass * class_p, uint32_t flags) = 0;
-    virtual SkClass *        object_id_name_class() = 0;
-  #endif
-  };
-
 
 //---------------------------------------------------------------------------------------
 // SkookumScript Parser
@@ -354,6 +342,7 @@ class SK_API SkParser : public AString
       Result_err_expected_class_instance,     // Expected a class, list-class or an invoke class and did not find one.
       Result_err_expected_class_meta,         // A metaclass descriptor must begin with an opening angle bracket '<'.
       Result_err_expected_class_meta_end,     // A metaclass descriptor must end with a closing angle bracket '>'.
+      Result_err_expected_class_params,       // Expected a parameter list following the name of an invokable class
       Result_err_expected_class_union,        // A class union descriptor must begin with an opening angle bracket '<'.
       Result_err_expected_class_union_end,    // A class union descriptor must end with a closing angle bracket '>'.
       Result_err_expected_clause_block,       // Expected a clause code block [ ], but did not receive one.
@@ -447,6 +436,7 @@ class SK_API SkParser : public AString
       Result_err_size_uint16_out_of_range,    // Value must be between 0 and 65535
 
       // Context errors
+      Result_err_context_actor_class_unknown, // Could not determine actor class from project settings - is the proper project loaded?
       Result_err_context_annotation_unknown,  // Unknown annotation found
       Result_err_context_annotation_invalid,  // Annotation is not allowed in this context
       Result_err_context_annotation_duplicate,// Duplicate annotation provided
@@ -742,8 +732,9 @@ class SK_API SkParser : public AString
     // Represents parsed list of annotations
     struct Annotations
       {
-      uint32_t  m_flags;  // One bit per type of annotation
-      tSkAkas   m_akas;   // Alternative names for invokables      
+      uint32_t  m_flags;    // One bit per type of annotation
+      AString   m_name;     // Name argument of &raw or &name annotation
+      tSkAkas   m_akas;     // Alternative names for invokables      
       
       Annotations() : m_flags(0) {}
       };
@@ -756,8 +747,7 @@ class SK_API SkParser : public AString
     SK_NEW_OPERATORS(SkParser);
 
     SkParser(const AString & str);
-    SkParser(const AString & str, SkParserCustomBase * customizations_p);
-    SkParser(const char * cstr_p, uint32_t length = ALength_calculate, bool persistent = true, SkParserCustomBase * customizations_p = nullptr);
+    SkParser(const char * cstr_p, uint32_t length = ALength_calculate, bool persistent = true);
 
     SkParser & operator=(const AString & str)              { AString::operator=(str); return *this; }
     SkParser & operator=(const SkParser & parser)          { AString::operator=(parser); return *this; }
@@ -830,8 +820,8 @@ class SK_API SkParser : public AString
       eResult parse_data_definition(      uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, bool append_to_class_b = true) const;
       eResult parse_literal_char(         uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, char * ch_p = nullptr) const;
       eResult parse_literal_char_esc_seq( uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, char * ch_p = nullptr) const;
-      eResult parse_literal_integer(      uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkIntegerType * int_p = nullptr, uint32_t * radix_p = nullptr) const;
-      eResult parse_literal_real(         uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, SkRealType * real_p = nullptr, bool int_as_real_b = true) const;
+      eResult parse_literal_integer(      uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, tSkInteger * int_p = nullptr, uint32_t * radix_p = nullptr) const;
+      eResult parse_literal_real(         uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, tSkReal * real_p = nullptr, bool int_as_real_b = true) const;
       eResult parse_literal_simple_string(uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, AString * str_p = nullptr) const;
       eResult parse_literal_string(       uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, AString * str_p = nullptr) const;
       eResult parse_literal_symbol(       uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, ASymbol * symbol_p = nullptr) const;
@@ -866,7 +856,6 @@ class SK_API SkParser : public AString
     static void clear_stats();
     static void print_stats();
 
-    static SkParserCustomBase * get_customization_defaults();
     static AFlagSet32 &         get_default_flags()                                          { return ms_default_flags; }
     static bool                 is_ident_operator(uint32_t sym_id);
     static bool                 is_ident_reserved(uint32_t sym_id);
@@ -875,7 +864,6 @@ class SK_API SkParser : public AString
     static AString              get_result_context_string(const AString & code, eResult result, uint32_t result_pos, uint32_t result_start = ADef_uint32, uint32_t start_pos = 0u);
     static AString              get_result_string(eResult result);
     static eResult              invoke_script(const AString & code, AString * result_str_p = nullptr, SkInstance ** result_pp = nullptr, SkInstance * instance_p = nullptr, bool print_info = true);
-    static void                 set_customization_defaults(SkParserCustomBase * defaults_p)  { ms_defaults_p = defaults_p; }
 
   #endif // (SKOOKUM & SK_CODE_IN)
 
@@ -996,7 +984,7 @@ class SK_API SkParser : public AString
       SkConcurrentRace *   parse_concurrent_race_block(Args & args) const;
       SkConcurrentBranch * parse_concurrent_branch_block(Args & args) const;
       SkChangeMind *       parse_change_mind(Args & args) const;
-      SkObjectIDBase *     parse_object_id_tail(Args & args, SkClass * class_p = nullptr) const;
+      SkObjectID *         parse_object_id_tail(Args & args, SkClass * class_p = nullptr) const;
       SkInvocation *       parse_prefix_operator_expr(const ASymbol & op_name, Args & args) const;
       bool                 parse_statement_append(Args & args, eSkInvokeTime desired_exec_time = SkInvokeTime_any) const;
       bool                 parse_temporary_append(Args & args) const;
@@ -1033,7 +1021,7 @@ class SK_API SkParser : public AString
 
       ASymbol as_symbol(                uint32_t start_pos, uint32_t end_pos) const;
       bool    is_constructor(           uint32_t start_pos = 0u) const;
-      eResult parse_digits_lead(        uint32_t start_pos, uint32_t * end_pos_p, SkIntegerType * int_p) const;
+      eResult parse_digits_lead(        uint32_t start_pos, uint32_t * end_pos_p, tSkInteger * int_p) const;
       void    parse_name_symbol(        uint32_t start_pos, uint32_t * end_pos_p, ASymbol * name_p = nullptr) const;
       eResult parse_name_predicate(     uint32_t start_pos, uint32_t * end_pos_p, ASymbol * name_p = nullptr, bool * predicate_p = nullptr, bool test_resevered = true) const;
       eResult parse_named_specifier(    uint32_t start_pos, uint32_t * end_pos_p = nullptr, const SkParameters * params_p = nullptr, uint32_t * arg_idx_p = nullptr, SkParameters::eType param_type = SkParameters::Type_send) const;
@@ -1049,11 +1037,6 @@ class SK_API SkParser : public AString
 
 
   // Data Members
-
-    // Customized settings and behavior for the parser - passed in the constructor or it
-    // uses the default one stored in `SkParser::ms_defaults_p` which is set with
-    // SkParser::set_custom_defaults().
-    SkParserCustomBase * m_customizations_p;
 
     // Parse flags - see SkParser::eFlag
     AFlagSet32 m_flags;
@@ -1071,8 +1054,6 @@ class SK_API SkParser : public AString
     mutable SkCode * m_current_block_p;
 
   // Class Data Members
-
-    static SkParserCustomBase * ms_defaults_p;
 
     // Initial flags for new SkParser objects if flags are not otherwise specified.
     // - see m_flags and eFlag

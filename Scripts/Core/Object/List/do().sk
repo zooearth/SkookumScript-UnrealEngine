@@ -29,16 +29,7 @@
   // Here is the equivalent script for reference:
   /*
   [
-  !count: length
-  !idx:   0
-  
-  loop
-    [
-    if idx >= count [exit]
-    code(at(idx))
-    idx++
-    ]
-    
+  length.do[code(at(idx))]
   this  
   ]  
   */

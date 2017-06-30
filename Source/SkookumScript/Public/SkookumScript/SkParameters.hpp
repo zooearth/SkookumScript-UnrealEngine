@@ -146,7 +146,7 @@ class SK_API SkParameters : public ARefCountMix<SkParameters>
     #endif
 
     static void shared_empty()               { ms_shared_params.free_all(); }  
-    static void shared_ensure_references();
+    static bool shared_ensure_references();
     static void shared_track_memory(AMemoryStats * mem_stats_p);
 
 

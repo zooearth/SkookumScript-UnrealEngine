@@ -111,3 +111,14 @@ AStringRef * AStringRef::get_empty()
 
   return &s_empty;
   }
+
+#ifdef A_IS_DLL
+
+//---------------------------------------------------------------------------------------
+// Get the global pool of AStringRefs
+AObjReusePool<AStringRef> & AStringRef::get_pool()
+  {
+  return ms_pool;
+  }
+
+#endif

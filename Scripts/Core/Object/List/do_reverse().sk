@@ -19,15 +19,7 @@
 ((ItemClass_ item) code) ThisClass_
 
   [
-  !idx:  length
-  !zero: 0
-  
-  loop
-    [
-    if idx <= zero [exit]
-    idx--
-    code(at(idx))
-    ]
-    
+  // $Revisit - CReis Rewrite as C++ call
+  length.do_reverse[code(at(idx))]
   this  
-  ]  
+  ]

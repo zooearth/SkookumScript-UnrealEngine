@@ -74,6 +74,9 @@ class SkUERemote : public SkRemoteRuntimeBase
     void                      clear_load_compiled_binaries_requested()    { m_remote_binaries = CompiledState_unknown; }
     bool                      is_compiled_binaries_have_errors() const    { return m_remote_binaries == CompiledState_errors; }
 
+    bool                      does_class_data_need_to_be_regenerated() const { return m_class_data_needs_to_be_regenerated; }
+    void                      clear_class_data_need_to_be_regenerated()      { m_class_data_needs_to_be_regenerated = false; }
+
     void                      set_last_connected_to_ide(bool last_connected_to_ide) { m_last_connected_to_ide = last_connected_to_ide; }
     bool                      get_last_connected_to_ide() const                     { return m_last_connected_to_ide; }
 
@@ -149,6 +152,9 @@ class SkUERemote : public SkRemoteRuntimeBase
 
     // If we were recently connected to the IDE
     bool  m_last_connected_to_ide;
+
+    // If all class data needs to be regenerated
+    bool  m_class_data_needs_to_be_regenerated;
 
   };  // SkUERemote
 

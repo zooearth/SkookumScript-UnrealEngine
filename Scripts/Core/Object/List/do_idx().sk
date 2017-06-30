@@ -31,16 +31,11 @@
 
 ((ItemClass_ item Integer idx) code) ThisClass_
 
+  // This is implemented in C++ for additional speed.
+  // Here is the equivalent script for reference:
+  /*
   [
-  !count: length
-  !idx:   0
-  
-  loop
-    [
-    if idx >= count [exit]
-    code(at(idx) idx)
-    idx++
-    ]
-    
+  length.do[code(at(idx) idx)]
   this  
   ]  
+  */
