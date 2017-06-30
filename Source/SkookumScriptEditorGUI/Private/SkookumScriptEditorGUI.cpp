@@ -35,6 +35,7 @@
 #include "SlateStyleRegistry.h"
 #include "Misc/AssertionMacros.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSkookumScriptEditorGUI, Log, All);
 
@@ -61,6 +62,23 @@ protected:
   void                    add_skookum_button_to_blueprint_tool_bar(FToolBarBuilder &);
   void                    on_skookum_button_clicked();
 
+  // Helper class
+  class SharedHelper
+    {
+    public:      
+      SharedHelper(ISkookumScriptRuntime * runtime_p) : m_runtime_p(runtime_p) {}
+
+      FSlateIcon  get_sk_icon() const;
+      FText       get_lvl_tooltip() const;
+      FText       get_bp_tooltip() const;
+      
+      void        on_application_focus_changed(const bool is_active);
+
+    protected:
+      ISkookumScriptRuntime * m_runtime_p;
+
+    };
+
   // Data members
 
   TSharedPtr<IModuleInterface>      m_runtime_p;  // TSharedPtr holds on to the module so it can't go away while we need it
@@ -74,6 +92,10 @@ protected:
   TSharedPtr<FExtensibilityManager> m_blueprint_extension_manager;
   TSharedPtr<const FExtensionBase>  m_blueprint_tool_bar_extension;
   TSharedPtr<FExtender>             m_blueprint_tool_bar_extender;
+
+  FDelegateHandle                   m_on_application_focus_changed_handle;
+
+  TSharedPtr<SharedHelper>          m_helper_p;
   };
 
 IMPLEMENT_MODULE(FSkookumScriptEditorGUI, SkookumScriptEditorGUI)
@@ -122,6 +144,13 @@ void FSkookumScriptEditorGUI::StartupModule()
     FBlueprintEditorModule & blueprint_editor_module = FModuleManager::LoadModuleChecked<FBlueprintEditorModule>("Kismet");
     m_blueprint_extension_manager = blueprint_editor_module.GetMenuExtensibilityManager();
     m_blueprint_extension_manager->AddExtender(m_blueprint_tool_bar_extender);
+
+    // Create helper
+    m_helper_p = MakeShareable(new SharedHelper(get_runtime()));
+
+    // Hook into application focus change event
+    // Unsupported in 4.11, so auto-refresh on application focus not supported in this plugin edition
+    //m_on_application_focus_changed_handle = FSlateApplication::Get().OnApplicationActivationStateChanged().AddSP(m_helper_p.ToSharedRef(), &SharedHelper::on_application_focus_changed);
     }
   }
 
@@ -140,6 +169,8 @@ void FSkookumScriptEditorGUI::ShutdownModule()
 
   if (!IsRunningCommandlet())
     {
+    // FSlateApplication has already been deleted at this point
+    // FSlateApplication::Get().OnApplicationActivationStateChanged().Remove(m_on_application_focus_changed_handle);
 
     if (m_level_extension_manager.IsValid())
       {
@@ -177,8 +208,13 @@ void FSkookumScriptEditorGUI::add_skookum_button_to_level_tool_bar(FToolBarBuild
   {
   #define LOCTEXT_NAMESPACE "LevelEditorToolBar"
 
-    FSlateIcon icon_brush = FSlateIcon(FSkookumStyles::GetStyleSetName(), "SkookumScriptEditor.ShowIDE", "SkookumScriptEditor.ShowIDE.Small");
-    builder.AddToolBarButton(FSkookumScriptEditorCommands::Get().m_skookum_button, NAME_None, LOCTEXT("SkookumButton_Override", "SkookumIDE"), LOCTEXT("SkookumButton_ToolTipOverride", "Summons the SkookumIDE and navigates to the related class"), icon_brush, NAME_None);
+    builder.AddToolBarButton(
+      FSkookumScriptEditorCommands::Get().m_skookum_button, 
+      NAME_None, 
+      LOCTEXT("SkookumButton_Override", "SkookumIDE"), 
+      TAttribute<FText>(m_helper_p.ToSharedRef(), &SharedHelper::get_lvl_tooltip),
+      TAttribute<FSlateIcon>(m_helper_p.ToSharedRef(), &SharedHelper::get_sk_icon),
+      NAME_None);
 
   #undef LOCTEXT_NAMESPACE
   }
@@ -189,8 +225,13 @@ void FSkookumScriptEditorGUI::add_skookum_button_to_blueprint_tool_bar(FToolBarB
   {
   #define LOCTEXT_NAMESPACE "BlueprintEditorToolBar"
 
-    FSlateIcon icon_brush = FSlateIcon(FSkookumStyles::GetStyleSetName(), "SkookumScriptEditor.ShowIDE", "SkookumScriptEditor.ShowIDE.Small");
-    builder.AddToolBarButton(FSkookumScriptEditorCommands::Get().m_skookum_button, NAME_None, LOCTEXT("SkookumButton_Override", "Show in IDE"), LOCTEXT("SkookumButton_ToolTipOverride", "Summons the SkookumIDE and navigates to the related class or method/coroutine"), icon_brush, NAME_None);
+  builder.AddToolBarButton(
+    FSkookumScriptEditorCommands::Get().m_skookum_button,
+    NAME_None,
+    LOCTEXT("SkookumButton_Override", "Show in IDE"),
+    TAttribute<FText>(m_helper_p.ToSharedRef(), &SharedHelper::get_bp_tooltip),
+    TAttribute<FSlateIcon>(m_helper_p.ToSharedRef(), &SharedHelper::get_sk_icon),
+    NAME_None);
 
   #undef LOCTEXT_NAMESPACE
   }
@@ -254,4 +295,46 @@ void FSkookumScriptEditorGUI::on_skookum_button_clicked()
 
   // Request recompilation if there have previously been errors
   get_runtime()->freshen_compiled_binaries_if_have_errors();
+  }
+
+//---------------------------------------------------------------------------------------
+
+FSlateIcon FSkookumScriptEditorGUI::SharedHelper::get_sk_icon() const
+  {
+  return m_runtime_p->is_connected_to_ide()
+    ? FSlateIcon(FSkookumStyles::GetStyleSetName(), "SkookumScriptEditor.ShowIDE_Connected", "SkookumScriptEditor.ShowIDE_Connected.Small")
+    : FSlateIcon(FSkookumStyles::GetStyleSetName(), "SkookumScriptEditor.ShowIDE_Disconnected", "SkookumScriptEditor.ShowIDE_Disconnected.Small");
+  }
+
+//---------------------------------------------------------------------------------------
+
+FText FSkookumScriptEditorGUI::SharedHelper::get_lvl_tooltip() const
+  {
+  #define LOCTEXT_NAMESPACE "LevelEditorToolBar"
+
+  return m_runtime_p->is_connected_to_ide()
+    ? LOCTEXT("SkookumButton_ToolTipOverride", "Summons the SkookumIDE and navigates to the related class")
+    : LOCTEXT("SkookumButton_ToolTipOverride", "Press to connect to the SkookumIDE");
+
+  #undef LOCTEXT_NAMESPACE
+  }
+
+//---------------------------------------------------------------------------------------
+
+FText FSkookumScriptEditorGUI::SharedHelper::get_bp_tooltip() const
+  {
+  #define LOCTEXT_NAMESPACE "BlueprintEditorToolBar"
+
+  return m_runtime_p->is_connected_to_ide()
+    ? LOCTEXT("SkookumButton_ToolTipOverride", "Summons the SkookumIDE and navigates to the related class or method/coroutine")
+    : LOCTEXT("SkookumButton_ToolTipOverride", "Press to connect to the SkookumIDE");
+
+  #undef LOCTEXT_NAMESPACE
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptEditorGUI::SharedHelper::on_application_focus_changed(const bool is_active)
+  {
+  m_runtime_p->on_application_focus_changed(is_active);
   }

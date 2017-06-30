@@ -118,7 +118,7 @@ class SK_API SkInvokedCoroutine :
     
     const ASymbol &         get_name() const;
     const SkCoroutineBase & get_coroutine() const;
-    void                    reset(f32 update_interval, SkInvokedBase * caller_p, SkInstance * scope_p, SkMind * updater_p = nullptr, const APCompactArray<SkIdentifierLocal> * rargs_p = nullptr);
+    void                    reset(f32 update_interval, SkInvokedBase * caller_p, SkInstance * scope_p, SkMind * updater_p = nullptr, const APArrayBase<SkIdentifierLocal> * rargs_p = nullptr);
     void                    set_coroutine(const SkCoroutineBase & coroutine);
 
     // Overriding from SkInvokedBase
@@ -152,7 +152,7 @@ class SK_API SkInvokedCoroutine :
     static SkInvokedCoroutine *  pool_new(const SkCoroutineBase * coroutine_p);
     static void                  pool_delete(SkInvokedCoroutine * icoroutine_p);
 
-    static A_FORCEINLINE AObjReusePool<SkInvokedCoroutine> & get_pool() { return ms_pool; }
+    static AObjReusePool<SkInvokedCoroutine> & get_pool();
 
   // SkookumScript Atomic Methods
 
@@ -177,7 +177,7 @@ class SK_API SkInvokedCoroutine :
 
     // Variable identifiers to bind any return argument results to or nullptr if no return
     // arguments used.
-    const APCompactArray<SkIdentifierLocal> * m_return_args_p;
+    const APArrayBase<SkIdentifierLocal> * m_return_args_p;
 
     // The mind that is updating/tracking this invoked coroutine.  It may be the same as
     // m_scope_p or it may not.
@@ -209,6 +209,17 @@ class SK_API SkInvokedCoroutine :
 // SkUserData rather than whole structure
 template<> inline SkInvokedCoroutine *  SkUserDataBase::as<SkInvokedCoroutine>() const           { return static_cast<SkInvokedCoroutine *>(as_stored<AIdPtr<SkInvokedBase>>()->get_obj()); }
 template<> inline void                  SkUserDataBase::set(SkInvokedCoroutine * const & value)  { *as_stored<AIdPtr<SkInvokedBase>>() = value; }
+
+#ifndef SK_IS_DLL
+
+//---------------------------------------------------------------------------------------
+// Get the global pool of SkInvokedCoroutines
+A_FORCEINLINE AObjReusePool<SkInvokedCoroutine> & SkInvokedCoroutine::get_pool()
+  {
+  return ms_pool;
+  }
+
+#endif
 
 #ifndef A_INL_IN_CPP
   #include <SkookumScript/SkInvokedCoroutine.inl>
