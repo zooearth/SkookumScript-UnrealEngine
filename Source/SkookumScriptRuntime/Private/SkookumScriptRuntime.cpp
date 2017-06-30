@@ -30,6 +30,7 @@
 #include "Bindings/SkUEReflectionManager.hpp"
 #include "Bindings/SkUESymbol.hpp"
 #include "Bindings/SkUEUtils.hpp"
+#include "Bindings/Engine/SkUEName.hpp"
 
 #include "SkookumScriptRuntimeGenerator.h"
 #include "SkookumScriptBehaviorComponent.h"
@@ -85,6 +86,12 @@ class FAppInfo : public AAppInfoCore, public SkAppInfo
 
     virtual bool               use_builtin_actor() const override;
     virtual ASymbol            get_custom_actor_class_name() const override;
+    virtual void               bind_name_construct(SkBindName * bind_name_p, const AString & value) const override;
+    virtual void               bind_name_destruct(SkBindName * bind_name_p) const override;
+    virtual void               bind_name_assign(SkBindName * bind_name_p, const AString & value) const override;
+    virtual AString            bind_name_as_string(const SkBindName & bind_name) const override;
+    virtual SkInstance *       bind_name_new_instance(const SkBindName & bind_name) const override;
+    virtual SkClass *          bind_name_class() const override;
 
   };
 
@@ -123,6 +130,8 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
       virtual void  set_editor_interface(ISkookumScriptRuntimeEditorInterface * editor_interface_p) override;
 
+      virtual bool  is_connected_to_ide() const override;
+      virtual void  on_application_focus_changed(bool is_active) override;
       virtual void  on_editor_map_opened() override;
       virtual void  show_ide(const FString & focus_class_name, const FString & focus_member_name, bool is_data_member, bool is_class_member) override;
       virtual void  freshen_compiled_binaries_if_have_errors() override;
@@ -134,9 +143,9 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual bool  is_skookum_reflected_call(UFunction * function_p) const override;
       virtual bool  is_skookum_reflected_event(UFunction * function_p) const override;
 
-      virtual void  on_class_added_or_modified(UBlueprintGeneratedClass * ue_class_p, bool check_if_reparented) override;
-      virtual void  on_class_renamed(UBlueprintGeneratedClass * ue_class_p, const FString & old_class_name) override;
-      virtual void  on_class_deleted(UBlueprintGeneratedClass * ue_class_p) override;
+      virtual void  on_class_added_or_modified(UBlueprint * blueprint_p, bool check_if_reparented) override;
+      virtual void  on_class_renamed(UBlueprint * blueprint_p, const FString & old_class_name) override;
+      virtual void  on_class_deleted(UBlueprint * blueprint_p) override;
 
       virtual void  on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p, bool check_if_reparented) override;
       virtual void  on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_class_name) override;
@@ -467,6 +476,48 @@ ASymbol FAppInfo::get_custom_actor_class_name() const
   return ASymbol_Actor;
   }
 
+//---------------------------------------------------------------------------------------
+
+void FAppInfo::bind_name_construct(SkBindName * bind_name_p, const AString & value) const
+  {
+  static_assert(sizeof(FName) <= sizeof(SkBindName), "FName must fit into SkBindName.");
+  new (bind_name_p) FName(value.as_cstr());
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FAppInfo::bind_name_destruct(SkBindName * bind_name_p) const
+  {
+  reinterpret_cast<FName *>(bind_name_p)->~FName();
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FAppInfo::bind_name_assign(SkBindName * bind_name_p, const AString & value) const
+  {
+  *reinterpret_cast<FName *>(bind_name_p) = FName(value.as_cstr());
+  }
+
+//---------------------------------------------------------------------------------------
+
+AString FAppInfo::bind_name_as_string(const SkBindName & bind_name) const
+  {
+  return AString(reinterpret_cast<const FName &>(bind_name).GetPlainANSIString(), true);
+  }
+
+//---------------------------------------------------------------------------------------
+
+SkInstance * FAppInfo::bind_name_new_instance(const SkBindName & bind_name) const
+  {
+  return SkUEName::new_instance(reinterpret_cast<const FName &>(bind_name));
+  }
+
+//---------------------------------------------------------------------------------------
+
+SkClass * FAppInfo::bind_name_class() const
+  {
+  return SkUEName::get_class();
+  }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // FSkookumScriptRuntime
@@ -835,7 +886,7 @@ void FSkookumScriptRuntime::ensure_runtime_initialized()
 
 void FSkookumScriptRuntime::compile_and_load_binaries()
   {
-  #ifdef SKOOKUM_REMOTE_UNREAL
+  #if defined(SKOOKUM_REMOTE_UNREAL) && WITH_EDITOR
     // Tell IDE to compile the binaries, then load them
     if (!IsRunningCommandlet() && allow_auto_connect_to_ide())
       {
@@ -844,40 +895,36 @@ void FSkookumScriptRuntime::compile_and_load_binaries()
 
       // Alert user in case we are still not connected - and allow for corrective measures
       bool load_binaries = true;
-      #if WITH_EDITOR
-        while (!m_remote_client.is_authenticated())
+      while (!m_remote_client.is_authenticated())
+        {
+        FText title = FText::FromString(TEXT("SkookumScript UE4 Plugin cannot connect to the SkookumIDE!"));
+        EAppReturnType::Type decision = FMessageDialog::Open(
+          EAppMsgType::CancelRetryContinue,
+          FText::Format(FText::FromString(TEXT(
+            "The SkookumScript UE4 Plugin cannot connect to the SkookumIDE. A connection to the SkookumIDE is required to properly work with SkookumScript.\n\n"
+            "The connection problem could be caused by any of the following situations:\n"
+            "- The SkookumIDE application is not running. If this is the case, your security software (Virus checker, VPN, Firewall) may have blocked or even removed it. If so, allow SkookumIDE.exe to run, then click 'Retry'. "
+            "You can also try to launch the IDE manually. It should be located at the following path: {0}. Once running, click 'Retry'.\n"
+            "- The SkookumIDE application is running, but stuck on an error. If so, try to resolve the error, and when the SkookumIDE is back up, click 'Retry'.\n"
+            "- The SkookumIDE application is running and seems to be working fine. "
+            "If so, the IP and port that the SkookumScript UE4 Plugin is trying to connect to ({1}) might be different from the IP and port that the SkookumIDE is listening to (see SkookumIDE log window), or blocked by a firewall. "
+            "These problems could be due to your networking environment, such as a custom firewall, virtualization software such as VirtualBox, or multiple network adapters.\n\n"
+            "For additional information including how to specify the SkookumIDE address for the runtime, please see http://skookumscript.com/docs/v3.0/ide/ip-addresses/ and ensure 'Settings'->'Remote runtimes' on the SkookumIDE is set properly.\n\n"
+            "If you are having difficulties resolving this issue, please don't hesitate to ask us for help at the SkookumScript Forum (http://forum.skookumscript.com). We are here to make your experience skookum!\n")), 
+            FText::FromString(FPaths::ConvertRelativePathToFull(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("SkookumIDE") / TEXT("SkookumIDE.exe"))),
+            FText::FromString(m_remote_client.get_ip_address_ide()->ToString(true))),
+          &title);
+        if (decision != EAppReturnType::Retry)
           {
-          FText title = FText::FromString(TEXT("SkookumScript UE4 Plugin cannot connect to the SkookumIDE!"));
-          EAppReturnType::Type decision = FMessageDialog::Open(
-            EAppMsgType::CancelRetryContinue,
-            FText::Format(FText::FromString(TEXT(
-              "The SkookumScript UE4 Plugin cannot connect to the SkookumIDE. A connection to the SkookumIDE is required to properly work with SkookumScript.\n\n"
-              "The connection problem could be caused by any of the following situations:\n"
-              "- The SkookumIDE application is not running. If this is the case, your security software (Virus checker, VPN, Firewall) may have blocked or even removed it. If so, allow SkookumIDE.exe to run, then click 'Retry'. "
-              "You can also try to launch the IDE manually. It should be located at the following path: {0}. Once running, click 'Retry'.\n"
-              "- The SkookumIDE application is running, but stuck on an error. If so, try to resolve the error, and when the SkookumIDE is back up, click 'Retry'.\n"
-              "- The SkookumIDE application is running and seems to be working fine. "
-              "If so, the IP and port that the SkookumScript UE4 Plugin is trying to connect to ({1}) might be different from the IP and port that the SkookumIDE is listening to (see SkookumIDE log window), or blocked by a firewall. "
-              "These problems could be due to your networking environment, such as a custom firewall, virtualization software such as VirtualBox, or multiple network adapters.\n\n"
-              "For additional information including how to specify the SkookumIDE address for the runtime, please see http://skookumscript.com/docs/v3.0/ide/ip-addresses/ and ensure 'Settings'->'Remote runtimes' on the SkookumIDE is set properly.\n\n"
-              "If you are having difficulties resolving this issue, please don't hesitate to ask us for help at the SkookumScript Forum (http://forum.skookumscript.com). We are here to make your experience skookum!\n")), 
-              FText::FromString(FPaths::ConvertRelativePathToFull(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir() / TEXT("SkookumIDE") / TEXT("SkookumIDE.exe"))),
-              FText::FromString(m_remote_client.get_ip_address_ide()->ToString(true))),
-            &title);
-          if (decision != EAppReturnType::Retry)
-            {
-            load_binaries = (decision == EAppReturnType::Continue);
-            break;
-            }
-          m_remote_client.ensure_connected(10.0);
+          load_binaries = (decision == EAppReturnType::Continue);
+          break;
           }
-      #endif
+        m_remote_client.ensure_connected(10.0);
+        }
 
       if (load_binaries && m_remote_client.is_authenticated())
         {
-      #if WITH_EDITOR
-        RetryCompilation:
-      #endif
+      RetryCompilation:
         // Block while binaries are being recompiled
         m_remote_client.cmd_compiled_state(true);
         m_freshen_binaries_requested = false; // Request satisfied
@@ -886,30 +933,28 @@ void FSkookumScriptRuntime::compile_and_load_binaries()
           {
           m_remote_client.wait_for_update();
           }
-        #if WITH_EDITOR
-          if (m_remote_client.is_compiled_binaries_have_errors())
+        if (m_remote_client.is_compiled_binaries_have_errors())
+          {
+          FText title = FText::FromString(TEXT("Compilation errors!"));
+          EAppReturnType::Type decision = FMessageDialog::Open(
+            EAppMsgType::CancelRetryContinue,
+            FText::FromString(TEXT(
+              "The SkookumScript compiled binaries could not be generated because errors were found in the script files.\n\n"
+              "Check the IDE if the errors are in your project code and can be easily fixed. If so, fix them then hit 'Retry'.\n\n"
+              "If the errors are in an overlay named 'Project-Generated' or 'Project-Generated-BP', the scripts in that overlay might have to be regenerated. "
+              "To do this click 'Cancel'. UE4 will continue loading with script execution disabled and regenerate the script code. Then restart UE4 and all should be good.\n\n"
+              "If the above did not help, (and the errors are in an overlay named 'Project-Generated' or 'Project-Generated-BP'), deleting the folder these files are in might help. "
+              "In the IDE, when displaying the error, right-click on the script that has the error and choose 'Show in Explorer'. "
+              "Make sure the folder is inside 'Project-Generated' or 'Project-Generated-BP'. If so, delete the folder you opened up, and recompile in the IDE."
+            )),
+            &title);
+          if (decision == EAppReturnType::Retry)
             {
-            FText title = FText::FromString(TEXT("Compilation errors!"));
-            EAppReturnType::Type decision = FMessageDialog::Open(
-              EAppMsgType::CancelRetryContinue,
-              FText::FromString(TEXT(
-                "The SkookumScript compiled binaries could not be generated because errors were found in the script files.\n\n"
-                "Check the IDE if the errors are in your project code and can be easily fixed. If so, fix them then hit 'Retry'.\n\n"
-                "If the errors are in an overlay named 'Project-Generated' or 'Project-Generated-BP', the scripts in that overlay might have to be regenerated. "
-                "To do this click 'Cancel'. UE4 will continue loading with script execution disabled and regenerate the script code. Then restart UE4 and all should be good.\n\n"
-                "If the above did not help, (and the errors are in an overlay named 'Project-Generated' or 'Project-Generated-BP'), deleting the folder these files are in might help. "
-                "In the IDE, when displaying the error, right-click on the script that has the error and choose 'Show in Explorer'. "
-                "Make sure the folder is inside 'Project-Generated' or 'Project-Generated-BP'. If so, delete the folder you opened up, and recompile in the IDE."
-              )),
-              &title);
-            if (decision == EAppReturnType::Retry)
-              {
-              m_remote_client.clear_load_compiled_binaries_requested();
-              goto RetryCompilation;
-              }
-            load_binaries = (decision == EAppReturnType::Continue);
+            m_remote_client.clear_load_compiled_binaries_requested();
+            goto RetryCompilation;
             }
-        #endif
+          load_binaries = (decision == EAppReturnType::Continue);
+          }
         m_remote_client.clear_load_compiled_binaries_requested();
         }
 
@@ -937,7 +982,7 @@ void FSkookumScriptRuntime::compile_and_load_binaries()
     else if (!is_dormant()) // Don't load binaries if dormant since the binaries might have issues
   #endif
       {
-      // If no remote connection, or commandlet mode, load binaries at this point
+      // If no remote connection, or commandlet mode, or cooked build, load binaries at this point
       bool success_b = m_runtime.load_compiled_scripts();
       SK_ASSERTX(success_b, AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
       }
@@ -1020,9 +1065,19 @@ void FSkookumScriptRuntime::tick_remote()
         bool success_b = m_runtime.load_and_bind_compiled_scripts(true);
         SK_ASSERTX(success_b, AErrMsg("Unable to load SkookumScript compiled binaries!", AErrLevel_notify));
         m_remote_client.clear_load_compiled_binaries_requested();
+
+        // If class data needs to be generated, generate it now
+        #if WITH_EDITORONLY_DATA
+          if (m_remote_client.does_class_data_need_to_be_regenerated())
+            {
+            m_generator.generate_all_class_script_files(true, false);
+            m_remote_client.clear_class_data_need_to_be_regenerated();
+            }
+        #endif
+
+        // Inform the IDE about the version we got
         if (success_b)
           {
-          // Inform the IDE about the version we got
           m_remote_client.cmd_incremental_update_reply(true, SkBrain::ms_session_guid, SkBrain::ms_revision);
           }
         }
@@ -1072,13 +1127,41 @@ void FSkookumScriptRuntime::set_editor_interface(ISkookumScriptRuntimeEditorInte
   }
 
 //---------------------------------------------------------------------------------------
+
+bool FSkookumScriptRuntime::is_connected_to_ide() const
+  {
+  #ifdef SKOOKUM_REMOTE_UNREAL
+    return m_remote_client.is_authenticated();
+  #else
+    return false;
+  #endif
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_application_focus_changed(bool is_active)
+  {
+  if (is_active && !is_dormant())
+    {
+    if (m_generator.reload_skookumscript_ini())
+      {
+      m_generator.generate_all_class_script_files(true, true);
+      }
+    }
+  }
+
+//---------------------------------------------------------------------------------------
 // 
 void FSkookumScriptRuntime::on_editor_map_opened()
   {
   if (!is_dormant())
     {
     // Regenerate them all just to be sure
-    m_generator.generate_all_class_script_files();
+    m_generator.generate_all_class_script_files(true, true);
+
+    #ifdef SKOOKUM_REMOTE_UNREAL
+      m_remote_client.clear_class_data_need_to_be_regenerated();
+    #endif
     }
   }
 
@@ -1176,9 +1259,11 @@ bool FSkookumScriptRuntime::is_skookum_reflected_event(UFunction * function_p) c
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::on_class_added_or_modified(UBlueprintGeneratedClass * ue_class_p, bool check_if_reparented)
+void FSkookumScriptRuntime::on_class_added_or_modified(UBlueprint * blueprint_p, bool check_if_reparented)
   {
-  if (!is_dormant())
+  // Only do something if the blueprint has a class
+  UClass * ue_class_p = blueprint_p->GeneratedClass;
+  if (ue_class_p && !is_dormant())
     {
     // Generate script files for the new/changed class
     m_generator.generate_class_script_files(ue_class_p, true, true, check_if_reparented);
@@ -1198,7 +1283,7 @@ void FSkookumScriptRuntime::on_class_added_or_modified(UBlueprintGeneratedClass 
       m_runtime.sync_all_reflected_to_ue(true);
 
       // Re-resolve the raw data if applicable
-      if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p))
+      if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p, ue_class_p))
         {
         SkUEClassBindingHelper::resolve_raw_data(sk_class_p, ue_class_p);
         }
@@ -1208,21 +1293,21 @@ void FSkookumScriptRuntime::on_class_added_or_modified(UBlueprintGeneratedClass 
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::on_class_renamed(UBlueprintGeneratedClass * ue_class_p, const FString & old_class_name)
+void FSkookumScriptRuntime::on_class_renamed(UBlueprint * blueprint_p, const FString & old_class_name)
   {
   if (!is_dormant())
     {
-    m_generator.rename_class_script_files(ue_class_p, old_class_name);
+    m_generator.rename_class_script_files(blueprint_p, old_class_name);
     }
   }
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::on_class_deleted(UBlueprintGeneratedClass * ue_class_p)
+void FSkookumScriptRuntime::on_class_deleted(UBlueprint * blueprint_p)
   {
   if (!is_dormant())
     {
-    m_generator.delete_class_script_files(ue_class_p);
+    m_generator.delete_class_script_files(blueprint_p);
     }
   }
 
@@ -1230,17 +1315,19 @@ void FSkookumScriptRuntime::on_class_deleted(UBlueprintGeneratedClass * ue_class
 
 void FSkookumScriptRuntime::on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p, bool check_if_reparented)
   {
-  if (false && !is_dormant()) // MJB UUserDefinedStruct support disabled for now
+  if (!is_dormant())
     {
     // Generate script files for the new/changed class
     m_generator.generate_class_script_files(ue_struct_p, true, true, check_if_reparented);
+    // Also generate parent class "UStruct"
+    m_generator.generate_root_meta_file(TEXT("UStruct"));
 
     // Find associated SkClass if any
     SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_struct(ue_struct_p);
     if (sk_class_p)
       {
       // Re-resolve the raw data if applicable
-      if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p))
+      if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p, ue_struct_p))
         {
         SkUEClassBindingHelper::resolve_raw_data(sk_class_p, ue_struct_p);
         }
@@ -1252,7 +1339,7 @@ void FSkookumScriptRuntime::on_struct_added_or_modified(UUserDefinedStruct * ue_
 
 void FSkookumScriptRuntime::on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_class_name)
   {
-  if (false && !is_dormant()) // MJB UUserDefinedStruct support disabled for now
+  if (!is_dormant())
     {
     m_generator.rename_class_script_files(ue_struct_p, old_class_name);
     }
@@ -1262,7 +1349,7 @@ void FSkookumScriptRuntime::on_struct_renamed(UUserDefinedStruct * ue_struct_p, 
 
 void FSkookumScriptRuntime::on_struct_deleted(UUserDefinedStruct * ue_struct_p)
   {
-  if (false && !is_dormant()) // MJB UUserDefinedStruct support disabled for now
+  if (!is_dormant())
     {
     m_generator.delete_class_script_files(ue_struct_p);
     }
@@ -1276,6 +1363,8 @@ void FSkookumScriptRuntime::on_enum_added_or_modified(UUserDefinedEnum * ue_enum
     {
     // Generate script files for the new/changed enum
     m_generator.generate_class_script_files(ue_enum_p, true, true, check_if_reparented);
+    // Also generate parent class "Enum"
+    m_generator.generate_root_meta_file(TEXT("Enum"));
     }
   }
 
@@ -1312,11 +1401,7 @@ void FSkookumScriptRuntime::PreCompile(UBlueprint * blueprint_p)
 void FSkookumScriptRuntime::PostCompile(UBlueprint * blueprint_p)
   {
   // Slap a USkookumScriptInstanceProperty onto the newly generated class
-  UBlueprintGeneratedClass * ue_class_p = Cast<UBlueprintGeneratedClass>(blueprint_p->GeneratedClass);
-  if (ue_class_p)
-    {
-    on_class_added_or_modified(ue_class_p, false);
-    }
+  on_class_added_or_modified(blueprint_p, false);
   }
 
 #endif // WITH_EDITOR

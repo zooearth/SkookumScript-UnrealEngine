@@ -61,10 +61,10 @@ struct SkUserData : private SkUserDataBase
   // placeholder union to reserve appropriate space
   union
     {
-    SkBooleanType   m_boolean;
-    SkIntegerType   m_integer;
-    SkRealType      m_real;
-    SkEnumType      m_enum;
+    tSkBoolean   m_boolean;
+    tSkInteger   m_integer;
+    tSkReal      m_real;
+    tSkEnum      m_enum;
     uintptr_t       m_uintptr;
     void *          m_ptr[_SizeInPtrs];
     }               m_data;
@@ -77,22 +77,22 @@ struct SkUserData : private SkUserDataBase
 //---------------------------------------------------------------------------------------
 // A few common specializations of SkUserDataBase::as()
 
-template<> inline SkIntegerType * SkUserDataBase::as<SkIntegerType>() const { return as_stored<SkIntegerType>(); }
-template<> inline SkRealType    * SkUserDataBase::as<SkRealType   >() const { return as_stored<SkRealType   >(); }
-template<> inline SkCharType    * SkUserDataBase::as<SkCharType   >() const { return as_stored<SkCharType   >(); }
-template<> inline SkBooleanType * SkUserDataBase::as<SkBooleanType>() const { return as_stored<SkBooleanType>(); }
-template<> inline SkEnumType    * SkUserDataBase::as<SkEnumType   >() const { return as_stored<SkEnumType   >(); }
+template<> inline tSkInteger * SkUserDataBase::as<tSkInteger>() const { return as_stored<tSkInteger>(); }
+template<> inline tSkReal    * SkUserDataBase::as<tSkReal   >() const { return as_stored<tSkReal   >(); }
+template<> inline tSkChar    * SkUserDataBase::as<tSkChar   >() const { return as_stored<tSkChar   >(); }
+template<> inline tSkBoolean * SkUserDataBase::as<tSkBoolean>() const { return as_stored<tSkBoolean>(); }
+template<> inline tSkEnum    * SkUserDataBase::as<tSkEnum   >() const { return as_stored<tSkEnum   >(); }
 template<> inline AString       * SkUserDataBase::as<AString      >() const { return as_stored<AString      >(); }
 template<> inline ASymbol       * SkUserDataBase::as<ASymbol      >() const { return as_stored<ASymbol      >(); }
 
 //---------------------------------------------------------------------------------------
 // A few common specializations of SkUserDataBase::set()
 
-template<> inline void SkUserDataBase::set(const SkIntegerType & value) { *as_stored<SkIntegerType>() = value; }
-template<> inline void SkUserDataBase::set(const SkRealType    & value) { *as_stored<SkRealType   >() = value; }
-template<> inline void SkUserDataBase::set(const SkCharType    & value) { *as_stored<SkCharType   >() = value; }
-template<> inline void SkUserDataBase::set(const SkBooleanType & value) { *as_stored<SkBooleanType>() = value; }
-template<> inline void SkUserDataBase::set(const SkEnumType    & value) { *as_stored<SkEnumType   >() = value; }
+template<> inline void SkUserDataBase::set(const tSkInteger & value) { *as_stored<tSkInteger>() = value; }
+template<> inline void SkUserDataBase::set(const tSkReal    & value) { *as_stored<tSkReal   >() = value; }
+template<> inline void SkUserDataBase::set(const tSkChar    & value) { *as_stored<tSkChar   >() = value; }
+template<> inline void SkUserDataBase::set(const tSkBoolean & value) { *as_stored<tSkBoolean>() = value; }
+template<> inline void SkUserDataBase::set(const tSkEnum    & value) { *as_stored<tSkEnum   >() = value; }
 template<> inline void SkUserDataBase::set(const AString       & value) { *as_stored<AString      >() = value; }
 template<> inline void SkUserDataBase::set(const ASymbol       & value) { *as_stored<ASymbol      >() = value; }
 

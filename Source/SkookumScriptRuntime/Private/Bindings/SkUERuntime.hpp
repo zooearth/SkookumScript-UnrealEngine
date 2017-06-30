@@ -49,7 +49,6 @@ class SkUEBindingsInterface;
 // SkookumScript Runtime Hooks for Unreal
 // - Input/Output Init/Update/Deinit Manager
 class SkUERuntime :
-  public SkParserCustomBase,  // Since the runtime may need to parse text code
   public SkRuntimeBase
   {
   public:
@@ -87,15 +86,6 @@ class SkUERuntime :
         virtual SkBinaryHandle * get_binary_hierarchy() override;
         virtual SkBinaryHandle * get_binary_class_group(const SkClass & cls) override;
         virtual void             release_binary(SkBinaryHandle * handle_p) override;
-
-        #if (SKOOKUM & SK_COMPILED_IN)
-          virtual SkObjectIDBase * object_id_binary_new(const void ** binary_pp) override;
-        #endif
-
-        #if (SKOOKUM & SK_CODE_IN)
-          virtual SkObjectIDBase * object_id_new(const ASymbol & name, SkClass * class_p, uint32_t flags) override;
-          virtual SkClass *        object_id_name_class() override;
-        #endif
 
         #if defined(A_SYMBOL_STR_DB_AGOG)  
           virtual SkBinaryHandle * get_binary_symbol_table() override;
@@ -135,7 +125,7 @@ class SkUERuntime :
       mutable FString     m_compiled_path;
 
       SkookumScriptListenerManager m_listener_manager;
-      SkUEReflectionManager       m_reflection_manager;
+      SkUEReflectionManager        m_reflection_manager;
 
       SkUEBindingsInterface *                 m_project_generated_bindings_p;
       ISkookumScriptRuntimeEditorInterface *  m_editor_interface_p;

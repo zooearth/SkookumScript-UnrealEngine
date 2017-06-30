@@ -26,6 +26,9 @@
 ; Integer index_found  
 ) Boolean
 
+  // This is implemented in C++ for additional speed.
+  // Here is the equivalent script for reference:
+  /*
   [
   !count:   length
   !idx:     0
@@ -48,4 +51,6 @@
 
   index_found: idx
   result?
-  ]  
+  ]
+  */
+    
