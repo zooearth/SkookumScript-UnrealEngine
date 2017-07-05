@@ -1845,9 +1845,9 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_transform(FFrame & stack, con
 
 SkInstance * SkUEReflectionManager::fetch_k2_param_struct_val(FFrame & stack, const ReflectedCallParam & value_type)
   {
-  void * user_data_p;
-  SkInstance * instance_p = SkInstance::new_instance_uninitialized_val(value_type.m_sk_class_p, value_type.m_byte_size, &user_data_p);
-  stack.StepCompiledIn<UStructProperty>(user_data_p);
+  void * dest_p;
+  SkInstance * instance_p = SkInstance::new_instance_uninitialized_val(value_type.m_sk_class_p, value_type.m_byte_size, &dest_p);
+  stack.StepCompiledIn<UStructProperty>(dest_p);
   return instance_p;
   }
 
@@ -1855,9 +1855,9 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_struct_val(FFrame & stack, co
 
 SkInstance * SkUEReflectionManager::fetch_k2_param_struct_ref(FFrame & stack, const ReflectedCallParam & value_type)
   {
-  void * user_data_p;
-  SkInstance * instance_p = SkInstance::new_instance_uninitialized_ref(value_type.m_sk_class_p, value_type.m_byte_size, &user_data_p);
-  stack.StepCompiledIn<UStructProperty>(user_data_p);
+  void * dest_p;
+  SkInstance * instance_p = SkInstance::new_instance_uninitialized_ref(value_type.m_sk_class_p, value_type.m_byte_size, &dest_p);
+  stack.StepCompiledIn<UStructProperty>(dest_p);
   return instance_p;
   }
 
@@ -1968,9 +1968,24 @@ SkInstance * SkUEReflectionManager::fetch_k2_value_transform(const void * value_
 
 SkInstance * SkUEReflectionManager::fetch_k2_value_struct_val(const void * value_p, const TypedName & value_type)
   {
-  void * user_data_p;
-  SkInstance * instance_p = SkInstance::new_instance_uninitialized_val(value_type.m_sk_class_p, value_type.m_byte_size, &user_data_p);
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(user_data_p), reinterpret_cast<const uint32_t *>(value_p), value_type.m_byte_size);
+  void * dest_p;
+  SkInstance * instance_p = SkInstance::new_instance_uninitialized_val(value_type.m_sk_class_p, value_type.m_byte_size, &dest_p);
+
+  const UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(value_type.m_sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 struct for Sk class '%s'.", value_type.m_sk_class_name.as_cstr()));
+  #ifdef SK_RUNTIME_RECOVER
+    if (!ue_struct_p)
+      {
+      // Can't find struct - use memcpy and hope that works
+      FMemory::Memcpy(dest_p, value_p, value_type.m_byte_size);
+      }
+    else
+  #endif
+      {
+      // Use proper copy that correctly copies arrays etc.
+      ue_struct_p->InitializeStruct(dest_p);
+      ue_struct_p->CopyScriptStruct(dest_p, value_p);
+      }
   return instance_p;
   }
 
@@ -1978,9 +1993,24 @@ SkInstance * SkUEReflectionManager::fetch_k2_value_struct_val(const void * value
 
 SkInstance * SkUEReflectionManager::fetch_k2_value_struct_ref(const void * value_p, const TypedName & value_type)
   {
-  void * user_data_p;
-  SkInstance * instance_p = SkInstance::new_instance_uninitialized_ref(value_type.m_sk_class_p, value_type.m_byte_size, &user_data_p);
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(user_data_p), reinterpret_cast<const uint32_t *>(value_p), value_type.m_byte_size);
+  void * dest_p;
+  SkInstance * instance_p = SkInstance::new_instance_uninitialized_ref(value_type.m_sk_class_p, value_type.m_byte_size, &dest_p);
+
+  const UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(value_type.m_sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 struct for Sk class '%s'.", value_type.m_sk_class_name.as_cstr()));
+  #ifdef SK_RUNTIME_RECOVER
+    if (!ue_struct_p)
+      {
+      // Can't find struct - use memcpy and hope that works
+      FMemory::Memcpy(dest_p, value_p, value_type.m_byte_size);
+      }
+    else
+  #endif
+      {
+      // Use proper copy that correctly copies arrays etc.
+      ue_struct_p->InitializeStruct(dest_p);
+      ue_struct_p->CopyScriptStruct(dest_p, value_p);
+      }
   return instance_p;
   }
 
@@ -2067,14 +2097,40 @@ void SkUEReflectionManager::assign_k2_value_transform(SkInstance * dest_p, const
 
 void SkUEReflectionManager::assign_k2_value_struct_val(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p->get_raw_pointer_val()), reinterpret_cast<const uint32_t *>(value_p), value_type.m_byte_size);
+  const UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(value_type.m_sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 struct for Sk class '%s'.", value_type.m_sk_class_name.as_cstr()));
+  #ifdef SK_RUNTIME_RECOVER
+    if (!ue_struct_p)
+      {
+      // Unknown struct - use memcpy and hope that works
+      FMemory::Memcpy(dest_p->get_raw_pointer_val(), value_p, value_type.m_byte_size);
+      }
+    else
+  #endif
+      {
+      // Use proper copy that correctly copies arrays etc.
+      ue_struct_p->CopyScriptStruct(dest_p->get_raw_pointer_val(), value_p);
+      }
   }
 
 //---------------------------------------------------------------------------------------
 
 void SkUEReflectionManager::assign_k2_value_struct_ref(SkInstance * dest_p, const void * value_p, const ReflectedEventParam & value_type)
   {
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p->get_raw_pointer_ref()), reinterpret_cast<const uint32_t *>(value_p), value_type.m_byte_size);
+  const UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(value_type.m_sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 struct for Sk class '%s'.", value_type.m_sk_class_name.as_cstr()));
+  #ifdef SK_RUNTIME_RECOVER
+    if (!ue_struct_p)
+      {
+      // Can't find struct - use memcpy and hope that works
+      FMemory::Memcpy(dest_p->get_raw_pointer_ref(), value_p, value_type.m_byte_size);
+      }
+    else
+  #endif
+      {
+      // Use proper copy that correctly copies arrays etc.
+      ue_struct_p->CopyScriptStruct(dest_p->get_raw_pointer_ref(), value_p);
+      }
   }
 
 //---------------------------------------------------------------------------------------
@@ -2185,8 +2241,21 @@ uint32_t SkUEReflectionManager::store_sk_value_transform(void * dest_p, SkInstan
 
 uint32_t SkUEReflectionManager::store_sk_value_struct_val(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
-  // Cast to uint32_t* hoping the compiler will get the hint and optimize the copy
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p), reinterpret_cast<uint32_t *>(SkInstance::get_raw_pointer_val(value_p)), value_type.m_byte_size);
+  const UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(value_type.m_sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 struct for Sk class '%s'.", value_type.m_sk_class_name.as_cstr()));
+  #ifdef SK_RUNTIME_RECOVER
+    if (!ue_struct_p)
+      {
+      // Can't find struct - use memcpy and hope that works
+      FMemory::Memcpy(dest_p, value_p->get_raw_pointer_val(), value_type.m_byte_size);
+      }
+    else
+  #endif
+      {
+      // Use proper copy that correctly copies arrays etc.
+      ue_struct_p->InitializeStruct(dest_p);
+      ue_struct_p->CopyScriptStruct(dest_p, value_p->get_raw_pointer_val());
+      }
   return value_type.m_byte_size;
   }
 
@@ -2194,8 +2263,21 @@ uint32_t SkUEReflectionManager::store_sk_value_struct_val(void * dest_p, SkInsta
 
 uint32_t SkUEReflectionManager::store_sk_value_struct_ref(void * dest_p, SkInstance * value_p, const ReflectedParamStorer & value_type)
   {
-  // Cast to uint32_t* hoping the compiler will get the hint and optimize the copy
-  FMemory::Memcpy(reinterpret_cast<uint32_t *>(dest_p), reinterpret_cast<uint32_t *>(SkInstance::get_raw_pointer_ref(value_p)), value_type.m_byte_size);
+  const UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(value_type.m_sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 struct for Sk class '%s'.", value_type.m_sk_class_name.as_cstr()));
+  #ifdef SK_RUNTIME_RECOVER
+    if (!ue_struct_p)
+      {
+      // Can't find struct - use memcpy and hope that works
+      FMemory::Memcpy(dest_p, value_p->get_raw_pointer_ref(), value_type.m_byte_size);
+      }
+    else
+  #endif
+      {
+      // Use proper copy that correctly copies arrays etc.
+      ue_struct_p->InitializeStruct(dest_p);
+      ue_struct_p->CopyScriptStruct(dest_p, value_p->get_raw_pointer_ref());
+      }
   return value_type.m_byte_size;
   }
 
