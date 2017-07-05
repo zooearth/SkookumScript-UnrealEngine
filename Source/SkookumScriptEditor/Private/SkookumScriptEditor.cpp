@@ -316,11 +316,14 @@ void FSkookumScriptEditor::on_function_updated(UFunction * ue_function_p, bool i
     }
 
   // 3) Try recompiling any affected Blueprint that previously had errors
-  for (UBlueprint * blueprint_p : affected_blueprints)
+  if (!IsLoading()) // Cannot compile while loading
     {
-    if (blueprint_p && blueprint_p->Status == BS_Error)
+    for (UBlueprint * blueprint_p : affected_blueprints)
       {
-      FKismetEditorUtilities::CompileBlueprint(blueprint_p);
+      if (blueprint_p && blueprint_p->Status == BS_Error)
+        {
+        FKismetEditorUtilities::CompileBlueprint(blueprint_p);
+        }
       }
     }
   }
