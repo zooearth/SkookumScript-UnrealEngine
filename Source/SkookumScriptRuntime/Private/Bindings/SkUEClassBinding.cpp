@@ -753,19 +753,48 @@ SkInstance * SkUEClassBindingHelper::access_raw_data_user_struct(void * obj_p, t
   {
   uint32_t byte_size = (raw_data_info >> (Raw_data_info_type_shift + Raw_data_type_size_shift)) & Raw_data_type_size_mask;
   uint32_t byte_offset = (raw_data_info >> Raw_data_info_offset_shift) & Raw_data_info_offset_mask;
-  void * data_p = (uint8_t*)obj_p + byte_offset;
+  void * ue_data_p = (uint8_t*)obj_p + byte_offset;
+
+  SK_ASSERTX(data_type_p->get_class_type() == SkClassType_class, a_str_format("Sk type of struct '%s' is not a class!", data_type_p->get_key_class_name().as_cstr()));
+  const UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(static_cast<SkClass *>(data_type_p));
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 struct for Sk class '%s'.", data_type_p->get_key_class_name().as_cstr()));
 
   // Set or get?
   if (value_p)
     {
     // Set value
-    FMemory::Memcpy(data_p, value_p->get_raw_pointer(byte_size), byte_size);
+    #ifdef SK_RUNTIME_RECOVER
+      if (!ue_struct_p)
+        {
+        // Unknown struct - use memcpy and hope that works
+        FMemory::Memcpy(ue_data_p, value_p->get_raw_pointer(byte_size), byte_size);
+        }
+      else
+    #endif
+        {
+        // Use proper copy that correctly copies arrays etc.
+        ue_struct_p->InitializeStruct(ue_data_p);
+        ue_struct_p->CopyScriptStruct(ue_data_p, value_p->get_raw_pointer(byte_size));
+        }
     return nullptr;
     }
 
   // Get value
   SkInstance * instance_p = SkInstance::new_instance(data_type_p->get_key_class());
-  FMemory::Memcpy(instance_p->allocate_raw(byte_size), data_p, byte_size);
+  void * sk_data_p = instance_p->allocate_raw(byte_size);
+  #ifdef SK_RUNTIME_RECOVER
+    if (!ue_struct_p)
+      {
+      // Unknown struct - use memcpy and hope that works
+      FMemory::Memcpy(sk_data_p, ue_data_p, byte_size);
+      }
+    else
+  #endif
+      {
+      // Use proper copy that correctly copies arrays etc.
+      ue_struct_p->InitializeStruct(sk_data_p);
+      ue_struct_p->CopyScriptStruct(sk_data_p, ue_data_p);
+      }
   return instance_p;
   }
 
