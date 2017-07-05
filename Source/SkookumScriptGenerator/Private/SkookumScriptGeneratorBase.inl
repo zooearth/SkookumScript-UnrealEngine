@@ -1652,7 +1652,7 @@ FSkookumScriptGeneratorBase::GenerationTargetBase::initialize(const FString & ro
       // Do some sanity checking
       if (replacement.Len() > 0 && FChar::IsUpper(replacement[0]))
         {
-        // filter = [package_name.]key
+        // filter = [package_name.]class_name
         if (!filter.Split(dot, &package_name, &key, ESearchCase::CaseSensitive, ESearchDir::FromEnd))
           {
           package_name.Empty();
@@ -1684,7 +1684,7 @@ FSkookumScriptGeneratorBase::GenerationTargetBase::initialize(const FString & ro
       // Do some sanity checking
       if (replacement.Len() >= 2 && replacement[0] == '@' && replacement[1] != '@')
         {
-        // filter = [[package_name.]owner_name.]key
+        // filter = [[package_name.]owner_name.]property_name
         if (filter.Split(dot, &package_name, &key, ESearchCase::CaseSensitive, ESearchDir::FromEnd))
           {
           // Check if package_name is specified - if so, split it off
