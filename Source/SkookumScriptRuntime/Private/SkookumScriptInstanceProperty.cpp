@@ -157,7 +157,7 @@ const TCHAR * USkookumScriptInstanceProperty::ImportText_Internal(const TCHAR * 
 
 int32 USkookumScriptInstanceProperty::GetMinAlignment() const
   {
-  return ALIGNOF(uintptr_t);
+  return alignof(uintptr_t);
   }
 
 //---------------------------------------------------------------------------------------
