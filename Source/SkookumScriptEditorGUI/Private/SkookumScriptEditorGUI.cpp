@@ -54,8 +54,6 @@ protected:
   //---------------------------------------------------------------------------------------
   // Local implementation
 
-  ISkookumScriptRuntime * get_runtime() const { return static_cast<ISkookumScriptRuntime *>(m_runtime_p.Get()); }
-
   void                    add_skookum_button_to_level_tool_bar(FToolBarBuilder &);
   void                    add_skookum_button_to_blueprint_tool_bar(FToolBarBuilder &);
   void                    on_skookum_button_clicked();
@@ -79,7 +77,8 @@ protected:
 
   // Data members
 
-  TSharedPtr<IModuleInterface>      m_runtime_p;  // TSharedPtr holds on to the module so it can't go away while we need it
+  ISkookumScriptRuntime *           m_runtime_p;
+  bool                              m_is_skookum_disabled;
 
   TSharedPtr<FUICommandList>        m_button_commands;
 
@@ -107,10 +106,13 @@ IMPLEMENT_MODULE(FSkookumScriptEditorGUI, SkookumScriptEditorGUI)
 void FSkookumScriptEditorGUI::StartupModule()
   {
   // Get pointer to runtime module
-  m_runtime_p = FModuleManager::Get().GetModule("SkookumScriptRuntime");
+  m_runtime_p = static_cast<ISkookumScriptRuntime *>(FModuleManager::Get().GetModule("SkookumScriptRuntime"));
+
+  // Is SkookumScript active?
+  m_is_skookum_disabled = m_runtime_p->is_skookum_disabled();
 
   // Don't do anything if SkookumScript is not active
-  if (get_runtime()->is_skookum_disabled())
+  if (m_is_skookum_disabled)
     {
     return;
     }
@@ -144,7 +146,7 @@ void FSkookumScriptEditorGUI::StartupModule()
     m_blueprint_extension_manager->AddExtender(m_blueprint_tool_bar_extender);
 
     // Create helper
-    m_helper_p = MakeShareable(new SharedHelper(get_runtime()));
+    m_helper_p = MakeShareable(new SharedHelper(m_runtime_p));
 
     // Hook into application focus change event
     m_on_application_focus_changed_handle = FSlateApplication::Get().OnApplicationActivationStateChanged().AddSP(m_helper_p.ToSharedRef(), &SharedHelper::on_application_focus_changed);
@@ -156,13 +158,12 @@ void FSkookumScriptEditorGUI::StartupModule()
 void FSkookumScriptEditorGUI::ShutdownModule()
   {
   // Don't do anything if SkookumScript is not active
-  if (get_runtime()->is_skookum_disabled())
+  if (m_is_skookum_disabled)
     {
     return;
     }
   
-  get_runtime()->set_editor_interface(nullptr);
-  m_runtime_p.Reset();
+  m_runtime_p = nullptr;
 
   if (!IsRunningCommandlet())
     {
@@ -288,10 +289,10 @@ void FSkookumScriptEditorGUI::on_skookum_button_clicked()
     }
 
   // Bring up IDE and navigate to selected class/method/coroutine
-  get_runtime()->show_ide(focus_class_name, focus_member_name, false, false);
+  m_runtime_p->show_ide(focus_class_name, focus_member_name, false, false);
 
   // Request recompilation if there have previously been errors
-  get_runtime()->freshen_compiled_binaries_if_have_errors();
+  m_runtime_p->freshen_compiled_binaries_if_have_errors();
   }
 
 //---------------------------------------------------------------------------------------
