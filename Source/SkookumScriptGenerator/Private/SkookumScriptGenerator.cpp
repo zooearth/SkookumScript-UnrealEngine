@@ -2199,13 +2199,26 @@ FString FSkookumScriptGenerator::get_cpp_property_type_name(UProperty * property
 
 FString FSkookumScriptGenerator::get_cpp_property_cast_name(UProperty * property_p)
   {
+  static FString decl_TEnumAsByte_Prefix(TEXT("TEnumAsByte<"));
+  static FString decl_TEnumAsByte_Suffix(TEXT(">"));
+
+  // If regular enum, just use its name
   UEnum * enum_p = get_enum(property_p);
   if (enum_p && enum_p->GetCppForm() == UEnum::ECppForm::Regular)
     {
     return enum_p->GetName();
     }
 
-  return get_cpp_property_type_name(property_p);
+  // Get generic type name
+  FString cpp_property_cast_name = get_cpp_property_type_name(property_p);
+
+  // For casting, convert TEnumAsByte<X> into just X
+  if (enum_p && cpp_property_cast_name.RemoveFromStart(decl_TEnumAsByte_Prefix))
+    {
+    cpp_property_cast_name.RemoveFromEnd(decl_TEnumAsByte_Suffix);
+    }
+
+  return cpp_property_cast_name;
   }
 
 //---------------------------------------------------------------------------------------
