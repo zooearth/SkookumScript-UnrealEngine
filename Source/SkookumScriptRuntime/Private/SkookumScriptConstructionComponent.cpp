@@ -98,7 +98,7 @@ void USkookumScriptConstructionComponent::InitializeComponent()
 void USkookumScriptConstructionComponent::UninitializeComponent()
   {
   // Delete SkookumScript instance if present
-  SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_sim, "SkookumScript must be at least in sim mode when UninitializeComponent() is invoked.");
+  SK_ASSERTX(GExitPurge || SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_sim, "SkookumScript must be at least in sim mode when UninitializeComponent() is invoked.");
 
   AActor * actor_p = GetOwner();
   // Only uninitialize those components that we initialized to begin with
