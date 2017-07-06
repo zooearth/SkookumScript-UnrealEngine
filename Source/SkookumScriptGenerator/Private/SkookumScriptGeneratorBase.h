@@ -156,6 +156,8 @@ class FSkookumScriptGeneratorBase : public FSkookumScriptGeneratorHelper
       
       FDateTime       m_ini_file_stamp;
 
+                   GenerationTargetBase() : m_ini_file_stamp(1) {} // Set to 1 tick to mark dirty
+
       eState       initialize(const FString & root_directory_path, const FString & project_name, const GenerationTargetBase * inherit_from_p = nullptr);
       bool         is_valid() const;
       FString      get_ini_file_path() const;

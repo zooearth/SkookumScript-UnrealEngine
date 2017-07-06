@@ -1163,7 +1163,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_default_initializer(UFunction *
         {
         case SkTypeID_Integer:         break; // Leave as-is
         case SkTypeID_Real:            break; // Leave as-is
-        case SkTypeID_Boolean:         default_value = default_value.ToLower(); break;
+        case SkTypeID_Boolean:         default_value = FChar::IsDigit(default_value[0]) ? (default_value[0] == '1' ? TEXT("true") : TEXT("false")) : *default_value.ToLower(); break;
         case SkTypeID_String:          default_value = TEXT("\"") + default_value + TEXT("\""); break;
         case SkTypeID_Name:            default_value = (default_value == TEXT("None") ? TEXT("Name!none") : TEXT("Name!(\"") + default_value + TEXT("\")")); break;
         case SkTypeID_Enum:            default_value = get_skookum_class_name(get_enum(param_p)) + TEXT(".") + get_skookified_default_enum_val_name_by_id(get_enum(param_p), default_value); break;
@@ -1617,6 +1617,17 @@ FSkookumScriptGeneratorBase::GenerationTargetBase::initialize(const FString & ro
 
     GConfig->GetArray(TEXT("SkookumScriptGenerator"), TEXT("SkipClasses"), skip_classes, GEngineIni);
     }
+  else
+    {
+    // No ini file found at all
+    if (!m_ini_file_stamp.GetTicks())
+      {
+      return State_valid_unchanged;
+      }
+    m_ini_file_stamp = FDateTime(0);
+    }
+
+  // Found ini data - parse it
 
   // Inherit rename rules so renaming is consistent
   if (inherit_from_p)
