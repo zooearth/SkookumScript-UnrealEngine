@@ -78,7 +78,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
     void           rename_class_script_files(UObject * type_p, const FString & old_class_name);
     void           rename_class_script_files(UObject * type_p, const FString & old_class_name, const FString & new_class_name);
     void           delete_class_script_files(UObject * type_p);
-    void           generate_used_class_script_files();
+    void           generate_used_class_script_files(bool check_if_reparented);
 
     // FSkookumScriptGeneratorBase interface implementation
 
