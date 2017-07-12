@@ -1555,10 +1555,7 @@ void FSkookumScriptGeneratorBase::generate_class_meta_file(UField * type_p, cons
   {
   const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
   FString body = type_p ? generate_class_meta_file_body(type_p) : TEXT("// ") + skookum_class_name + TEXT("\r\n");
-  if (!FFileHelper::SaveStringToFile(body, *meta_file_path, ms_script_file_encoding))
-    {
-    report_error(FString::Printf(TEXT("Could not save file: %s"), *meta_file_path));
-    }
+  save_text_file_if_changed(*meta_file_path, body);
   }
 
 //---------------------------------------------------------------------------------------
