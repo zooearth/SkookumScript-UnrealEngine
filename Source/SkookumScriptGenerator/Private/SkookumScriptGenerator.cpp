@@ -1251,7 +1251,6 @@ FString FSkookumScriptGenerator::generate_method_out_parameter_expression(UFunct
     case SkTypeID_Transform:
     case SkTypeID_Color:
     case SkTypeID_Name:
-    case SkTypeID_Enum:
     case SkTypeID_UStruct:
     case SkTypeID_UClass:
     case SkTypeID_Delegate:
@@ -1259,6 +1258,7 @@ FString FSkookumScriptGenerator::generate_method_out_parameter_expression(UFunct
     case SkTypeID_UObject:
     case SkTypeID_UObjectWeakPtr:  fmt = FString::Printf(TEXT("scope_p->get_arg<%s>(SkArg_%%d) = %%s"), *get_skookum_property_binding_class_name(param_p)); break;
     case SkTypeID_String:          fmt = TEXT("scope_p->get_arg<SkString>(SkArg_%d) = AString(*%s, %s.Len())"); break; // $revisit MBreyer - Avoid copy here
+    case SkTypeID_Enum:            fmt = TEXT("scope_p->get_arg<SkEnum>(SkArg_%d) = (tSkEnum)%s"); break;
     case SkTypeID_List:
       {
       const UArrayProperty * array_property_p = Cast<UArrayProperty>(param_p);

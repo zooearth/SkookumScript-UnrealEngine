@@ -229,8 +229,8 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
     FDelegateHandle         m_on_world_init_post_handle;
     FDelegateHandle         m_on_world_cleanup_handle;
 
-    FDelegateHandle         m_game_tick_handle;
-    FDelegateHandle         m_editor_tick_handle;
+    FDelegateHandle                 m_game_tick_handle;
+    TMap<UWorld *, FDelegateHandle> m_editor_tick_handles;
 
     // Settings
 
@@ -642,14 +642,16 @@ void FSkookumScriptRuntime::on_world_init_pre(UWorld * world_p, const UWorld::In
       m_game_tick_handle = world_p->OnTickDispatch().AddRaw(this, &FSkookumScriptRuntime::tick_game);
       }
     }
-  else if (world_p->WorldType == EWorldType::Editor)
+#if WITH_EDITOR
+  else if (world_p->WorldType == EWorldType::Editor || world_p->WorldType == EWorldType::Inactive)
     {
-    if (!m_editor_world_p)
+    // Only one editor world does ever get ticked, so add tick handlers to all editor worlds we encounter
+    if (!m_editor_tick_handles.Find(world_p))
       {
-      m_editor_world_p = world_p;
-      m_editor_tick_handle = world_p->OnTickDispatch().AddRaw(this, &FSkookumScriptRuntime::tick_editor);
+      m_editor_tick_handles.Emplace(world_p) = world_p->OnTickDispatch().AddRaw(this, &FSkookumScriptRuntime::tick_editor);
       }
     }
+#endif
   }
 
 //---------------------------------------------------------------------------------------
@@ -703,15 +705,18 @@ void FSkookumScriptRuntime::on_world_cleanup(UWorld * world_p, bool session_ende
       A_DPRINT("  ...done!\n\n");
       }
     }
+#if WITH_EDITOR
   else if (world_p->WorldType == EWorldType::Editor)
     {
-    // Set world pointer to null if it was pointing to us
-    if (m_editor_world_p == world_p)
+    // Find and remove tick handler from editor world
+    FDelegateHandle * handle_p = m_editor_tick_handles.Find(world_p);
+    if (handle_p)
       {
-      m_editor_world_p->OnTickDispatch().Remove(m_editor_tick_handle);
-      m_editor_world_p = nullptr;
+      world_p->OnTickDispatch().Remove(*handle_p);
+      m_editor_tick_handles.Remove(world_p);
       }
     }
+#endif
   }
 
 //---------------------------------------------------------------------------------------
@@ -1267,7 +1272,7 @@ void FSkookumScriptRuntime::on_class_added_or_modified(UBlueprint * blueprint_p,
     {
     // Generate script files for the new/changed class
     m_generator.generate_class_script_files(ue_class_p, true, true, check_if_reparented);
-    m_generator.generate_used_class_script_files();
+    m_generator.generate_used_class_script_files(check_if_reparented);
 
     // Find associated SkClass if any
     SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(ue_class_p);
