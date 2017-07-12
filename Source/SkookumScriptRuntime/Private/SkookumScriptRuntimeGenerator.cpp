@@ -138,7 +138,7 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files(bool genera
     //generate_class_script_files(ecc_enum_p, true, false, false);
 
     // Also generate any dependent classes
-    generate_used_class_script_files();
+    generate_used_class_script_files(check_if_reparented);
     }
   }
 
@@ -166,7 +166,8 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
     else
       {
       // No editable project found - check temporary location (in `Intermediate` folder)
-      FString temp_root_path(FPaths::GameIntermediateDir() / TEXT("SkookumScript"));
+      // We don't use FPaths::GameIntermediateDir() here as that might point to the %APPDATA% folder
+      FString temp_root_path(FPaths::GameDir() / TEXT("Intermediate/SkookumScript"));
       FString temp_scripts_path(temp_root_path / TEXT("Scripts"));
       FString temp_project_file_path = temp_scripts_path / TEXT("Skookum-project.ini");
       if (!FPaths::FileExists(temp_project_file_path))
@@ -564,7 +565,7 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::generate_used_class_script_files()
+void FSkookumScriptRuntimeGenerator::generate_used_class_script_files(bool check_if_reparented)
   {
   // Loop through all previously used classes and create stubs for them
   for (tUsedClasses::TConstIterator iter(m_used_classes); iter; ++iter)
@@ -572,7 +573,7 @@ void FSkookumScriptRuntimeGenerator::generate_used_class_script_files()
     UClass * class_p = Cast<UClass>(*iter);
     if (class_p)
       {
-      generate_class_script_files(class_p, false, false, true);
+      generate_class_script_files(class_p, false, false, check_if_reparented);
       }
     }
 
