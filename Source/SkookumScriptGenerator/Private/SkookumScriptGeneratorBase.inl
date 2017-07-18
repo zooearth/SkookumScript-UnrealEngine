@@ -777,8 +777,8 @@ FString FSkookumScriptGeneratorBase::skookify_data_name(FName name, FName owner_
 
       // Is it [A-Za-z0-9]?
       if ((c >= TCHAR('0') && c <= TCHAR('9'))
-        || (c >= TCHAR('A') && c <= TCHAR('Z'))
-        || (c >= TCHAR('a') && c <= TCHAR('z')))
+       || (c >= TCHAR('A') && c <= TCHAR('Z'))
+       || (c >= TCHAR('a') && c <= TCHAR('z')))
         {
         // Yes, append it
         bool is_upper = FChar::IsUpper(c) || FChar::IsDigit(c);
@@ -1760,8 +1760,10 @@ FString FSkookumScriptGeneratorBase::GenerationTargetBase::find_class_rename_rep
     for (tClassRenameMap::TConstKeyIterator it(m_class_rename_map, name); it; ++it)
       {
       // Then check the match candidates for an actual match
+      const FName & key = it.Key();
       const ClassRenameEntry & match = it.Value();
-      if (package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name)
+      if (key.GetDisplayIndex() == name.GetDisplayIndex()
+       && (package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name))
         { 
         return match.m_replacement;
         }
@@ -1783,8 +1785,10 @@ FString FSkookumScriptGeneratorBase::GenerationTargetBase::find_data_rename_repl
     for (tDataRenameMap::TConstKeyIterator it(m_data_rename_map, name); it; ++it)
       {
       // Then check the match candidates for an actual match
+      const FName & key = it.Key();
       const DataRenameEntry & match = it.Value();
-      if ((package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name)
+      if (key.GetDisplayIndex() == name.GetDisplayIndex()
+       && (package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name)
        && (owner_name.IsNone() || match.m_owner_name.IsNone() || match.m_owner_name == owner_name))
         { 
         return match.m_replacement;

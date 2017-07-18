@@ -300,6 +300,9 @@ enum eSkAnnotation
   SkAnnotation_reflected_data   = 1 << 2, // This class was auto-generated from data (e.g. a Blueprint class)
   SkAnnotation_invokable        = 1 << 3, // This class represents an invokable instance and must be qualified with a signature
   SkAnnotation_ue4_blueprint    = 1 << 6, // $UE4-specific Expose this method to the UE4 Blueprint system
+
+  SkAnnotation__none    = 0,
+  SkAnnotation__default = SkAnnotation__none
   };
 
 // What we are applying annotations to
