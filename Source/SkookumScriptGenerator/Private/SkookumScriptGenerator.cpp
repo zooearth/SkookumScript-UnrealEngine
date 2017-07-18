@@ -447,17 +447,13 @@ void FSkookumScriptGenerator::generate_all_bindings(eClassScope class_scope)
     }
 
   // 3) Also request generation of all structs contained in the same packages as all classes
-  TArray<UObject *> obj_array;
-  obj_array.Reserve(1500);
-  GetObjectsOfClass(UScriptStruct::StaticClass(), obj_array, false, RF_ClassDefaultObject);
-  for (auto obj_p : obj_array)
+  for (TObjectIterator<UScriptStruct> struct_it; struct_it; ++struct_it)
     {
-    if (used_packages.Contains(obj_p->GetOutermost()))
+    if (used_packages.Contains(struct_it->GetOutermost()))
       {
-      UScriptStruct * struct_p = static_cast<UScriptStruct *>(obj_p);
-      if (m_targets[class_scope].can_export_struct(struct_p))
+      if (m_targets[class_scope].can_export_struct(*struct_it))
         {
-        request_generate_type(struct_p, 0, 0);
+        request_generate_type(*struct_it, 0, 0);
         }
       }
     }
@@ -467,16 +463,13 @@ void FSkookumScriptGenerator::generate_all_bindings(eClassScope class_scope)
   // as we cannot detect from the UEnum if that's the case, causing compile errors in cooked builds
 
   // Export all enums
-  obj_array.Reset();
-  GetObjectsOfClass(UEnum::StaticClass(), obj_array, false, RF_ClassDefaultObject);
-  for (auto obj_p : obj_array)
+  for (TObjectIterator<UEnum> enum_it; enum_it; ++enum_it)
     {
-    if (used_packages.Contains(obj_p->GetOutermost()))
+    if (used_packages.Contains(enum_it->GetOutermost()))
       {
-      UEnum * enum_p = static_cast<UEnum *>(obj_p);
-      if (can_export_enum(enum_p))
+      if (can_export_enum(*enum_it))
         {
-        request_generate_type(enum_p, 0, 0);
+        request_generate_type(*enum_it, 0, 0);
         }
       }
     }
@@ -808,10 +801,10 @@ FString FSkookumScriptGenerator::generate_method_binding_code(const FString & cl
   // Generate code for the function body
   FString function_body;
   if (binding.m_function_p->HasAnyFunctionFlags(FUNC_Public) 
-   && !binding.m_function_p->HasMetaData(ms_meta_data_key_custom_structure_param)   // Never call custom thunks directly
-   && !binding.m_function_p->HasMetaData(ms_meta_data_key_array_parm)               // Never call custom thunks directly
+   && !binding.m_function_p->HasMetaData(ms_meta_data_key_custom_structure_param)     // Never call custom thunks directly
+   && !binding.m_function_p->HasMetaData(ms_meta_data_key_array_parm)                 // Never call custom thunks directly
    && !class_p->HasMetaData(ms_meta_data_key_cannot_implement_interface_in_blueprint) // Never call UINTERFACE methods directly
-   && !binding.m_function_p->HasAllFunctionFlags(FUNC_BlueprintEvent|FUNC_Native))  // Never call blueprint native functions directly
+   && !binding.m_function_p->HasAllFunctionFlags(FUNC_BlueprintEvent))                // Never call blueprint functions directly
     {
     // Public function, might be called via direct call
     if (binding.m_function_p->HasAnyFunctionFlags(FUNC_RequiredAPI) || class_p->HasAnyClassFlags(CLASS_RequiredAPI))

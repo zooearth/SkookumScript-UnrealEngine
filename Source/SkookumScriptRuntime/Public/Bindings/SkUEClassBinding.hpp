@@ -542,7 +542,7 @@ inline UClass * SkUEClassBindingHelper::get_ue_class_from_sk_class(SkClass * sk_
   UClass * ue_class_p = static_cast<UClass *>(get_ue_struct_ptr_from_sk_class(sk_class_p));  
   SK_ASSERTX(!ue_class_p || Cast<UClass>(ue_class_p), a_str_format("Requested UClass '%S' is not a UClass!", *ue_class_p->GetName()));
 
-  if (!ue_class_p)
+  if (!ue_class_p && sk_class_p->is_entity_class())
     {
     ue_class_p = find_ue_class_from_sk_class(sk_class_p);
     }
