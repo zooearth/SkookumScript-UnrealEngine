@@ -35,6 +35,8 @@
 #include "../SkookumScriptRuntimeGenerator.h"
 
 #include "CoreObject.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 #include "Engine/UserDefinedStruct.h"
 
 #include <AgogCore/AMath.hpp>
@@ -245,7 +247,7 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * sk_class_p, UStruct * ue
         }
       else
         {
-        found_match = bind_name.IsEqual(ue_var_p->GetFName(), ENameCase::IgnoreCase, false);
+        found_match = (bind_name == ue_var_p->GetFName());
         }
       if (found_match)
         {
@@ -262,7 +264,7 @@ void SkUEClassBindingHelper::resolve_raw_data(SkClass * sk_class_p, UStruct * ue
       // If this is the case, a recompile would have been triggered when this class was loaded by get_ue_class_from_sk_class()
       // Which means binaries would be recompiled and reloaded once more, fixing this issue
       // So make sure this assumption is true
-      SK_ASSERTX(FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>("SkookumScriptRuntime")->is_freshen_binaries_pending(), a_str_format("Sk Variable '%s.%s' not found in UE4 reflection data.", sk_class_p->get_name_cstr_dbg(), var_p->get_name_cstr()));
+      SK_ASSERTX(FModuleManager::Get().GetModulePtr<ISkookumScriptRuntime>("SkookumScriptRuntime")->is_freshen_binaries_pending(), a_str_format("Sk Variable '%s.%s' (= UE4 property '%s.%s') not found in UE4 reflection data.", sk_class_p->get_name_cstr_dbg(), var_p->get_name_cstr(), sk_class_p->get_bind_name().as_string().as_cstr(), var_p->m_bind_name.as_string().as_cstr()));
       is_all_resolved = false;
       }
     }
@@ -928,8 +930,14 @@ void SkUEClassBindingHelper::add_static_enum_mapping(SkClass * sk_class_p, UEnum
 
 UClass * SkUEClassBindingHelper::find_ue_class_from_sk_class(SkClass * sk_class_p)
   {
+  // Only UObjects have UE4 equivalents
+  if (!sk_class_p->is_entity_class())
+    {
+    return nullptr;
+    }
+
   UClass * ue_class_p;
-  const FName & bind_name = reinterpret_cast<const FName &>(sk_class_p->get_bind_name());
+  FName bind_name = reinterpret_cast<const FName &>(sk_class_p->get_bind_name());
   if (bind_name.IsNone())
     {
     // Legacy heuristic code - remove 9/2017
@@ -952,18 +960,31 @@ UClass * SkUEClassBindingHelper::find_ue_class_from_sk_class(SkClass * sk_class_
       // It's a Blueprint generated class - append "_C" to the name
       FPlatformString::Strncpy(ue_class_name + sk_class_name_length, TEXT("_C"), 3);
       }
+    bind_name = FName(ue_class_name);
+    }
 
-    // Now look it up (allow failure)
-    ue_class_p = FindObject<UClass>(ANY_PACKAGE, ue_class_name);
-    }
-  else
-    {
-    ue_class_p = FindObject<UClass>(ANY_PACKAGE, *bind_name.ToString());
-    }
+  // Now look it up (case-insensitive, allow failure)
+  ue_class_p = FindObject<UClass>(ANY_PACKAGE, *bind_name.ToString());
 
   // Link classes together for future use
   if (ue_class_p)
     {
+    // Check that parent classes match, as we might have gotten the wrong class due to case-insensitive search
+    UClass * ue_superclass_p = get_ue_class_from_sk_class(sk_class_p->get_superclass());
+    if (ue_superclass_p && ue_superclass_p != ue_class_p->GetSuperClass())
+      {
+      // Parent classes differ - do slooooow search for proper class
+      // This will happen _extremely seldom_ so no performance worry
+      for (TObjectIterator<UClass> class_it; class_it; ++class_it)
+        {
+        if (class_it->GetFName() == bind_name && class_it->GetSuperClass() == ue_superclass_p)
+          {
+          ue_class_p = *class_it;
+          break;
+          }
+        }
+      }
+
     // Store pointer to UClass inside the SkClass
     set_ue_struct_ptr_on_sk_class(sk_class_p, ue_class_p);
 
@@ -981,7 +1002,7 @@ UClass * SkUEClassBindingHelper::find_ue_class_from_sk_class(SkClass * sk_class_
 UScriptStruct * SkUEClassBindingHelper::find_ue_struct_from_sk_class(SkClass * sk_class_p)
   {
   UScriptStruct * ue_struct_p;
-  const FName & bind_name = reinterpret_cast<const FName &>(sk_class_p->get_bind_name());
+  FName bind_name = reinterpret_cast<const FName &>(sk_class_p->get_bind_name());
   if (bind_name.IsNone())
     {
     // Legacy heuristic code - remove 9/2017
@@ -1000,14 +1021,11 @@ UScriptStruct * SkUEClassBindingHelper::find_ue_struct_from_sk_class(SkClass * s
     uint32_t sk_struct_name_length = FPlatformString::Strlen(sk_struct_name_p);
     SK_ASSERTX(sk_struct_name_length < A_COUNT_OF(ue_struct_name), a_str_format("Name of struct '%s' is too large for conversion buffer.", sk_struct_name_p));
     FPlatformString::Convert(ue_struct_name, A_COUNT_OF(ue_struct_name), sk_struct_name_p, sk_struct_name_length + 1);
-
-    // Now look it up (allow failure)
-    ue_struct_p = FindObject<UScriptStruct>(ANY_PACKAGE, ue_struct_name);
+    bind_name = FName(ue_struct_name);
     }
-  else
-    {
-    ue_struct_p = FindObject<UScriptStruct>(ANY_PACKAGE, *bind_name.ToString());
-    }
+    
+  // Now look it up (case-insensitive, allow failure)
+  ue_struct_p = FindObject<UScriptStruct>(ANY_PACKAGE, *bind_name.ToString());
 
   // Link structures together for future use
   if (ue_struct_p)

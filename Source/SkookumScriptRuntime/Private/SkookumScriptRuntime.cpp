@@ -502,7 +502,20 @@ void FAppInfo::bind_name_assign(SkBindName * bind_name_p, const AString & value)
 
 AString FAppInfo::bind_name_as_string(const SkBindName & bind_name) const
   {
-  return AString(reinterpret_cast<const FName &>(bind_name).GetPlainANSIString(), true);
+  const FName & name = reinterpret_cast<const FName &>(bind_name);
+  const ANSICHAR * plain_string_p = name.GetPlainANSIString();
+
+  // If no number, quickly make a string from the plain text
+  if (name.GetNumber() == NAME_NO_NUMBER_INTERNAL)
+    {
+    return AString(plain_string_p, true);
+    }
+
+  // Has a number, append it separated by _
+  AString bind_name_string;
+  bind_name_string.ensure_size(FCStringAnsi::Strlen(plain_string_p) + 11);
+  bind_name_string.append_format("%s_%d", plain_string_p, NAME_INTERNAL_TO_EXTERNAL(name.GetNumber()));
+  return bind_name_string;
   }
 
 //---------------------------------------------------------------------------------------

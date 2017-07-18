@@ -91,7 +91,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
     void           initialize_paths();
     bool           initialize_generation_targets();
     void           set_overlay_path();
-    bool           can_export_blueprint_function(UFunction * function_p) const;
+    bool           can_export_blueprint_function(UFunction * function_p);
 
     // Types
 
