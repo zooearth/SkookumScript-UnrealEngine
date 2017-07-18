@@ -91,9 +91,8 @@ namespace UnrealBuildTool.Rules
       string iniFilePath = Path.Combine(PluginOrProjectRootDirectory, "Config/SkookumScript.ini");
       if (File.Exists(iniFilePath))
       {
-        ConfigFile iniFile = new ConfigFile(new FileReference(iniFilePath), ConfigLineAction.Add);
-        var skookumConfig = new ConfigHierarchy(new ConfigFile[] { iniFile });
-        skookumConfig.GetArray("CommonSettings", "ScriptSupportedModules", out moduleList);
+        ConfigCacheIni ini = new ConfigCacheIni(new FileReference(iniFilePath));
+        ini.GetArray("CommonSettings", "ScriptSupportedModules", out moduleList);
       }
 
       if (moduleList == null)

@@ -468,7 +468,7 @@ bool SkUEReflectionManager::add_reflected_call(SkInvokableBase * sk_invokable_p)
   uint32_t num_params = param_list.get_length();
 
   // Allocate reflected call
-  ReflectedCall * reflected_call_p = new(FMemory::Malloc(sizeof(ReflectedCall) + num_params * sizeof(ReflectedCallParam))) ReflectedCall(sk_invokable_p, num_params, params.get_result_class());
+  ReflectedCall * reflected_call_p = new(FMemory::Malloc(sizeof(ReflectedCall) + num_params * sizeof(ReflectedCallParam))) ReflectedCall(sk_invokable_p, num_params, params.get_result_class(), function_index >= 0);
 
   // Initialize parameters
   for (uint32_t i = 0; i < num_params; ++i)
@@ -510,7 +510,7 @@ bool SkUEReflectionManager::add_reflected_event(SkMethodBase * sk_method_p)
   uint32_t num_params = param_list.get_length();
 
   // Allocate reflected event
-  ReflectedEvent * reflected_event_p = new(FMemory::Malloc(sizeof(ReflectedEvent) + num_params * sizeof(ReflectedEventParam))) ReflectedEvent(sk_method_p, num_params);
+  ReflectedEvent * reflected_event_p = new(FMemory::Malloc(sizeof(ReflectedEvent) + num_params * sizeof(ReflectedEventParam))) ReflectedEvent(sk_method_p, num_params, function_index >= 0);
 
   // Initialize parameters
   for (uint32_t i = 0; i < num_params; ++i)
@@ -609,22 +609,21 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
           new (param_info_array_p + i) ReflectedProperty();
           }
 
-        // Now build UFunction
+        // Now build or reflect UFunction
         UFunction * ue_function_p = nullptr;
+        bool is_ue_function_built = !!(reflected_function_p->m_sk_invokable_p->get_annotation_flags() & SkAnnotation_ue4_blueprint);
         // Only for UClasses
         if (reflected_function_p->m_sk_invokable_p->get_scope()->is_entity_class())
           {
-          if (reflected_function_p->m_type == ReflectedFunctionType_event 
-           && (reflected_function_p->m_sk_invokable_p->get_scope()->get_annotation_flags() & SkAnnotation_reflected_data)
-           && !(reflected_function_p->m_sk_invokable_p->get_annotation_flags() & SkAnnotation_ue4_blueprint))
-            {
-            // It's a Blueprint function or a custom event, look it up
-            ue_function_p = reflect_ue_function(reflected_function_p->m_sk_invokable_p, param_info_array_p);
-            }
-          else
+          if (is_ue_function_built)
             {
             // If function not there yet, build it
             ue_function_p = build_ue_function(ue_static_class_p, reflected_function_p->m_sk_invokable_p, reflected_function_p->m_type, function_index, param_info_array_p, is_final);
+            }
+          else
+            {
+            // It's a Blueprint function or a custom event, look it up
+            ue_function_p = reflect_ue_function(reflected_function_p->m_sk_invokable_p, param_info_array_p);
             }
           }
 
@@ -684,10 +683,13 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
           #endif
 
           // Invoke update callback if any
-          if (on_function_updated_f)
+          if (on_function_updated_f && is_ue_function_built && reflected_function_p->m_allow_update_callback)
             {
             on_function_updated_f->invoke(ue_function_p, reflected_function_p->m_type == ReflectedFunctionType_event);
             }
+
+          // Allow update callback after we reflected this function once
+          reflected_function_p->m_allow_update_callback = true;
           }
 
         // And destroy the ReflectedPropertys
@@ -719,7 +721,7 @@ bool SkUEReflectionManager::sync_all_to_ue(tSkUEOnFunctionUpdatedFunc * on_funct
         UClass * ue_class_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(sk_class_p);
         if (ue_class_p)
           {
-          reflected_class_p->m_ue_static_class_p = ue_class_p;
+          reflected_class_p->m_ue_static_class_p = SkUEClassBindingHelper::get_static_ue_class_from_sk_class_super(sk_class_p);
           anything_changed |= add_instance_property_to_class(ue_class_p, sk_class_p);
           }
         }

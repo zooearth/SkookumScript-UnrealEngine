@@ -86,6 +86,7 @@ class SK_API SkParameters : public ARefCountMix<SkParameters>
 
     SK_NEW_OPERATORS(SkParameters);
     SkParameters();
+    explicit SkParameters(SkParameters * params_p);
     ~SkParameters();
 
 
@@ -155,7 +156,6 @@ class SK_API SkParameters : public ARefCountMix<SkParameters>
   // Internal Methods
 
     SkParameters(SkClassDescBase * result_type_p, SkParameterBase * param_p);
-    explicit SkParameters(SkParameters * params_p);
 
     #if (SKOOKUM & SK_COMPILED_IN)
       SkParameters(const void ** binary_pp);

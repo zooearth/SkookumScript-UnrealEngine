@@ -30,7 +30,7 @@ public class SkookumScript : ModuleRules
   public SkookumScript(TargetInfo Target)
   {
     // Ignore warnings about hokey code in windows.h
-    bEnableUndefinedIdentifierWarnings = false;
+    //bEnableUndefinedIdentifierWarnings = false;
 
     // Check if Sk source code is present (Pro-RT license) 
     var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "Private", "SkookumScript", "Sk.cpp"));
@@ -76,7 +76,7 @@ public class SkookumScript : ModuleRules
         platformName = "Linux";
         platPathSuffixes.Add(platformName);
         useDebugCRT = true;
-        UEBuildConfiguration.bForceEnableExceptions = true;
+        //UEBuildConfiguration.bForceEnableExceptions = true;
         break;
       case UnrealTargetPlatform.IOS:
         bPlatformAllowed = true;
@@ -103,6 +103,7 @@ public class SkookumScript : ModuleRules
         bPlatformAllowed = bFullSource;
         platformName = "XONE";
         platPathSuffixes.Add(platformName);
+        UEBuildConfiguration.bForceEnableExceptions = true;
         break;
       case UnrealTargetPlatform.PS4:
         bPlatformAllowed = bFullSource;

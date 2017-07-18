@@ -29,7 +29,7 @@ public class AgogCore : ModuleRules
   public AgogCore(TargetInfo Target)
   {
     // Ignore warnings about hokey code in windows.h
-    bEnableUndefinedIdentifierWarnings = false;
+    //bEnableUndefinedIdentifierWarnings = false;
 
     // Check if Sk source code is present (Pro-RT license) 
     var bFullSource = File.Exists(Path.Combine(ModuleDirectory, "..", "SkookumScript", "Private", "SkookumScript", "Sk.cpp"));
