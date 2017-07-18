@@ -155,19 +155,21 @@ void FSkookumScriptEditor::StartupModule()
     m_on_in_memory_asset_deleted_handle = asset_registry.Get().OnInMemoryAssetDeleted().AddRaw(this, &FSkookumScriptEditor::on_in_memory_asset_deleted);
 
     // Instrument all already existing blueprints
-    TArray<UObject*> blueprint_array;
-    GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array);
-    for (UObject * obj_p : blueprint_array)
+    for (TObjectIterator<UBlueprint> blueprint_it; blueprint_it; ++blueprint_it)
       {
-      on_new_asset(obj_p);
+      on_new_asset(*blueprint_it);
+      }
+
+    // Same for user defined structs
+    for (TObjectIterator<UUserDefinedStruct> struct_it; struct_it; ++struct_it)
+      {
+      on_new_asset(*struct_it);
       }
 
     // Same for user defined enums
-    TArray<UObject*> enum_array;
-    GetObjectsOfClass(UUserDefinedEnum::StaticClass(), enum_array);
-    for (UObject * obj_p : enum_array)
+    for (TObjectIterator<UUserDefinedEnum> enum_it; enum_it; ++enum_it)
       {
-      on_new_asset(obj_p);
+      on_new_asset(*enum_it);
       }
     }
   }
@@ -223,40 +225,31 @@ void FSkookumScriptEditor::on_class_updated(UClass * ue_class_p)
   // Remember affected Blueprints here
   TArray<UBlueprint *> affected_blueprints;
 
-  // Storage for gathered objects
-  TArray<UObject*> obj_array;
-
   // 2) Refresh node display of all SkookumScript function call nodes
-  obj_array.Reset();
-  GetObjectsOfClass(UK2Node_CallFunction::StaticClass(), obj_array, true, RF_ClassDefaultObject);
-  for (auto obj_p : obj_array)
+  for (TObjectIterator<UK2Node_CallFunction> call_it; call_it; ++call_it)
     {
-    UK2Node_CallFunction * function_node_p = Cast<UK2Node_CallFunction>(obj_p);
-    UFunction * target_function_p = function_node_p->GetTargetFunction();
+    UFunction * target_function_p = call_it->GetTargetFunction();
     // Also refresh all nodes with no target function as it is probably a Sk function that was deleted
     //if (!target_function_p || get_runtime()->is_skookum_reflected_call(target_function_p))
     if (target_function_p 
      && get_runtime()->is_skookum_reflected_call(target_function_p)
      && ue_class_p->IsChildOf(target_function_p->GetOwnerClass()))
       {
-      function_node_p->ReconstructNode();
-      affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(function_node_p));
+      call_it->ReconstructNode();
+      affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(*call_it));
       }
     }
 
   // 3) Refresh node display of all SkookumScript event nodes
-  obj_array.Reset();
-  GetObjectsOfClass(UK2Node_Event::StaticClass(), obj_array, true, RF_ClassDefaultObject);
-  for (auto obj_p : obj_array)
+  for (TObjectIterator<UK2Node_Event> event_it; event_it; ++event_it)
     {
-    UK2Node_Event * event_node_p = Cast<UK2Node_Event>(obj_p);
-    UFunction * event_function_p = event_node_p->FindEventSignatureFunction();
+    UFunction * event_function_p = event_it->FindEventSignatureFunction();
     if (event_function_p 
      && get_runtime()->is_skookum_reflected_event(event_function_p)
      && ue_class_p->IsChildOf(event_function_p->GetOwnerClass()))
       {
-      event_node_p->ReconstructNode();
-      affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(event_node_p));
+      event_it->ReconstructNode();
+      affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(*event_it));
       }
     }
 
@@ -283,35 +276,44 @@ void FSkookumScriptEditor::on_function_updated(UFunction * ue_function_p, bool i
   // Remember affected Blueprints here
   TArray<UBlueprint *> affected_blueprints;
 
+  // Lambda to run on an event node or call function node
+  auto check_node = [ue_function_p, &affected_blueprints](UK2Node * node_p, const FMemberReference & function_ref)
+    {
+    if (function_ref.GetMemberName() == ue_function_p->GetFName())
+      {
+      UBlueprint * blueprint_p = FBlueprintEditorUtils::FindBlueprintForNode(node_p);
+      UClass * function_class_p = function_ref.GetMemberParentClass();
+      bool is_owner_matching;
+      if (function_class_p)
+        {
+        is_owner_matching = ue_function_p->GetOwnerClass()->IsChildOf(function_class_p);
+        }
+      else
+        {
+        function_class_p = blueprint_p->GeneratedClass;
+        is_owner_matching = function_class_p ? function_class_p->IsChildOf(ue_function_p->GetOwnerClass()) : false;
+        }
+      if (is_owner_matching)
+        {
+        node_p->ReconstructNode();
+        affected_blueprints.AddUnique(blueprint_p);
+        }
+      }
+    };
+
   // 2) Refresh node display of all nodes using this function
   if (is_event)
     {
-    TArray<UObject*> obj_array;
-    GetObjectsOfClass(UK2Node_Event::StaticClass(), obj_array, true, RF_ClassDefaultObject);
-    for (auto obj_p : obj_array)
+    for (TObjectIterator<UK2Node_Event> event_it; event_it; ++event_it)
       {
-      UK2Node_Event * event_node_p = Cast<UK2Node_Event>(obj_p);
-      // Since Blueprint exposed function names are fully qualified, a plain name check should suffice
-      if (event_node_p->EventReference.GetMemberName() == ue_function_p->GetFName())
-        {
-        event_node_p->ReconstructNode();
-        affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(event_node_p));
-        }
+      check_node(*event_it, event_it->EventReference);
       }
     }
   else
     {
-    TArray<UObject*> obj_array;
-    GetObjectsOfClass(UK2Node_CallFunction::StaticClass(), obj_array, true, RF_ClassDefaultObject);
-    for (auto obj_p : obj_array)
+	  for (TObjectIterator<UK2Node_CallFunction> call_it; call_it; ++call_it)
       {
-      UK2Node_CallFunction * function_node_p = Cast<UK2Node_CallFunction>(obj_p);
-      // Since Blueprint exposed function names are fully qualified, a plain name check should suffice
-      if (function_node_p->FunctionReference.GetMemberName() == ue_function_p->GetFName())
-        {
-        function_node_p->ReconstructNode();
-        affected_blueprints.AddUnique(FBlueprintEditorUtils::FindBlueprintForNode(function_node_p));
-        }
+      check_node(*call_it, call_it->FunctionReference);
       }
     }
 

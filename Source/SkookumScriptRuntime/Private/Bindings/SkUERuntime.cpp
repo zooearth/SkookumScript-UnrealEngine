@@ -33,6 +33,7 @@
 
 #include "GenericPlatformProcess.h"
 #include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 #include "Engine/Blueprint.h"
 #include "Engine/UserDefinedStruct.h"
 #include <chrono>
@@ -421,34 +422,28 @@ void SkUERuntime::bind_compiled_scripts(
     
     // Also re-resolve the raw data of all dynamic classes and structs
     #if WITH_EDITORONLY_DATA
-      TArray<UObject*> blueprint_array;
-      GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array, true, RF_ClassDefaultObject);
-      for (UObject * obj_p : blueprint_array)
+      for (TObjectIterator<UBlueprint> blueprint_it; blueprint_it; ++blueprint_it)
         {
-        UBlueprint * blueprint_p = static_cast<UBlueprint *>(obj_p);
-        if (blueprint_p->GeneratedClass)
+        if (blueprint_it->GeneratedClass)
           {
-          SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(blueprint_p->GeneratedClass);
+          SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(blueprint_it->GeneratedClass);
           if (sk_class_p)
             {
-            if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p, blueprint_p->GeneratedClass))
+            if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p, blueprint_it->GeneratedClass))
               {
-              SkUEClassBindingHelper::resolve_raw_data(sk_class_p, blueprint_p->GeneratedClass);
+              SkUEClassBindingHelper::resolve_raw_data(sk_class_p, blueprint_it->GeneratedClass);
               }
             }
           }
         }
-      TArray<UObject*> struct_array;
-      GetObjectsOfClass(UUserDefinedStruct::StaticClass(), struct_array, true, RF_ClassDefaultObject);
-      for (UObject * obj_p : struct_array)
+      for (TObjectIterator<UUserDefinedStruct> struct_it; struct_it; ++struct_it)
         {
-        UUserDefinedStruct * struct_p = static_cast<UUserDefinedStruct *>(obj_p);
-        SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_struct(struct_p);
+        SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_struct(*struct_it);
         if (sk_class_p)
           {
-          if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p, struct_p))
+          if (SkUEClassBindingHelper::resolve_raw_data_funcs(sk_class_p, *struct_it))
             {
-            SkUEClassBindingHelper::resolve_raw_data(sk_class_p, struct_p);
+            SkUEClassBindingHelper::resolve_raw_data(sk_class_p, *struct_it);
             }
           }
         }
