@@ -318,6 +318,11 @@ void FSkookumScriptGenerator::Initialize(const FString & root_local_path, const 
   m_targets[ClassScope_engine].initialize(plugin_directory, TEXT("UE4"));
   m_targets[ClassScope_project].initialize(FPaths::GetPath(FPaths::GetProjectFilePath()), FPaths::GetBaseFilename(FPaths::GetProjectFilePath()), &m_targets[ClassScope_engine]);
 
+  // Print diagnostic message
+  GWarn->Log(ELogVerbosity::Display, FString::Printf(TEXT("SkookumScript: Generating script bindings for %d engine modules and %d project module(s)."), 
+    m_targets[ClassScope_engine].m_script_supported_modules.Num(), 
+    m_targets[ClassScope_project].is_valid() ? m_targets[ClassScope_project].m_script_supported_modules.Num() - m_targets[ClassScope_engine].m_script_supported_modules.Num() : 0));
+
   // Use some conservative estimates to avoid unnecessary reallocations
   m_types_to_generate.Reserve(3000);
   m_types_to_generate_lookup.Reserve(3000);
