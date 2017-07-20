@@ -315,13 +315,20 @@ void FSkookumScriptGenerator::Initialize(const FString & root_local_path, const 
 
   // Set up information about engine and project code generation
   FString plugin_directory = FPaths::ConvertRelativePathToFull(include_base / TEXT("../.."));
+  FString project_file_path = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
   m_targets[ClassScope_engine].initialize(plugin_directory, TEXT("UE4"));
-  m_targets[ClassScope_project].initialize(FPaths::GetPath(FPaths::GetProjectFilePath()), FPaths::GetBaseFilename(FPaths::GetProjectFilePath()), &m_targets[ClassScope_engine]);
+  m_targets[ClassScope_project].initialize(FPaths::GetPath(project_file_path), FPaths::GetBaseFilename(project_file_path), &m_targets[ClassScope_engine]);
 
   // Print diagnostic message
-  GWarn->Log(ELogVerbosity::Display, FString::Printf(TEXT("SkookumScript: Generating script bindings for %d engine modules and %d project module(s)."), 
+  GWarn->Log(ELogVerbosity::Display, FString::Printf(TEXT("SkookumScript: Generating C++ script bindings for %d engine modules and %d project module(s)"), 
     m_targets[ClassScope_engine].m_script_supported_modules.Num(), 
     m_targets[ClassScope_project].is_valid() ? m_targets[ClassScope_project].m_script_supported_modules.Num() - m_targets[ClassScope_engine].m_script_supported_modules.Num() : 0));
+
+  // Log a bunch of info into log file
+  UE_LOG(LogSkookumScriptGenerator, Log, TEXT("Plugin directory: '%s'"), *plugin_directory);
+  UE_LOG(LogSkookumScriptGenerator, Log, TEXT("Project file path: '%s'"), *project_file_path);
+  UE_LOG(LogSkookumScriptGenerator, Log, TEXT("Engine SkookumScript.ini file: '%s'"), *m_targets[ClassScope_engine].get_ini_file_path());
+  UE_LOG(LogSkookumScriptGenerator, Log, TEXT("Project SkookumScript.ini file: '%s'"), *m_targets[ClassScope_project].get_ini_file_path());
 
   // Use some conservative estimates to avoid unnecessary reallocations
   m_types_to_generate.Reserve(3000);
