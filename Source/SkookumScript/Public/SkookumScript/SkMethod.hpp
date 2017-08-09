@@ -131,6 +131,7 @@ class SK_API SkMethod : public SkMethodBase
       virtual eSkInvokable get_invoke_type() const override;
       virtual bool         is_bound() const override;
       virtual bool         is_empty() const override;
+      virtual bool         is_placeholder() const override;
 
   protected:
 
@@ -204,12 +205,6 @@ class SK_API SkMethodFunc : public SkMethodBase
 
       virtual eSkInvokable get_invoke_type() const override;
       virtual bool         is_bound() const override;
-      virtual bool         is_placeholder() const override;
-
-
-  // Atomic Methods
-
-    static void mthd_placeholder(SkInvokedMethod * scope_p, SkInstance ** result_pp);
 
   };  // SkMethodFunc
 
