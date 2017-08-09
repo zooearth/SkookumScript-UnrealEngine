@@ -469,7 +469,7 @@ bool SkUEReflectionManager::add_reflected_call(SkInvokableBase * sk_invokable_p)
   uint32_t num_params = param_list.get_length();
 
   // Allocate reflected call
-  ReflectedCall * reflected_call_p = new(FMemory::Malloc(sizeof(ReflectedCall) + num_params * sizeof(ReflectedCallParam))) ReflectedCall(sk_invokable_p, num_params, params.get_result_class(), function_index >= 0);
+  ReflectedCall * reflected_call_p = new(FMemory::Malloc(sizeof(ReflectedCall) + num_params * sizeof(ReflectedCallParam))) ReflectedCall(sk_invokable_p, num_params, params.get_result_class());
 
   // Initialize parameters
   for (uint32_t i = 0; i < num_params; ++i)
@@ -511,7 +511,7 @@ bool SkUEReflectionManager::add_reflected_event(SkMethodBase * sk_method_p)
   uint32_t num_params = param_list.get_length();
 
   // Allocate reflected event
-  ReflectedEvent * reflected_event_p = new(FMemory::Malloc(sizeof(ReflectedEvent) + num_params * sizeof(ReflectedEventParam))) ReflectedEvent(sk_method_p, num_params, function_index >= 0);
+  ReflectedEvent * reflected_event_p = new(FMemory::Malloc(sizeof(ReflectedEvent) + num_params * sizeof(ReflectedEventParam))) ReflectedEvent(sk_method_p, num_params);
 
   // Initialize parameters
   for (uint32_t i = 0; i < num_params; ++i)
@@ -634,6 +634,7 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
           reflected_function_p->m_ue_function_p = ue_function_p;
           reflected_function_p->m_ue_params_size = ue_function_p->ParmsSize;
           reflected_function_p->m_has_out_params = ue_function_p->HasAllFunctionFlags(FUNC_HasOutParms);
+          reflected_function_p->m_is_ue_function_built = is_ue_function_built;
 
           if (reflected_function_p->m_type == ReflectedFunctionType_call)
             {
@@ -684,13 +685,10 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
           #endif
 
           // Invoke update callback if any
-          if (on_function_updated_f && is_ue_function_built && reflected_function_p->m_allow_update_callback)
+          if (on_function_updated_f && is_ue_function_built)
             {
             on_function_updated_f->invoke(ue_function_p, reflected_function_p->m_type == ReflectedFunctionType_event);
             }
-
-          // Allow update callback after we reflected this function once
-          reflected_function_p->m_allow_update_callback = true;
           }
 
         // And destroy the ReflectedPropertys
@@ -1248,7 +1246,8 @@ void SkUEReflectionManager::delete_reflected_function(uint32_t function_index)
   if (reflected_function_p)
     {
     //SK_ASSERTX(reflected_function_p->m_ue_function_p.IsValid(), a_str_format("UFunction %s was deleted outside of SkUEReflectionManager and left dangling links behind in its owner UClass (%s).", reflected_function_p->get_name_cstr(), reflected_function_p->m_sk_invokable_p->get_scope()->get_name_cstr()));
-    if (reflected_function_p->m_ue_function_p.IsValid())
+    if (reflected_function_p->m_is_ue_function_built // Only destroy the UFunction if this plugin built it in the first place
+     && reflected_function_p->m_ue_function_p.IsValid())
       {
       UFunction * ue_function_p = reflected_function_p->m_ue_function_p.Get();
       UClass * ue_class_p = ue_function_p->GetOwnerClass();
