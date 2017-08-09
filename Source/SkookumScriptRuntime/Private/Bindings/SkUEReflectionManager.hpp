@@ -128,11 +128,11 @@ class SkUEReflectionManager
       bool                      m_has_out_params;
       bool                      m_is_class_member;    // Copy of m_sk_invokable_p->is_class_member() in case m_sk_invokable_p goes bad
       uint16_t                  m_ue_params_size;     // Byte size of all parameters combined on UE4 stack
-      bool                      m_allow_update_callback;
+      bool                      m_is_ue_function_built;
       bool                      m_marked_for_delete_class;
       bool                      m_marked_for_delete_all;
 
-      ReflectedFunction(eReflectedFunctionType type, SkInvokableBase * sk_invokable_p, uint32_t num_params, bool allow_update_callback)
+      ReflectedFunction(eReflectedFunctionType type, SkInvokableBase * sk_invokable_p, uint32_t num_params)
         : ANamed(sk_invokable_p->get_name())
         , m_sk_invokable_p(sk_invokable_p)
         , m_ue_function_p(nullptr) // Yet unknown
@@ -141,7 +141,7 @@ class SkUEReflectionManager
         , m_has_out_params(false) // Yet unknown
         , m_is_class_member(sk_invokable_p->is_class_member())
         , m_ue_params_size(0) // Yet unknown
-        , m_allow_update_callback(allow_update_callback)
+        , m_is_ue_function_built(false)
         , m_marked_for_delete_class(false)
         , m_marked_for_delete_all(false)
         {}
@@ -175,8 +175,8 @@ class SkUEReflectionManager
       {
       ReflectedParamStorer  m_result;
 
-      ReflectedCall(SkInvokableBase * sk_invokable_p, uint32_t num_params, SkClassDescBase * sk_result_type_p, bool allow_update_callback)
-        : ReflectedFunction(ReflectedFunctionType_call, sk_invokable_p, num_params, allow_update_callback)
+      ReflectedCall(SkInvokableBase * sk_invokable_p, uint32_t num_params, SkClassDescBase * sk_result_type_p)
+        : ReflectedFunction(ReflectedFunctionType_call, sk_invokable_p, num_params)
         , m_result(ASymbol::ms_null, sk_result_type_p)
         {}
 
@@ -204,8 +204,8 @@ class SkUEReflectionManager
       {
       mutable TWeakObjectPtr<UFunction> m_ue_function_to_invoke_p; // The copy of our method we actually can invoke
 
-      ReflectedEvent(SkMethodBase * sk_method_p, uint32_t num_params, bool allow_update_callback)
-        : ReflectedFunction(ReflectedFunctionType_event, sk_method_p, num_params, allow_update_callback)
+      ReflectedEvent(SkMethodBase * sk_method_p, uint32_t num_params)
+        : ReflectedFunction(ReflectedFunctionType_event, sk_method_p, num_params)
         {}
 
       // The parameter entries are stored behind this structure in memory

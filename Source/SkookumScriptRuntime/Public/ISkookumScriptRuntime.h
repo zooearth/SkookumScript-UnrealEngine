@@ -46,7 +46,6 @@ class ISkookumScriptRuntimeEditorInterface
     virtual void  on_class_updated(UClass * ue_class_p) = 0;
     virtual void  on_function_updated(UFunction * ue_function_p, bool is_event) = 0;
     virtual void  on_function_removed_from_class(UClass * ue_class_p) = 0;
-    virtual bool  check_out_file(const FString & file_path) const = 0;
 
   #endif
 
@@ -83,15 +82,15 @@ class ISkookumScriptRuntime : public IModuleInterface
       virtual bool  is_skookum_reflected_call(UFunction * function_p) const = 0;
       virtual bool  is_skookum_reflected_event(UFunction * function_p) const = 0;
 
-      virtual void  on_class_added_or_modified(UBlueprint * blueprint_p, bool check_if_reparented) = 0;
-      virtual void  on_class_renamed(UBlueprint * blueprint_p, const FString & old_class_name) = 0;
+      virtual void  on_class_added_or_modified(UBlueprint * blueprint_p) = 0;
+      virtual void  on_class_renamed(UBlueprint * blueprint_p, const FString & old_ue_class_name) = 0;
       virtual void  on_class_deleted(UBlueprint * blueprint_p) = 0;
 
-      virtual void  on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p, bool check_if_reparented) = 0;
+      virtual void  on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p) = 0;
       virtual void  on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_class_name) = 0;
       virtual void  on_struct_deleted(UUserDefinedStruct * ue_struct_p) = 0;
 
-      virtual void  on_enum_added_or_modified(UUserDefinedEnum * ue_enum_p, bool check_if_reparented) = 0;
+      virtual void  on_enum_added_or_modified(UUserDefinedEnum * ue_enum_p) = 0;
       virtual void  on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_enum_name) = 0;
       virtual void  on_enum_deleted(UUserDefinedEnum * ue_enum_p) = 0;
 
