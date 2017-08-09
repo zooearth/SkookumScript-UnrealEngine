@@ -106,11 +106,9 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files(bool genera
   if (!m_overlay_path.IsEmpty())
     {
     // Re-generate classes for all Blueprints
-    TArray<UObject*> blueprint_array;
-    GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array);
-    for (UObject * obj_p : blueprint_array)
+    for (TObjectIterator<UBlueprint> blueprint_it; blueprint_it; ++blueprint_it)
       {
-      UClass * ue_class_p = static_cast<UBlueprint *>(obj_p)->GeneratedClass;
+      UClass * ue_class_p = blueprint_it->GeneratedClass;
       if (ue_class_p)
         {
         generate_class_script_files(ue_class_p, generate_data, true, check_if_reparented);
@@ -118,19 +116,15 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files(bool genera
       }
 
     // Re-generate classes for all user defined structs
-    TArray<UObject*> struct_array;
-    GetObjectsOfClass(UUserDefinedStruct::StaticClass(), struct_array);
-    for (UObject * obj_p : struct_array)
+    for (TObjectIterator<UUserDefinedStruct> struct_it; struct_it; ++struct_it)
       {
-      generate_class_script_files(static_cast<UUserDefinedStruct *>(obj_p), generate_data, true, check_if_reparented);
+      generate_class_script_files(*struct_it, generate_data, true, check_if_reparented);
       }
 
     // Re-generate classes for all user defined enums
-    TArray<UObject*> enum_array;
-    GetObjectsOfClass(UUserDefinedEnum::StaticClass(), enum_array);
-    for (UObject * obj_p : enum_array)
+    for (TObjectIterator<UUserDefinedEnum> enum_it; enum_it; ++enum_it)
       {
-      generate_class_script_files(static_cast<UUserDefinedEnum *>(obj_p), generate_data, true, check_if_reparented);
+      generate_class_script_files(*enum_it, generate_data, true, check_if_reparented);
       }
 
     // Re-generate the ECollisionChannel enum class in the Project-generated overlay as it gets customized by the game project
@@ -138,7 +132,7 @@ void FSkookumScriptRuntimeGenerator::generate_all_class_script_files(bool genera
     //generate_class_script_files(ecc_enum_p, true, false, false);
 
     // Also generate any dependent classes
-    generate_used_class_script_files();
+    generate_used_class_script_files(check_if_reparented);
     }
   }
 
@@ -166,7 +160,8 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
     else
       {
       // No editable project found - check temporary location (in `Intermediate` folder)
-      FString temp_root_path(FPaths::GameIntermediateDir() / TEXT("SkookumScript"));
+      // We don't use FPaths::GameIntermediateDir() here as that might point to the %APPDATA% folder
+      FString temp_root_path(FPaths::GameDir() / TEXT("Intermediate/SkookumScript"));
       FString temp_scripts_path(temp_root_path / TEXT("Scripts"));
       FString temp_project_file_path = temp_scripts_path / TEXT("Skookum-project.ini");
       if (!FPaths::FileExists(temp_project_file_path))
@@ -564,7 +559,7 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::generate_used_class_script_files()
+void FSkookumScriptRuntimeGenerator::generate_used_class_script_files(bool check_if_reparented)
   {
   // Loop through all previously used classes and create stubs for them
   for (tUsedClasses::TConstIterator iter(m_used_classes); iter; ++iter)
@@ -572,7 +567,7 @@ void FSkookumScriptRuntimeGenerator::generate_used_class_script_files()
     UClass * class_p = Cast<UClass>(*iter);
     if (class_p)
       {
-      generate_class_script_files(class_p, false, false, true);
+      generate_class_script_files(class_p, false, false, check_if_reparented);
       }
     }
 
@@ -745,7 +740,7 @@ void FSkookumScriptRuntimeGenerator::set_overlay_path()
 
 //---------------------------------------------------------------------------------------
 
-bool FSkookumScriptRuntimeGenerator::can_export_blueprint_function(UFunction * function_p) const
+bool FSkookumScriptRuntimeGenerator::can_export_blueprint_function(UFunction * function_p)
   {
   static FName s_user_construction_script_name(TEXT("UserConstructionScript"));
 
@@ -762,7 +757,8 @@ bool FSkookumScriptRuntimeGenerator::can_export_blueprint_function(UFunction * f
     {
     UProperty * param_p = *param_it;
     if (param_p->HasAllPropertyFlags(CPF_Parm)
-     && !SkUEReflectionManager::can_ue_property_be_reflected(param_p))
+     && (!SkUEReflectionManager::can_ue_property_be_reflected(param_p)
+      || !can_export_property(param_p, 0, 0)))
       {
       return false;
       }

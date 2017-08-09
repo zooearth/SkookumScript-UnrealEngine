@@ -777,8 +777,8 @@ FString FSkookumScriptGeneratorBase::skookify_data_name(FName name, FName owner_
 
       // Is it [A-Za-z0-9]?
       if ((c >= TCHAR('0') && c <= TCHAR('9'))
-        || (c >= TCHAR('A') && c <= TCHAR('Z'))
-        || (c >= TCHAR('a') && c <= TCHAR('z')))
+       || (c >= TCHAR('A') && c <= TCHAR('Z'))
+       || (c >= TCHAR('a') && c <= TCHAR('z')))
         {
         // Yes, append it
         bool is_upper = FChar::IsUpper(c) || FChar::IsDigit(c);
@@ -1163,7 +1163,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_default_initializer(UFunction *
         {
         case SkTypeID_Integer:         break; // Leave as-is
         case SkTypeID_Real:            break; // Leave as-is
-        case SkTypeID_Boolean:         default_value = default_value.ToLower(); break;
+        case SkTypeID_Boolean:         default_value = FChar::IsDigit(default_value[0]) ? (default_value[0] == '1' ? TEXT("true") : TEXT("false")) : *default_value.ToLower(); break;
         case SkTypeID_String:          default_value = TEXT("\"") + default_value + TEXT("\""); break;
         case SkTypeID_Name:            default_value = (default_value == TEXT("None") ? TEXT("Name!none") : TEXT("Name!(\"") + default_value + TEXT("\")")); break;
         case SkTypeID_Enum:            default_value = get_skookum_class_name(get_enum(param_p)) + TEXT(".") + get_skookified_default_enum_val_name_by_id(get_enum(param_p), default_value); break;
@@ -1550,10 +1550,7 @@ void FSkookumScriptGeneratorBase::generate_class_meta_file(UField * type_p, cons
   {
   const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
   FString body = type_p ? generate_class_meta_file_body(type_p) : TEXT("// ") + skookum_class_name + TEXT("\r\n");
-  if (!FFileHelper::SaveStringToFile(body, *meta_file_path, ms_script_file_encoding))
-    {
-    report_error(FString::Printf(TEXT("Could not save file: %s"), *meta_file_path));
-    }
+  save_text_file_if_changed(*meta_file_path, body);
   }
 
 //---------------------------------------------------------------------------------------
@@ -1617,6 +1614,17 @@ FSkookumScriptGeneratorBase::GenerationTargetBase::initialize(const FString & ro
 
     GConfig->GetArray(TEXT("SkookumScriptGenerator"), TEXT("SkipClasses"), skip_classes, GEngineIni);
     }
+  else
+    {
+    // No ini file found at all
+    if (!m_ini_file_stamp.GetTicks())
+      {
+      return State_valid_unchanged;
+      }
+    m_ini_file_stamp = FDateTime(0);
+    }
+
+  // Found ini data - parse it
 
   // Inherit rename rules so renaming is consistent
   if (inherit_from_p)
@@ -1752,8 +1760,10 @@ FString FSkookumScriptGeneratorBase::GenerationTargetBase::find_class_rename_rep
     for (tClassRenameMap::TConstKeyIterator it(m_class_rename_map, name); it; ++it)
       {
       // Then check the match candidates for an actual match
+      const FName & key = it.Key();
       const ClassRenameEntry & match = it.Value();
-      if (package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name)
+      if (key.GetDisplayIndex() == name.GetDisplayIndex()
+       && (package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name))
         { 
         return match.m_replacement;
         }
@@ -1775,8 +1785,10 @@ FString FSkookumScriptGeneratorBase::GenerationTargetBase::find_data_rename_repl
     for (tDataRenameMap::TConstKeyIterator it(m_data_rename_map, name); it; ++it)
       {
       // Then check the match candidates for an actual match
+      const FName & key = it.Key();
       const DataRenameEntry & match = it.Value();
-      if ((package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name)
+      if (key.GetDisplayIndex() == name.GetDisplayIndex()
+       && (package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name)
        && (owner_name.IsNone() || match.m_owner_name.IsNone() || match.m_owner_name == owner_name))
         { 
         return match.m_replacement;

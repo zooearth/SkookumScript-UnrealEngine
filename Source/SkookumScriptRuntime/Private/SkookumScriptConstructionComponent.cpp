@@ -97,15 +97,15 @@ void USkookumScriptConstructionComponent::InitializeComponent()
 
 void USkookumScriptConstructionComponent::UninitializeComponent()
   {
-  // Delete SkookumScript instance if present
-  SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_sim, "SkookumScript must be at least in sim mode when UninitializeComponent() is invoked.");
-
   AActor * actor_p = GetOwner();
   // Only uninitialize those components that we initialized to begin with
   // If there's a USkookumScriptClassDataComponent, it has already taken care of the destruction
   if (actor_p->GetWorld() && actor_p->GetWorld()->IsGameWorld()
    && !actor_p->GetComponentByClass(USkookumScriptClassDataComponent::StaticClass()))
     {
+    // Delete SkookumScript instance if present
+    SK_ASSERTX(SkookumScript::get_initialization_level() >= SkookumScript::InitializationLevel_sim, "SkookumScript must be at least in sim mode when UninitializeComponent() is invoked.");
+
     SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(actor_p->GetClass());
     if (sk_class_p)
       {

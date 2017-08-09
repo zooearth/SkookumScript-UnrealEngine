@@ -78,7 +78,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
     void           rename_class_script_files(UObject * type_p, const FString & old_class_name);
     void           rename_class_script_files(UObject * type_p, const FString & old_class_name, const FString & new_class_name);
     void           delete_class_script_files(UObject * type_p);
-    void           generate_used_class_script_files();
+    void           generate_used_class_script_files(bool check_if_reparented);
 
     // FSkookumScriptGeneratorBase interface implementation
 
@@ -91,7 +91,7 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
     void           initialize_paths();
     bool           initialize_generation_targets();
     void           set_overlay_path();
-    bool           can_export_blueprint_function(UFunction * function_p) const;
+    bool           can_export_blueprint_function(UFunction * function_p);
 
     // Types
 
