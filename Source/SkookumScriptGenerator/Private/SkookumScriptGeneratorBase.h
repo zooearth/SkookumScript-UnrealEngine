@@ -102,6 +102,7 @@ class FSkookumScriptGeneratorHelper
     static const FName    ms_meta_data_key_blueprint_type;
   #endif
 
+    static const FName    ms_skookum_script_instance_property_name;
   };
 
 #if WITH_EDITOR || HACK_HEADER_GENERATOR
@@ -156,6 +157,8 @@ class FSkookumScriptGeneratorBase : public FSkookumScriptGeneratorHelper
       
       FDateTime       m_ini_file_stamp;
 
+                   GenerationTargetBase() : m_ini_file_stamp(1) {} // Set to 1 tick to mark dirty
+
       eState       initialize(const FString & root_directory_path, const FString & project_name, const GenerationTargetBase * inherit_from_p = nullptr);
       bool         is_valid() const;
       FString      get_ini_file_path() const;
@@ -163,8 +166,6 @@ class FSkookumScriptGeneratorBase : public FSkookumScriptGeneratorHelper
       FString      find_class_rename_replacement(FName name, FName package_name) const;
       FString      find_data_rename_replacement(FName name, FName owner_name, FName package_name) const;
       };
-
-    typedef bool (*tSourceControlCheckoutFunc)(const FString & file_path);
 
     // Helper struct for building path to SkookumScript class
     struct SuperClassEntry
@@ -178,8 +179,9 @@ class FSkookumScriptGeneratorBase : public FSkookumScriptGeneratorHelper
     // (keep these in sync with the same enum in SkTextProgram.hpp)
     enum ePathDepth
       {
-      PathDepth_any      = -1, // No limit to path depth
-      PathDepth_archived = -2  // All chunks stored in a single archive file
+      PathDepth_any                = -1, // No limit to path depth
+      PathDepth_archived           = -2, // All chunks stored in a single archive file
+      PathDepth_archived_per_class = -3  // Chunks stored in an archive file per class
       };
 
     //---------------------------------------------------------------------------------------
@@ -197,16 +199,18 @@ class FSkookumScriptGeneratorBase : public FSkookumScriptGeneratorHelper
 
     virtual bool          can_export_property(UProperty * property_p, int32 include_priority, uint32 referenced_flags) = 0;
     virtual void          on_type_referenced(UField * type_p, int32 include_priority, uint32 referenced_flags) = 0;
-    virtual void          report_error(const FString & message) = 0;
+    virtual void          report_error(const FString & message) const = 0;
+    virtual bool          source_control_checkout_or_add(const FString & file_path) const { return true; }
+    virtual bool          source_control_delete(const FString & file_path)          const { return true; }
 
     //---------------------------------------------------------------------------------------
     // Methods
 
-    static FString        get_or_create_project_file(const FString & ue_project_directory_path, const TCHAR * project_name_p, eSkProjectMode * project_mode_p = nullptr, bool * created_p = nullptr);
+    FString               get_or_create_project_file(const FString & ue_project_directory_path, const TCHAR * project_name_p, eSkProjectMode * project_mode_p = nullptr, bool * created_p = nullptr);
     bool                  compute_scripts_path_depth(FString project_ini_file_path, const FString & overlay_name);
     void                  save_text_file(const FString & file_path, const FString & contents);
     bool                  save_text_file_if_changed(const FString & file_path, const FString & new_file_contents); // Helper to change a file only if needed
-    void                  flush_saved_text_files(tSourceControlCheckoutFunc checkout_f = nullptr); // Puts generated files into place after all code generation is done
+    void                  flush_saved_text_files(); // Puts generated files into place after all code generation is done
 
     FString               skookify_class_name(FName name, FName package_name);
     FString               skookify_enum_name(FName name, FName package_name);
@@ -217,19 +221,21 @@ class FSkookumScriptGeneratorBase : public FSkookumScriptGeneratorHelper
 
     FString               get_skookum_class_name(UObject * type_p);
     FString               get_skookum_data_name(UProperty * property_p);
-    FString               get_skookum_parent_name(UField * type_p, int32 include_priority, uint32 referenced_flags, UStruct ** out_parent_pp = nullptr);
+    FString               get_skookum_parent_name(UObject * type_p, int32 include_priority, uint32 referenced_flags, UStruct ** out_parent_pp = nullptr);
     FString               get_skookum_class_path(UObject * type_p, int32 include_priority, uint32 referenced_flags, FString * out_class_name_p = nullptr);
     FString               get_skookum_method_file_name(const FString & script_function_name, bool is_static);
     FString               get_skookum_property_type_name(UProperty * property_p, bool include_invokable_signature = false, int32 * out_first_line_length_p = nullptr, int32 * out_max_line_length_p = nullptr);
     FString               get_skookum_default_initializer(UFunction * function_p, UProperty * param_p);
     static uint32         get_skookum_symbol_id(const FString & string);
-    static FString        get_comment_block(UField * field_p);
+    static FString        get_comment_block(UObject * type_p);
+
+    static UField *       get_field(UObject * type_p); // Find its UField if type is not a UField
 
     static FString        multiline_right_pad(const FString & text, int32 desired_width);
 
     FString               generate_routine_script_parameters(UFunction * function_p, int32 indent_spaces, int32 * out_num_inputs_p = nullptr, FString * out_return_type_name_p = nullptr, int32 * out_max_line_length_p = nullptr); // Generate script code for a routine's parameter list (without parentheses)
 
-    FString               generate_class_meta_file_body(UField * type_p);
+    FString               generate_class_meta_file_body(UObject * type_p);
     FString               generate_class_instance_data_file_body(UStruct * class_or_struct_p, int32 include_priority, uint32 referenced_flags);
     FString               generate_enum_class_data_body(UEnum * enum_p);
     FString               generate_enum_class_constructor_body(UEnum * enum_p);
@@ -248,7 +254,7 @@ class FSkookumScriptGeneratorBase : public FSkookumScriptGeneratorHelper
 
     static const FString         ms_asset_name_key; // Label used to extract asset name from Sk class meta file
     static const FString         ms_package_name_key; // Label used to extract package name from Sk class meta file
-    static const FString         ms_package_path_key; // Label used to extract package path from Sk class meta file
+    //static const FString         ms_package_path_key; // Label used to extract package path from Sk class meta file
     static TCHAR const * const   ms_editable_ini_settings_p; // ini file settings to describe that a project is not editable
     static TCHAR const * const   ms_overlay_name_bp_p; // Name of overlay used for Sk classes generated from Blueprints
     static TCHAR const * const   ms_overlay_name_bp_old_p; // Legacy 2016-07-18 - remove after some time
