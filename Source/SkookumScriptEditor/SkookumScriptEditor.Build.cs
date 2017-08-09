@@ -62,7 +62,6 @@ namespace UnrealBuildTool.Rules
           "Kismet",
           "BlueprintGraph",
           "SlateCore",
-          "SourceControl",
           "Projects",
           // ... add private dependencies that you statically link with here ...
         }
