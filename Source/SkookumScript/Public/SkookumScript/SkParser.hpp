@@ -388,7 +388,7 @@ class SK_API SkParser : public AString
       Result_err_expected_parameters,         // A parameter list must start with an opening parenthesis (bracket) '('
       Result_err_expected_parameter,          // The parameter list expected a parameter and did not find one.
       Result_err_expected_parameter_next,     // The parameter list expected a parameter or end of the list.
-      Result_err_expected_param_name,         // Parameter descriptors must be named
+      Result_err_expected_param_name,         // Parameter specifiers must be named and no name was found. If you were trying to group expressions using (), use square brackets [] instead.
       Result_err_expected_race_block,         // Expected a 'race' code block [ ], but did not find one.
       Result_err_expected_return_arg,         // Expected a return argument, but did not receive one.
       Result_err_expected_coroutine_name,     // A coroutine name must begin with an underscore '_' and then a lowercase letter
@@ -839,8 +839,8 @@ class SK_API SkParser : public AString
 
     // Preparse Methods - Partially parses code for context for later full parse.
 
-      SkMethodFunc *    preparse_method_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
-      SkCoroutineFunc * preparse_coroutine_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
+      SkMethodBase *    preparse_method_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
+      SkCoroutineBase * preparse_coroutine_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
 
     // Identification Methods - Quickly identifies/categorizes a section of code without necessarily doing a full analysis.
 

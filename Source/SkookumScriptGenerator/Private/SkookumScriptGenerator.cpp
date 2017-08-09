@@ -267,7 +267,7 @@ class FSkookumScriptGenerator : public ISkookumScriptGenerator, public FSkookumS
 
   virtual bool          can_export_property(UProperty * property_p, int32 include_priority, uint32 referenced_flags) override final;
   virtual void          on_type_referenced(UField * type_p, int32 include_priority, uint32 referenced_flags) override final;
-  virtual void          report_error(const FString & message) override final;
+  virtual void          report_error(const FString & message) const override final;
 
   };
 
@@ -534,7 +534,7 @@ int32 FSkookumScriptGenerator::generate_class(UStruct * struct_or_class_p, int32
     generated_class.m_sk_instance_data_file_body = generate_class_instance_data_file_body(struct_or_class_p, include_priority, referenced_flags);
 
     // For structs, generate ctor/ctor_copy/op_assign/dtor
-    if (!Cast<UClass>(struct_or_class_p))
+    if (!struct_or_class_p->IsA<UClass>())
       {
       generated_class.m_sk_routines.Add({ TEXT("!"), false, FString::Printf(TEXT("() %s\r\n"), *skookum_class_name) });
       generated_class.m_sk_routines.Add({ TEXT("!copy"), false, FString::Printf(TEXT("(%s other) %s\r\n"), *skookum_class_name, *skookum_class_name) });
@@ -1231,7 +1231,7 @@ FString FSkookumScriptGenerator::generate_this_pointer_initialization(const FStr
     }
   else
     {
-    bool is_class = !!Cast<UClass>(struct_or_class_p);
+    bool is_class = struct_or_class_p->IsA<UClass>();
     return FString::Printf(TEXT("%s * this_p = %sscope_p->this_as<SkUE%s>();"), *class_name_cpp, is_class ? TEXT("") : TEXT("&"), *class_name_skookum);
     }
   }
@@ -1729,7 +1729,7 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
         "#pragma once\r\n\r\n"
         "#include \"SkUEClassBinding.hpp\"\r\n");
 
-      if (Cast<UEnum>(generated_type.m_type_p) != nullptr)
+      if (generated_type.m_type_p->IsA<UEnum>())
         {
         class_header_code += TEXT("#include \"SkookumScript/SkEnum.hpp\"\r\n");
         }
@@ -1947,11 +1947,11 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
       binding_code += generated_type.m_cpp_binding_file_body;
 
       // Count types
-      if (Cast<UClass>(generated_type.m_type_p))
+      if (generated_type.m_type_p->IsA<UClass>())
         {
         ++num_generated_classes;
         }
-      else if (Cast<UEnum>(generated_type.m_type_p))
+      else if (generated_type.m_type_p->IsA<UEnum>())
         {
         ++num_generated_enums;
         }
@@ -2008,7 +2008,7 @@ void FSkookumScriptGenerator::save_generated_cpp_files(eClassScope class_scope)
   binding_code += FString::Printf(TEXT("void SkUE%sGeneratedBindings::register_bindings()\r\n  {\r\n"), engine_project_p);
   for (const GeneratedType & generated_type : m_types_generated)
     {
-    if ((generated_type.m_class_scope == class_scope) && !generated_type.m_is_hierarchy_stub && !Cast<UEnum>(generated_type.m_type_p))
+    if ((generated_type.m_class_scope == class_scope) && !generated_type.m_is_hierarchy_stub && !generated_type.m_type_p->IsA<UEnum>())
       {
       binding_code += FString::Printf(TEXT("  SkUE%s::register_bindings();\r\n"), *generated_type.m_sk_name);
       }
@@ -2121,7 +2121,7 @@ void FSkookumScriptGenerator::on_type_referenced(UField * type_p, int32 include_
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptGenerator::report_error(const FString & message)
+void FSkookumScriptGenerator::report_error(const FString & message) const
   {
   GWarn->Log(ELogVerbosity::Error, message);
   }

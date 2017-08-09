@@ -464,7 +464,7 @@ UStruct * SkUEClassBindingStruct<_BindingClass, _DataType>::ms_ustruct_p = nullp
 
 inline bool SkUEClassBindingHelper::is_static_class_registered(UClass * ue_class_p)
   {
-  return !Cast<UBlueprintGeneratedClass>(ue_class_p) && get_sk_class_from_ue_class(ue_class_p);
+  return !ue_class_p->UObject::IsA<UBlueprintGeneratedClass>() && get_sk_class_from_ue_class(ue_class_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -540,24 +540,12 @@ inline UClass * SkUEClassBindingHelper::get_static_ue_class_from_sk_class_super(
 inline UClass * SkUEClassBindingHelper::get_ue_class_from_sk_class(SkClass * sk_class_p)
   {
   UClass * ue_class_p = static_cast<UClass *>(get_ue_struct_ptr_from_sk_class(sk_class_p));  
-  SK_ASSERTX(!ue_class_p || Cast<UClass>(ue_class_p), a_str_format("Requested UClass '%S' is not a UClass!", *ue_class_p->GetName()));
+  SK_ASSERTX(!ue_class_p || ue_class_p->UObject::IsA<UClass>(), a_str_format("Requested UClass '%S' is not a UClass!", *ue_class_p->GetName()));
 
   if (!ue_class_p && sk_class_p->is_entity_class())
     {
     ue_class_p = find_ue_class_from_sk_class(sk_class_p);
     }
-
-  #if (SKOOKUM & SK_DEBUG) && defined(A_MAD_CHECK)
-    if (ue_class_p)
-      {
-      uint32_t sk_class_idx = get_sk_class_idx_from_ue_class(ue_class_p);
-      if (sk_class_idx)
-        {
-        SkClass * ue_sk_class_p = SkBrain::get_classes()[sk_class_idx];
-        SK_ASSERTX(sk_class_p == ue_sk_class_p, a_str_format("Mapped classes don't match for '%S' ('%s' != '%s')", *ue_class_p->GetName(), sk_class_p->get_name_cstr(), ue_sk_class_p->get_name_cstr()));
-        }
-      }
-  #endif
 
   return ue_class_p;
   }
@@ -575,7 +563,7 @@ inline SkClass * SkUEClassBindingHelper::get_sk_class_from_ue_struct(UScriptStru
 inline UScriptStruct * SkUEClassBindingHelper::get_ue_struct_from_sk_class(SkClass * sk_class_p)
   {
   UScriptStruct * ue_struct_p = static_cast<UScriptStruct *>(get_ue_struct_ptr_from_sk_class(sk_class_p));
-  SK_ASSERTX(!ue_struct_p || Cast<UScriptStruct>(ue_struct_p), a_str_format("Requested UScriptStruct '%S' is not a UScriptStruct!", *ue_struct_p->GetName()));
+  SK_ASSERTX(!ue_struct_p || ue_struct_p->IsA<UScriptStruct>(), a_str_format("Requested UScriptStruct '%S' is not a UScriptStruct!", *ue_struct_p->GetName()));
 
   if (!ue_struct_p)
     {
@@ -729,24 +717,15 @@ inline void SkUEClassBindingHelper::set_sk_class_idx_on_ue_class(UClass * ue_cla
 // Fetch struct pointer from Sk class user data
 inline UStruct * SkUEClassBindingHelper::get_ue_struct_ptr_from_sk_class(SkClass * sk_class_p)
   {
-  #if WITH_EDITORONLY_DATA
-    // With Blueprints and hot loading we have to be careful and use a weak pointer
-    return sk_class_p->get_user_data<TWeakObjectPtr<UStruct>>().Get();
-  #else
-    // In cooked builds we can store the class pointer directly and save a few cycles that way
-    return sk_class_p->get_user_data<UStruct *>();
-  #endif
+  // Use a weak pointer since classes can be dynamically loaded and unloaded (e.g. during map load)
+  return sk_class_p->get_user_data<TWeakObjectPtr<UStruct>>().Get();
   }
 
 //---------------------------------------------------------------------------------------
 // Set struct pointer to Sk class user data
 inline void SkUEClassBindingHelper::set_ue_struct_ptr_on_sk_class(SkClass * sk_class_p, UStruct * ue_struct_p)
   {
-  #if WITH_EDITORONLY_DATA
-    sk_class_p->set_user_data<TWeakObjectPtr<UStruct>>(ue_struct_p);
-  #else
-    sk_class_p->set_user_data(ue_struct_p);
-  #endif
+  sk_class_p->set_user_data<TWeakObjectPtr<UStruct>>(ue_struct_p);
   }
 
 
