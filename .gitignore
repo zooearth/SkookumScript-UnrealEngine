@@ -25,6 +25,7 @@ force-lib-build.txt
 !/Binaries/Win64/AgogCore*.dll
 /Intermediate/**
 /Agog/**
+/Saved/**
 /Scripts/Engine-Generated/**
 /Source/AgogCore/*2013*.*
 /Source/AgogCore/*2015*.*

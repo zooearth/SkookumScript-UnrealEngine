@@ -386,7 +386,9 @@ class SK_API SkParser : public AString
       Result_err_expected_operator,           // Expected an operator method call, but did not find one
       Result_err_expected_obj_id,             // Expected an operator id, but did not find the '@', '@?' or '@#'symbols.
       Result_err_expected_parameters,         // A parameter list must start with an opening parenthesis (bracket) '('
-      Result_err_expected_param_name,         // Parameter descriptors must be named
+      Result_err_expected_parameter,          // The parameter list expected a parameter and did not find one.
+      Result_err_expected_parameter_next,     // The parameter list expected a parameter or end of the list.
+      Result_err_expected_param_name,         // Parameter specifiers must be named and no name was found. If you were trying to group expressions using (), use square brackets [] instead.
       Result_err_expected_race_block,         // Expected a 'race' code block [ ], but did not find one.
       Result_err_expected_return_arg,         // Expected a return argument, but did not receive one.
       Result_err_expected_coroutine_name,     // A coroutine name must begin with an underscore '_' and then a lowercase letter
@@ -415,9 +417,8 @@ class SK_API SkParser : public AString
       Result_err_unexpected_exit,             // Found a loop 'exit' in an invalid location
       Result_err_unexpected_exit_no_loop,     // Found a loop 'exit' when not nested in the specified loop
       Result_err_unexpected_implicit_this,    // Operator calls may not be used with an implicit 'this' - otherwise it is more error prone and even when used correctly it is more difficult to understand
-      Result_err_unexpected_parameter,        // The parameter list expected ',' or ')'.
+      Result_err_unexpected_parameters_result, // A coroutine parameter list must not specify a primary return type - the return type InvokedCoroutine is always inferred.
       Result_err_unexpected_parameter_rargs,  // The parameter list did not expect an extra semi-colon ';'!  Return parameters already started.
-      Result_err_unexpected_parameter_return, // A coroutine parameter list must not specify a primary return type - the return type InvokedCoroutine is always inferred.
       Result_err_unexpected_parameter_binary, // Binary operator must have exactly one parameter
       Result_err_unexpected_query_identifier, // Query/predicate methods are not permitted in instantiation invocations.
       Result_err_unexpected_reserved,         // A reserved word/token may not change its binding - including identifiers (this, this_class, this_code, or nil), literals (true or false), primitives (loop), and statements (exit)
@@ -833,13 +834,13 @@ class SK_API SkParser : public AString
       eResult parse_whitespace(           uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr) const;
       eResult parse_ws_any(               uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr, bool treat_lf_as_ws = true) const;
       bool    parse_ws_any(               Args & args) const  { args.m_result = parse_ws_any(args.m_start_pos, &args.m_end_pos); return args.m_result == Result_ok; }
-      void    parse_ws_end(               Args & args) const;
+      bool    parse_ws_end(               Args & args) const;
       eResult parse_ws_required(          uint32_t start_pos = 0u, uint32_t * end_pos_p = nullptr) const;
 
     // Preparse Methods - Partially parses code for context for later full parse.
 
-      SkMethodFunc *    preparse_method_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
-      SkCoroutineFunc * preparse_coroutine_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
+      SkMethodBase *    preparse_method_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
+      SkCoroutineBase * preparse_coroutine_source(const ASymbol & name, SkClassUnaryBase * scope_p, Args & args = ms_def_args.reset(), bool * has_signature_changed_p = nullptr) const;
 
     // Identification Methods - Quickly identifies/categorizes a section of code without necessarily doing a full analysis.
 
@@ -958,7 +959,8 @@ class SK_API SkParser : public AString
 
     // Internal Interface/Parameter Methods
 
-      eResult parse_parameters(           uint32_t start_pos, uint32_t * end_pos_p, SkParameters * params_p, uint32_t flags, uint32_t annotation_flags) const;
+      bool parse_parameters(Args & args, SkParameters * params_p = nullptr, uint32_t flags = ParamFlag__default, uint32_t annotation_flags = SkAnnotation__default) const;
+
       eResult parse_parameter(            uint32_t start_pos, uint32_t * end_pos_p, SkParameterBase ** param_new_pp, uint32_t annotation_flags) const;
       eResult parse_parameter_specifier(  uint32_t start_pos, uint32_t * end_pos_p, SkTypedName * tname_p, uint32_t param_flags, uint32_t annotation_flags) const;
       eResult parse_parameter_unary(      uint32_t start_pos, uint32_t * end_pos_p, SkUnaryParam * uparam_p, uint32_t annotation_flags) const;
