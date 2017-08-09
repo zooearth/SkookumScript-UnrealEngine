@@ -1061,7 +1061,7 @@ SkClass * SkUEClassBindingHelper::find_sk_class_from_ue_class(UClass * ue_class_
     {
     ANSICHAR buffer[260];
     const ANSICHAR * ue_class_name_p = ue_class_name.GetPlainANSIString();
-    if (Cast<UBlueprintGeneratedClass>(ue_class_p))
+    if (ue_class_p->UObject::IsA<UBlueprintGeneratedClass>())
       {
       // It's a Blueprint generated class
       // Remove prefix if present

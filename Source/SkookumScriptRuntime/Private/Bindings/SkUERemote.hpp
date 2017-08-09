@@ -70,7 +70,7 @@ class SkUERemote : public SkRemoteRuntimeBase
     virtual bool              is_connected() const override;
     virtual void              set_mode(eSkLocale mode) override;
 
-    bool                      is_load_compiled_binaries_requested() const { return m_remote_binaries == CompiledState_fresh; }
+    bool                      is_load_compiled_binaries_requested() const { return m_remote_binaries >= CompiledState_errors; } // Even load with errors
     void                      clear_load_compiled_binaries_requested()    { m_remote_binaries = CompiledState_unknown; }
     bool                      is_compiled_binaries_have_errors() const    { return m_remote_binaries == CompiledState_errors; }
 

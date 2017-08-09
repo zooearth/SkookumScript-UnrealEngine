@@ -132,6 +132,7 @@ class SK_API SkCoroutine : public SkCoroutineBase
       virtual eSkInvokable get_invoke_type() const override;
       virtual bool         is_bound() const override;
       virtual bool         is_empty() const override;
+      virtual bool         is_placeholder() const override;
 
   protected:
 
@@ -266,14 +267,9 @@ class SK_API SkCoroutineFunc : public SkCoroutineBase
 
     virtual eSkInvokable get_invoke_type() const override;
     virtual bool         is_bound() const override;
-    virtual bool         is_placeholder() const override;
     virtual bool         on_update(SkInvokedCoroutine * data_p) const override;
     void                 set_update(tSkCoroutineFunc update_f);
     virtual void         track_memory(AMemoryStats * mem_stats_p) const override;
-
-  // Atomic Methods
-
-    static bool coro_placeholder(SkInvokedCoroutine * scope_p);
 
   };  // SkCoroutineFunc
 

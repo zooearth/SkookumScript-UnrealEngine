@@ -1,9 +1,11 @@
 //---------------------------------------------------------------------------------------
-// Description Assignment - equivalent to operator :=
-// Returns     itself
-// Examples    value := false  // or num.assign(false)
-// Author(s)   Conan Reis
+// Assignment - equivalent to operator :=
+//
+// # Returns: itself
+// # Examples:
+//   result? := false       // operator form
+//   result?.assign(false)  // method form
 //---------------------------------------------------------------------------------------
 
-(Boolean value) Boolean
+(value?) Boolean
 
