@@ -837,7 +837,7 @@ AVSorted<_ElementType, _KeyType, _CompareClass>::free_all(
       end_pos = this->m_count - 1u;
       }
 
-    APARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
+    AVARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
 
     for (; array_p < array_end_p; array_p++)
       {
@@ -896,7 +896,7 @@ AVSorted<_ElementType, _KeyType, _CompareClass>::free_all(
       end_pos = this->m_count - 1u;
       }
 
-    APARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
+    AVARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
 
     for (; keys_p < keys_end_p; keys_p++)
       {
@@ -950,7 +950,7 @@ uint32_t AVSorted<_ElementType, _KeyType, _CompareClass>::free_all_all(
       end_pos = this->m_count - 1u;
       }
 
-    APARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
+    AVARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
 
     for (; array_p < array_end_p; array_p++)
       {
@@ -1049,7 +1049,7 @@ void AVSorted<_ElementType, _KeyType, _CompareClass>::pop_all(
   if (elem_count)
     {
 
-    APARRAY_BOUNDS_CHECK_SPAN(pos, elem_count);
+    AVARRAY_BOUNDS_CHECK_SPAN(pos, elem_count);
 
     get_all(collected_p, pos, elem_count);
     this->m_count -= elem_count;
@@ -1142,7 +1142,7 @@ uint32_t AVSorted<_ElementType, _KeyType, _CompareClass>::pop_all_all(
       end_pos = this->m_count - 1;
       }
 
-    APARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
+    AVARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
 
     for (; array_p < array_end_p; array_p++)
       {
@@ -1335,7 +1335,7 @@ uint32_t AVSorted<_ElementType, _KeyType, _CompareClass>::remove_all(
       end_pos = this->m_count - 1;
       }
 
-    APARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
+    AVARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
 
     for (; array_p < array_end_p; array_p++)
       {
@@ -1388,7 +1388,7 @@ uint32_t AVSorted<_ElementType, _KeyType, _CompareClass>::remove_all_all(
       end_pos = this->m_count - 1;
       }
 
-    APARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
+    AVARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
 
     for (; array_p < array_end_p; array_p++)
       {
@@ -1588,7 +1588,7 @@ bool AVSorted<_ElementType, _KeyType, _CompareClass>::find(
       end_pos = this->m_count - 1u;
       }
 
-    APARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
+    AVARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
 
     ptrdiff_t      result;
     _ElementType * middle_p;
@@ -1879,7 +1879,7 @@ void AVSorted<_ElementType, _KeyType, _CompareClass>::get_all(
 
   if (elem_count)
     {
-    APARRAY_BOUNDS_CHECK_SPAN(pos, elem_count);
+    AVARRAY_BOUNDS_CHECK_SPAN(pos, elem_count);
 
     collected_p->ensure_size(collected_p->m_count + elem_count);
 
@@ -1987,7 +1987,7 @@ void AVSorted<_ElementType, _KeyType, _CompareClass>::get_all(
       end_pos = this->m_count - 1u;
       }
 
-    APARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
+    AVARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
 
     for (; sorted_array_p < sorted_array_end_p; sorted_array_p++)
       {
@@ -2027,7 +2027,7 @@ void AVSorted<_ElementType, _KeyType, _CompareClass>::get_all(
 template<class _ElementType, class _KeyType, class _CompareClass>
 uint32_t AVSorted<_ElementType, _KeyType, _CompareClass>::get_instance(uint32_t index) const
   {
-  APARRAY_BOUNDS_CHECK(index);
+  AVARRAY_BOUNDS_CHECK(index);
 
   uint32_t       instance        = 1u;
   _ElementType * first_element_p = this->m_array_p;
@@ -2177,7 +2177,7 @@ inline void AVSorted<_ElementType, _KeyType, _CompareClass>::sort(
       end_pos = this->m_count - 1;
       }
 
-    APARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
+    AVARRAY_BOUNDS_CHECK_RANGE(start_pos, end_pos);
   
     ::qsort(this->m_array_p + start_pos, end_pos - start_pos + 1, sizeof(_ElementType), sort_compare);
     }

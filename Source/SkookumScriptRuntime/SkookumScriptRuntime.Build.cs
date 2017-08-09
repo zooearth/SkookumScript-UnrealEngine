@@ -73,10 +73,11 @@ namespace UnrealBuildTool.Rules
         {
         PrivateDependencyModuleNames.Add("UnrealEd");
         PrivateDependencyModuleNames.Add("KismetCompiler");
-        }
+        PrivateDependencyModuleNames.Add("SourceControl");
+      }
 
       // Load SkookumScript.ini and add any ScriptSupportedModules specified to the list of PrivateDependencyModuleNames
-      PrivateDependencyModuleNames.AddRange(GetSkookumScriptModuleNames(Path.Combine(ModuleDirectory, "../.."), false));
+      PublicDependencyModuleNames.AddRange(GetSkookumScriptModuleNames(Path.Combine(ModuleDirectory, "../.."), false));
 
       // Add any modules that your module loads dynamically here ...
       //DynamicallyLoadedModuleNames.AddRange(new string[] {});

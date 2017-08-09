@@ -886,16 +886,12 @@ class SK_API SkClass : public SkClassUnaryBase, public ANamed
       // List of available coroutines
       tSkCoroutines m_coroutines;
 
-      // Coroutines of this class and all its superclasses for quick look-ups
-      //tSkCoroutines m_coroutine_table;
-
-    // Class Member Info
+     // Class Member Info
 
       // Class Data Members (name, class type and data) for this class - added via this
       // class directly.  Each class data member name must be unique - no superclass nor
       // subclass/ may have it and there should be no instance data member with the same
       // name either - this is enforced by the compiler.
-      // m_class_data_table is used for class data look-ups.
       tSkTypedNameArray m_class_data;
 
       // Where the runtime values of the class data are actually stored

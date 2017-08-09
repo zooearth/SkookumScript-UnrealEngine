@@ -41,19 +41,19 @@
 #include "Engine/World.h"
 #include "Stats.h"
 
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
+#include "KismetCompiler.h"
 #include "KismetCompilerModule.h"
 #include "Engine/UserDefinedStruct.h"
 #include "Engine/UserDefinedEnum.h"
 #endif
 
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
+
 #include <AgogCore/AMethodArg.hpp>
 #include <SkookumScript/SkSymbolDefs.hpp>
-
-#if defined(A_PLAT_PC)
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
 
 // For profiling SkookumScript performance
 DECLARE_CYCLE_STAT(TEXT("SkookumScript Time"), STAT_SkookumScriptTime, STATGROUP_Game);
@@ -141,17 +141,24 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual bool  is_skookum_reflected_call(UFunction * function_p) const override;
       virtual bool  is_skookum_reflected_event(UFunction * function_p) const override;
 
-      virtual void  on_class_added_or_modified(UBlueprint * blueprint_p, bool check_if_reparented) override;
-      virtual void  on_class_renamed(UBlueprint * blueprint_p, const FString & old_class_name) override;
+      virtual void  on_class_added_or_modified(UBlueprint * blueprint_p) override;
+      virtual void  on_class_renamed(UBlueprint * blueprint_p, const FString & old_ue_class_name) override;
       virtual void  on_class_deleted(UBlueprint * blueprint_p) override;
 
-      virtual void  on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p, bool check_if_reparented) override;
-      virtual void  on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_class_name) override;
+      virtual void  on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p) override;
+      virtual void  on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_ue_struct_name) override;
       virtual void  on_struct_deleted(UUserDefinedStruct * ue_struct_p) override;
 
-      virtual void  on_enum_added_or_modified(UUserDefinedEnum * ue_enum_p, bool check_if_reparented) override;
-      virtual void  on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_enum_name) override;
+      virtual void  on_enum_added_or_modified(UUserDefinedEnum * ue_enum_p) override;
+      virtual void  on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_ue_enum_name) override;
       virtual void  on_enum_deleted(UUserDefinedEnum * ue_enum_p) override;
+
+    #endif
+
+    #if WITH_EDITORONLY_DATA
+
+      void OnPreCompile();
+      void OnPostCompile();
 
     // Overridden from IBlueprintCompiler
 
@@ -160,10 +167,6 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual void  PreCompile(UBlueprint* Blueprint) override;
       virtual void  PostCompile(UBlueprint* Blueprint) override;
 
-    #endif
-
-    #if WITH_EDITORONLY_DATA
-
     // Overridden from ISkookumScriptRuntimeGeneratorInterface
 
       virtual bool  is_static_class_known_to_skookum(UClass * class_p) const override;
@@ -171,7 +174,6 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual bool  is_static_enum_known_to_skookum(UEnum * enum_p) const override;
 
       virtual void  on_class_scripts_changed_by_generator(const FString & class_name, eChangeType change_type) override;
-      virtual bool  check_out_file(const FString & file_path) const override;
 
     #endif
 
@@ -195,7 +197,6 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       void          tick_remote();
     #endif
       
-    void            on_post_engine_init();
     void            on_world_init_pre(UWorld * world_p, const UWorld::InitializationValues init_vals);
     void            on_world_init_post(UWorld * world_p, const UWorld::InitializationValues init_vals);
     void            on_world_cleanup(UWorld * world_p, bool session_ended_b, bool cleanup_resources_b);
@@ -222,10 +223,14 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
 
     uint32                  m_num_game_worlds;
 
-    FDelegateHandle         m_on_post_engine_init_handle;
     FDelegateHandle         m_on_world_init_pre_handle;
     FDelegateHandle         m_on_world_init_post_handle;
     FDelegateHandle         m_on_world_cleanup_handle;
+
+    #if WITH_EDITORONLY_DATA
+      FDelegateHandle       m_on_pre_compile_handle;
+      FDelegateHandle       m_on_post_compile_handle;
+    #endif
 
     FDelegateHandle                 m_game_tick_handle;
     TMap<UWorld *, FDelegateHandle> m_editor_tick_handles;
@@ -568,7 +573,7 @@ void FSkookumScriptRuntime::StartupModule()
   {
   #if WITH_EDITORONLY_DATA
     // In editor builds, don't activate SkookumScript if there's no project (project wizard mode)
-    if (!FApp::GetGameName() || !FApp::GetGameName()[0] || FPlatformString::Strcmp(FApp::GetGameName(), TEXT("None")) == 0)
+    if (!m_generator.have_project())
       {
       m_is_skookum_disabled = true;
       return;
@@ -588,15 +593,17 @@ void FSkookumScriptRuntime::StartupModule()
 
   // Note that FWorldDelegates::OnPostWorldCreation has world_p->WorldType set to None
   // Note that FWorldDelegates::OnPreWorldFinishDestroy has world_p->GetName() set to "None"
-  m_on_post_engine_init_handle  = UEngine::OnPostEngineInit.AddRaw(this, &FSkookumScriptRuntime::on_post_engine_init);
   m_on_world_init_pre_handle    = FWorldDelegates::OnPreWorldInitialization.AddRaw(this, &FSkookumScriptRuntime::on_world_init_pre);
   m_on_world_init_post_handle   = FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FSkookumScriptRuntime::on_world_init_post);
   m_on_world_cleanup_handle     = FWorldDelegates::OnWorldCleanup.AddRaw(this, &FSkookumScriptRuntime::on_world_cleanup);
 
-  // Install this class as a "compiler" so we know when a Blueprint is about to be compiled
   #if WITH_EDITORONLY_DATA
+    // Install this class as a "compiler" so we know when a Blueprint is about to be compiled
     IKismetCompilerInterface & kismet_compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
     kismet_compiler.GetCompilers().Add(this);
+
+    m_on_pre_compile_handle  = FKismetCompilerContext::OnPreCompile.AddRaw(this, &FSkookumScriptRuntime::OnPreCompile);
+    m_on_post_compile_handle = FKismetCompilerContext::OnPostCompile.AddRaw(this, &FSkookumScriptRuntime::OnPostCompile);
   #endif
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -615,11 +622,6 @@ void FSkookumScriptRuntime::PostLoadCallback()
   A_DPRINT(A_SOURCE_STR " SkookumScript - loaded.\n");
   }
 */
-
-//---------------------------------------------------------------------------------------
-void FSkookumScriptRuntime::on_post_engine_init()
-  {
-  }
 
 //---------------------------------------------------------------------------------------
 void FSkookumScriptRuntime::on_world_init_pre(UWorld * world_p, const UWorld::InitializationValues init_vals)
@@ -691,9 +693,6 @@ void FSkookumScriptRuntime::on_world_cleanup(UWorld * world_p, bool session_ende
 
   if (world_p->IsGameWorld())
     {
-    // Keep track of how many game worlds we got
-    --m_num_game_worlds;
-
     // Set world pointer to null if it was pointing to us
     if (m_game_world_p == world_p)
       {
@@ -702,18 +701,25 @@ void FSkookumScriptRuntime::on_world_cleanup(UWorld * world_p, bool session_ende
       SkUEClassBindingHelper::set_world(nullptr);
       }
 
-    // Restart SkookumScript if initialized
-    if (m_num_game_worlds == 0 && is_skookum_initialized())
+    // We shouldn't get here if there are no game worlds left but things happen
+    if (m_num_game_worlds > 0)
       {
-      // Simple shutdown
-      //SkookumScript::get_world()->clear_coroutines();
-      A_DPRINT(
-        "SkookumScript resetting session...\n"
-        "  cleaning up...\n");
-      SkookumScript::deinitialize_gameplay();
-      SkookumScript::deinitialize_sim();
-      SkookumScript::initialize_sim();
-      A_DPRINT("  ...done!\n\n");
+      // Keep track of how many game worlds we got
+      --m_num_game_worlds;
+
+      // Restart SkookumScript if initialized
+      if (m_num_game_worlds == 0 && is_skookum_initialized())
+        {
+        // Simple shutdown
+        //SkookumScript::get_world()->clear_coroutines();
+        A_DPRINT(
+          "SkookumScript resetting session...\n"
+          "  cleaning up...\n");
+        SkookumScript::deinitialize_gameplay();
+        SkookumScript::deinitialize_sim();
+        SkookumScript::initialize_sim();
+        A_DPRINT("  ...done!\n\n");
+        }
       }
     }
 #if WITH_EDITOR
@@ -764,7 +770,6 @@ void FSkookumScriptRuntime::ShutdownModule()
   #endif
 
   // Clear out our registered delegates
-  UEngine::OnPostEngineInit.Remove(m_on_post_engine_init_handle);
   FWorldDelegates::OnPreWorldInitialization.Remove(m_on_world_init_pre_handle);
   FWorldDelegates::OnPostWorldInitialization.Remove(m_on_world_init_post_handle);
   FWorldDelegates::OnWorldCleanup.Remove(m_on_world_cleanup_handle);
@@ -775,6 +780,9 @@ void FSkookumScriptRuntime::ShutdownModule()
       {
       kismet_compiler_p->GetCompilers().Remove(this);
       }
+
+    FKismetCompilerContext::OnPreCompile.Remove(m_on_pre_compile_handle);
+    FKismetCompilerContext::OnPostCompile.Remove(m_on_post_compile_handle);
   #endif
   }
 
@@ -958,7 +966,7 @@ void FSkookumScriptRuntime::compile_and_load_binaries()
               "The SkookumScript compiled binaries could not be generated because errors were found in the script files.\n\n"
               "Check the IDE if the errors are in your project code and can be easily fixed. If so, fix them then hit 'Retry'.\n\n"
               "If the errors are in an overlay named 'Project-Generated' or 'Project-Generated-BP', the scripts in that overlay might have to be regenerated. "
-              "To do this click 'Cancel'. UE4 will continue loading with script execution disabled and regenerate the script code. Then restart UE4 and all should be good.\n\n"
+              "To do this click 'Continue'. UE4 will continue loading, regenerate the script code and all should be good.\n\n"
               "If the above did not help, (and the errors are in an overlay named 'Project-Generated' or 'Project-Generated-BP'), deleting the folder these files are in might help. "
               "In the IDE, when displaying the error, right-click on the script that has the error and choose 'Show in Explorer'. "
               "Make sure the folder is inside 'Project-Generated' or 'Project-Generated-BP'. If so, delete the folder you opened up, and recompile in the IDE."
@@ -1086,7 +1094,7 @@ void FSkookumScriptRuntime::tick_remote()
         #if WITH_EDITORONLY_DATA
           if (m_remote_client.does_class_data_need_to_be_regenerated())
             {
-            m_generator.generate_all_class_script_files(true, false);
+            m_generator.update_all_class_script_files(true);
             m_remote_client.clear_class_data_need_to_be_regenerated();
             }
         #endif
@@ -1159,9 +1167,11 @@ void FSkookumScriptRuntime::on_application_focus_changed(bool is_active)
   {
   if (is_active && !is_dormant())
     {
+    m_generator.sync_all_class_script_files_from_disk();
+
     if (m_generator.reload_skookumscript_ini())
       {
-      m_generator.generate_all_class_script_files(true, true);
+      m_generator.update_all_class_script_files(true);
       }
     }
   }
@@ -1173,7 +1183,7 @@ void FSkookumScriptRuntime::on_editor_map_opened()
   if (!is_dormant())
     {
     // Regenerate them all just to be sure
-    m_generator.generate_all_class_script_files(true, true);
+    m_generator.update_all_class_script_files(true);
 
     #ifdef SKOOKUM_REMOTE_UNREAL
       m_remote_client.clear_class_data_need_to_be_regenerated();
@@ -1275,15 +1285,15 @@ bool FSkookumScriptRuntime::is_skookum_reflected_event(UFunction * function_p) c
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::on_class_added_or_modified(UBlueprint * blueprint_p, bool check_if_reparented)
+void FSkookumScriptRuntime::on_class_added_or_modified(UBlueprint * blueprint_p)
   {
   // Only do something if the blueprint has a class
   UClass * ue_class_p = blueprint_p->GeneratedClass;
   if (ue_class_p && !is_dormant())
     {
     // Generate script files for the new/changed class
-    m_generator.generate_class_script_files(ue_class_p, true, true, check_if_reparented);
-    m_generator.generate_used_class_script_files(check_if_reparented);
+    m_generator.update_class_script_file(ue_class_p, false, true);
+    m_generator.update_used_class_script_files(true);
 
     // Find associated SkClass if any
     SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(ue_class_p);
@@ -1309,11 +1319,11 @@ void FSkookumScriptRuntime::on_class_added_or_modified(UBlueprint * blueprint_p,
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::on_class_renamed(UBlueprint * blueprint_p, const FString & old_class_name)
+void FSkookumScriptRuntime::on_class_renamed(UBlueprint * blueprint_p, const FString & old_ue_class_name)
   {
   if (!is_dormant())
     {
-    m_generator.rename_class_script_files(blueprint_p, old_class_name);
+    m_generator.rename_class_script_file(blueprint_p, old_ue_class_name);
     }
   }
 
@@ -1323,20 +1333,20 @@ void FSkookumScriptRuntime::on_class_deleted(UBlueprint * blueprint_p)
   {
   if (!is_dormant())
     {
-    m_generator.delete_class_script_files(blueprint_p);
+    m_generator.delete_class_script_file(blueprint_p);
     }
   }
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntime::on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p, bool check_if_reparented)
+void FSkookumScriptRuntime::on_struct_added_or_modified(UUserDefinedStruct * ue_struct_p)
   {
   if (!is_dormant())
     {
     // Generate script files for the new/changed class
-    m_generator.generate_class_script_files(ue_struct_p, true, true, check_if_reparented);
+    m_generator.update_class_script_file(ue_struct_p, false, true);
     // Also generate parent class "UStruct"
-    m_generator.generate_root_meta_file(TEXT("UStruct"));
+    m_generator.create_root_class_script_file(TEXT("UStruct"));
 
     // Find associated SkClass if any
     SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_struct(ue_struct_p);
@@ -1353,11 +1363,11 @@ void FSkookumScriptRuntime::on_struct_added_or_modified(UUserDefinedStruct * ue_
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntime::on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_class_name)
+void FSkookumScriptRuntime::on_struct_renamed(UUserDefinedStruct * ue_struct_p, const FString & old_ue_struct_name)
   {
   if (!is_dormant())
     {
-    m_generator.rename_class_script_files(ue_struct_p, old_class_name);
+    m_generator.rename_class_script_file(ue_struct_p, old_ue_struct_name);
     }
   }
 
@@ -1367,30 +1377,30 @@ void FSkookumScriptRuntime::on_struct_deleted(UUserDefinedStruct * ue_struct_p)
   {
   if (!is_dormant())
     {
-    m_generator.delete_class_script_files(ue_struct_p);
+    m_generator.delete_class_script_file(ue_struct_p);
     }
   }
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntime::on_enum_added_or_modified(UUserDefinedEnum * ue_enum_p, bool check_if_reparented)
+void FSkookumScriptRuntime::on_enum_added_or_modified(UUserDefinedEnum * ue_enum_p)
   {
   if (!is_dormant())
     {
     // Generate script files for the new/changed enum
-    m_generator.generate_class_script_files(ue_enum_p, true, true, check_if_reparented);
+    m_generator.update_class_script_file(ue_enum_p, false, true);
     // Also generate parent class "Enum"
-    m_generator.generate_root_meta_file(TEXT("Enum"));
+    m_generator.create_root_class_script_file(TEXT("Enum"));
     }
   }
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntime::on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_enum_name)
+void FSkookumScriptRuntime::on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_ue_enum_name)
   {
   if (!is_dormant())
     {
-    m_generator.rename_class_script_files(ue_enum_p, old_enum_name);
+    m_generator.rename_class_script_file(ue_enum_p, old_ue_enum_name);
     }
   }
 
@@ -1400,8 +1410,26 @@ void FSkookumScriptRuntime::on_enum_deleted(UUserDefinedEnum * ue_enum_p)
   {
   if (!is_dormant())
     {
-    m_generator.delete_class_script_files(ue_enum_p);
+    m_generator.delete_class_script_file(ue_enum_p);
     }
+  }
+
+#endif // WITH_EDITOR
+
+#if WITH_EDITORONLY_DATA
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::OnPreCompile()
+  {
+  // Last minute attempt to resolve yet unresolved bindings
+  m_runtime.sync_all_reflected_to_ue(true);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::OnPostCompile()
+  {
   }
 
 //---------------------------------------------------------------------------------------
@@ -1417,12 +1445,8 @@ void FSkookumScriptRuntime::PreCompile(UBlueprint * blueprint_p)
 void FSkookumScriptRuntime::PostCompile(UBlueprint * blueprint_p)
   {
   // Slap a USkookumScriptInstanceProperty onto the newly generated class
-  on_class_added_or_modified(blueprint_p, false);
+  on_class_added_or_modified(blueprint_p);
   }
-
-#endif // WITH_EDITOR
-
-#if WITH_EDITORONLY_DATA
 
 //---------------------------------------------------------------------------------------
 // 
@@ -1455,18 +1479,6 @@ void FSkookumScriptRuntime::on_class_scripts_changed_by_generator(const FString 
   #ifdef SKOOKUM_REMOTE_UNREAL
     m_freshen_binaries_requested = true;
   #endif
-  }
-
-//---------------------------------------------------------------------------------------
-// 
-bool FSkookumScriptRuntime::check_out_file(const FString & file_path) const
-  {
-  if (!m_runtime.get_editor_interface())
-    {
-    return false;
-    }
-
-  return m_runtime.get_editor_interface()->check_out_file(file_path);
   }
 
 #endif // WITH_EDITORONLY_DATA
