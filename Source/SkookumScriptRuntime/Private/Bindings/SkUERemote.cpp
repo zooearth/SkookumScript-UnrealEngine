@@ -448,7 +448,7 @@ void SkUERemote::on_connect_change(eConnectState old_state)
      && m_connect_state == SkRemoteBase::ConnectState_connecting)
       {
       m_runtime_generator_p->delete_all_class_script_files();
-      m_runtime_generator_p->generate_all_class_script_files(false, false);
+      m_runtime_generator_p->update_all_class_script_files(false);
       m_class_data_needs_to_be_regenerated = true;
       }
   #endif

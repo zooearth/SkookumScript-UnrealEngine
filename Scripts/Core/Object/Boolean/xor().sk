@@ -1,9 +1,25 @@
 //---------------------------------------------------------------------------------------
-// Description xor Returns true if either Booleans are true, but not both
-// Returns     true if one of the Booleans are true, false if not
-// Examples    value1 xor value2  // or value1.xor(value2)
-// Author(s)   Conan Reis
+// Returns true if either this or or operand are true, but not both
+// Note - this is not a short-circuit method: the operand will always be evaluated.
+//
+// # Params:
+//   operand?: Boolean object to compare
+//
+// # Returns: true if either this or or operand are true, but not both
+// # Examples:
+//   value1? xor value2?   // operator form
+//   value1?.xor(value2?)  // method form
+//
+// # Notes:
+//   this  | operand | result
+//   ------+---------+-------
+//   false | false   | false
+//   false | true    | true
+//   true  | false   | true
+//   true  | true    | false
+//
+//   * not even evaluated
 //---------------------------------------------------------------------------------------
 
-(Boolean operand) Boolean
+(operand?) Boolean
 
