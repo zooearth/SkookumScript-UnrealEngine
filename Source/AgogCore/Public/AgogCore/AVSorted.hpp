@@ -1713,7 +1713,7 @@ bool AVSorted<_ElementType, _KeyType, _CompareClass>::find_elem(
 
     do
       {
-      if (elems_pp[pos] == elem_p)
+      if (elems_p[pos] == elem_p)
         {
         if (find_pos_p)
           {
