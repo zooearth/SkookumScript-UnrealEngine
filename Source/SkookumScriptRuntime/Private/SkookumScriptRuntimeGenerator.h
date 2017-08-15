@@ -83,7 +83,6 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
     void           delete_class_script_file(UObject * type_p);
     void           update_used_class_script_files(bool allow_members);
     void           create_root_class_script_file(const TCHAR * sk_class_name_p);
-    static bool    are_strings_equal_cr_agnostic(const FString & lhs, const FString & rhs);
 
     // FSkookumScriptGeneratorBase interface implementation
 
@@ -133,12 +132,10 @@ class FSkookumScriptRuntimeGenerator : public FSkookumScriptGeneratorBase
 
     AVSorted<CachedClassFile, ASymbol> m_class_files; // Key is Sk name of class
 
-    FString         m_package_name_key;
-    FString         m_package_path_key;
-
     tUsedClasses    m_used_classes;       // All classes used as types (by parameters, properties etc.)
 
     mutable TArray<FString> m_queued_files_to_checkout; // When source control is not available, we queue files to check out here
+
   };
 
 #endif // WITH_EDITORONLY_DATA

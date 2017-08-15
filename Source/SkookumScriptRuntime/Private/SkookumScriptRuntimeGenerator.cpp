@@ -57,7 +57,7 @@ FSkookumScriptRuntimeGenerator::FSkookumScriptRuntimeGenerator(ISkookumScriptRun
     {
     // Update project ini file to new format
     FString project_file_body;
-    FFileHelper::LoadFileToString(project_file_body, *m_project_file_path);
+    load_text_file(m_project_file_path, project_file_body);
     const TCHAR * const overlay_names_p[2] = { ms_overlay_name_bp_p, ms_overlay_name_bp_old_p };
     const TCHAR * const end_chars_p[3] = { TEXT(""), TEXT("\\"), TEXT("/") };
     int32 replace_count = 0;
@@ -72,7 +72,7 @@ FSkookumScriptRuntimeGenerator::FSkookumScriptRuntimeGenerator(ISkookumScriptRun
       }
     if (replace_count)
       {
-      FFileHelper::SaveStringToFile(project_file_body, *m_project_file_path, FFileHelper::EEncodingOptions::ForceAnsi, &IFileManager::Get(), FILEWRITE_EvenIfReadOnly);
+      save_text_file(m_project_file_path, project_file_body);
       source_control_checkout_or_add(m_project_file_path);
       m_overlay_path_depth = PathDepth_archived_per_class;
       // Delete old files
@@ -204,10 +204,12 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
 
           // Change project to be editable
           FString proj_ini;
-          verify(FFileHelper::LoadFileToString(proj_ini, *editable_project_file_path));
-          proj_ini = proj_ini.Replace(ms_editable_ini_settings_p, TEXT("")); // Remove editable settings
-          proj_ini += TEXT("Overlay8=Project|Project\r\n"); // Create Project overlay definition
-          verify(FFileHelper::SaveStringToFile(proj_ini, *editable_project_file_path, FFileHelper::EEncodingOptions::ForceAnsi, &IFileManager::Get(), FILEWRITE_EvenIfReadOnly));
+          if (load_text_file(editable_project_file_path, proj_ini))
+            {
+            proj_ini = proj_ini.Replace(ms_editable_ini_settings_p, TEXT("")); // Remove editable settings
+            proj_ini += TEXT("Overlay8=Project|Project\n"); // Create Project overlay definition
+            save_text_file(editable_project_file_path, proj_ini);
+            }
 
           // Now in new mode
           m_project_mode = SkProjectMode_editable;
@@ -246,7 +248,7 @@ UBlueprint * FSkookumScriptRuntimeGenerator::load_blueprint_asset(const FString 
   FString meta_file_path = full_class_path / TEXT("!Class.sk-meta");
   FString meta_file_text;
   *sk_class_deleted_p = false;
-  if (FFileHelper::LoadFileToString(meta_file_text, *meta_file_path))
+  if (load_text_file(meta_file_path, meta_file_text))
     {
     // Found meta file - try to extract asset path contained in it
     int32 package_path_begin_pos = meta_file_text.Find(ms_package_name_key);
@@ -665,6 +667,16 @@ void FSkookumScriptRuntimeGenerator::update_class_script_file(UField * type_p, b
     return;
     }
 
+  // Do not generate anything if class is temporary, deleted or CDO
+  if (type_p->GetName().StartsWith(TEXT("REINST_"))
+   || type_p->GetName().StartsWith(TEXT("SKEL_"))
+   || type_p->GetName().StartsWith(TEXT("TRASH_"))
+   || type_p->GetName().StartsWith(TEXT("GC_"))
+   || type_p->GetName().StartsWith(TEXT("Default__")))
+    {
+    return;
+    }
+
 #if !PLATFORM_EXCEPTIONS_DISABLED
   try
 #endif
@@ -767,7 +779,7 @@ void FSkookumScriptRuntimeGenerator::update_class_script_file(UField * type_p, b
 
       anything_changed = true;
       }
-    else if (!are_strings_equal_cr_agnostic(cached_file_p->m_body, body))
+    else if (body != cached_file_p->m_body)
       {
       // Write file and update time stamp
       cached_file_p->m_body = body;
@@ -823,7 +835,7 @@ void FSkookumScriptRuntimeGenerator::create_root_class_script_file(const TCHAR *
   bool is_existing = (cached_file_p->m_file_time_stamp.GetTicks() > 0u);
   bool anything_changed = false;
   FString body = FString::Printf(TEXT("// %s\n$$ .\n"), sk_class_name_p);
-  if (!are_strings_equal_cr_agnostic(cached_file_p->m_body, body))
+  if (body != cached_file_p->m_body)
     {
     // Write file and update time stamp
     cached_file_p->m_body = body;
@@ -845,23 +857,6 @@ void FSkookumScriptRuntimeGenerator::create_root_class_script_file(const TCHAR *
     {
     ISkookumScriptRuntimeInterface::eChangeType change_type = is_existing ? ISkookumScriptRuntimeInterface::ChangeType_modified : ISkookumScriptRuntimeInterface::ChangeType_created;
     m_runtime_interface_p->on_class_scripts_changed_by_generator(sk_class_name_p, change_type);
-    }
-  }
-
-//---------------------------------------------------------------------------------------
-// Case-sensitive comparison between strings, but ignore differences solely due to CR characters
-bool FSkookumScriptRuntimeGenerator::are_strings_equal_cr_agnostic(const FString & lhs, const FString & rhs)
-  {
-  const TCHAR * lhs_p = *lhs;
-  const TCHAR * rhs_p = *rhs;
-  for (;;)
-    {
-    while (*lhs_p == '\r') ++lhs_p;
-    while (*rhs_p == '\r') ++rhs_p;
-    if (*lhs_p != *rhs_p) return false;
-    if (!*lhs_p) return true;
-    ++lhs_p;
-    ++rhs_p;
     }
   }
 
@@ -1092,9 +1087,8 @@ FSkookumScriptRuntimeGenerator::CachedClassFile::CachedClassFile(const FString &
   // Load body and set time stamp
   if (load_body)
     {
-    FFileHelper::LoadFileToString(m_body, *class_file_path);
+    load(class_file_path);
     }
-  m_file_time_stamp = IFileManager::Get().GetTimeStamp(*class_file_path);
   }
 
 //---------------------------------------------------------------------------------------
@@ -1130,6 +1124,9 @@ bool FSkookumScriptRuntimeGenerator::CachedClassFile::load(const FString & class
     return false;
     }
 
+  // Remove any CRs from the loaded file
+  m_body.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
+
   // Set time stamp
   if (file_time_stamp_if_known_p)
     {
@@ -1147,8 +1144,15 @@ bool FSkookumScriptRuntimeGenerator::CachedClassFile::load(const FString & class
 
 bool FSkookumScriptRuntimeGenerator::CachedClassFile::save(const FString & class_file_path)
   {
+  // On Windows, insert CRs before LFs
+  #if PLATFORM_WINDOWS
+    FString platform_body = m_body.Replace(TEXT("\n"), TEXT("\r\n"));
+  #else
+    const FString & platform_body = m_body;
+  #endif
+
   // Save the file body
-  if (!FFileHelper::SaveStringToFile(m_body, *class_file_path, FFileHelper::EEncodingOptions::ForceAnsi, &IFileManager::Get(), FILEWRITE_EvenIfReadOnly))
+  if (!FFileHelper::SaveStringToFile(platform_body, *class_file_path, ms_script_file_encoding, &IFileManager::Get(), FILEWRITE_EvenIfReadOnly))
     {
     return false;
     }
