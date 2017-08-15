@@ -432,7 +432,7 @@ const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_display_name  
 const FString       FSkookumScriptGeneratorBase::ms_asset_name_key          (TEXT("// UE4 Asset Name: "));
 const FString       FSkookumScriptGeneratorBase::ms_package_name_key        (TEXT("// UE4 Package Name: \""));
 //const FString       FSkookumScriptGeneratorBase::ms_package_path_key        (TEXT("// UE4 Package Path: \""));
-TCHAR const * const FSkookumScriptGeneratorBase::ms_editable_ini_settings_p (TEXT("Editable=false\r\nCanMakeEditable=true\r\n"));
+TCHAR const * const FSkookumScriptGeneratorBase::ms_editable_ini_settings_p (TEXT("Editable=false\nCanMakeEditable=true\n"));
 TCHAR const * const FSkookumScriptGeneratorBase::ms_overlay_name_bp_p       (TEXT("Project-Generated-BP"));
 TCHAR const * const FSkookumScriptGeneratorBase::ms_overlay_name_bp_old_p   (TEXT("Project-Generated"));
 TCHAR const * const FSkookumScriptGeneratorBase::ms_overlay_name_cpp_p      (TEXT("Project-Generated-C++"));
@@ -457,7 +457,7 @@ const FName FSkookumScriptGeneratorBase::ms_name_kismet_system_library          
 const FName FSkookumScriptGeneratorBase::ms_name_kismet_text_library                   ("KismetTextLibrary");
 const FName FSkookumScriptGeneratorBase::ms_name_visual_logger_kismet_library          ("VisualLoggerKismetLibrary");
 
-const FFileHelper::EEncodingOptions::Type FSkookumScriptGeneratorBase::ms_script_file_encoding = FFileHelper::EEncodingOptions::ForceAnsi;
+const FFileHelper::EEncodingOptions::Type FSkookumScriptGeneratorBase::ms_script_file_encoding = FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM;
 
 //---------------------------------------------------------------------------------------
 
@@ -482,24 +482,24 @@ FString FSkookumScriptGeneratorBase::get_or_create_project_file(const FString & 
       {
       // If in neither folder, create new project in temporary location
       // $Revisit MBreyer - read ini file from default_project_path and patch it up to carry over customizations
-      FString proj_ini = FString::Printf(TEXT("[Project]\r\nProjectName=%s\r\nStrictParse=true\r\nUseBuiltinActor=false\r\nCustomActorClass=Actor\r\nStartupMind=Master\r\n%s"), project_name_p, ms_editable_ini_settings_p);
-      proj_ini += TEXT("[Output]\r\nCompileManifest=false\r\nCompileTo=../Content/SkookumScript/Classes.sk-bin\r\n");
-      proj_ini += TEXT("[Script Overlays]\r\nOverlay1=*Core|Core\r\nOverlay2=-*Core-Sandbox|Core-Sandbox\r\nOverlay3=*VectorMath|VectorMath\r\nOverlay4=*Engine-Generated|Engine-Generated|A\r\nOverlay5=*Engine|Engine\r\nOverlay6=*");
+      FString proj_ini = FString::Printf(TEXT("[Project]\nProjectName=%s\nStrictParse=true\nUseBuiltinActor=false\nCustomActorClass=Actor\nStartupMind=Master\n%s"), project_name_p, ms_editable_ini_settings_p);
+      proj_ini += TEXT("[Output]\nCompileManifest=false\nCompileTo=../Content/SkookumScript/Classes.sk-bin\n");
+      proj_ini += TEXT("[Script Overlays]\nOverlay1=*Core|Core\nOverlay2=-*Core-Sandbox|Core-Sandbox\nOverlay3=*VectorMath|VectorMath\nOverlay4=*Engine-Generated|Engine-Generated|A\nOverlay5=*Engine|Engine\nOverlay6=*");
       proj_ini += ms_overlay_name_bp_p;
       proj_ini += TEXT("|");
       proj_ini += ms_overlay_name_bp_p;
-      proj_ini += TEXT("|C\r\nOverlay7=*");
+      proj_ini += TEXT("|C\nOverlay7=*");
       proj_ini += ms_overlay_name_cpp_p;
       proj_ini += TEXT("|");
       proj_ini += ms_overlay_name_cpp_p;
-      proj_ini += TEXT("|A\r\n");
-      if (FFileHelper::SaveStringToFile(proj_ini, *project_file_path, FFileHelper::EEncodingOptions::ForceAnsi))
+      proj_ini += TEXT("|A\n");
+      if (save_text_file(project_file_path, proj_ini))
         {
         IFileManager::Get().MakeDirectory(*(temp_root_path / TEXT("Content/SkookumScript")), true);
         IFileManager::Get().MakeDirectory(*(temp_scripts_path / ms_overlay_name_bp_p), true);
         FString overlay_sk = TEXT("$$ .\n");
         FString overlay_archive_file_path = temp_scripts_path / ms_overlay_name_cpp_p / TEXT("!Overlay.sk");
-        if (FFileHelper::SaveStringToFile(overlay_sk, *overlay_archive_file_path, FFileHelper::EEncodingOptions::ForceAnsi))
+        if (save_text_file(overlay_archive_file_path, overlay_sk))
           {
           // Overlay archive file not under source control
           created = true;
@@ -531,7 +531,7 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
   // Try to figure the path depth from ini file
   m_overlay_path_depth = 1; // Set to sensible default in case we don't find it in the ini file
   FString ini_file_text;
-  if (FFileHelper::LoadFileToString(ini_file_text, *project_ini_file_path))
+  if (load_text_file(project_ini_file_path, ini_file_text))
     {
     // Find the substring overlay_name|*|
     FString search_text = overlay_name + TEXT("|");
@@ -586,12 +586,38 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptGeneratorBase::save_text_file(const FString & file_path, const FString & contents)
+bool FSkookumScriptGeneratorBase::load_text_file(const FString & file_path, FString & out_contents) const
   {
-  if (!FFileHelper::SaveStringToFile(contents, *file_path, ms_script_file_encoding))
+  // Load the file body
+  if (!FFileHelper::LoadFileToString(out_contents, *file_path))
+    {
+    return false;
+    }
+
+  // Remove any CRs from the loaded file
+  out_contents.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
+
+  return true;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptGeneratorBase::save_text_file(const FString & file_path, const FString & contents) const
+  {
+  // On Windows, insert CRs before LFs
+  #if PLATFORM_WINDOWS
+    FString platform_contents = contents.Replace(TEXT("\n"), TEXT("\r\n"));
+  #else
+    const FString & platform_contents = contents;
+  #endif
+
+  if (!FFileHelper::SaveStringToFile(platform_contents, *file_path, ms_script_file_encoding, &IFileManager::Get(), FILEWRITE_EvenIfReadOnly))
     {
     report_error(FString::Printf(TEXT("Could not save file: %s"), *file_path));
+    return false;
     }
+
+  return true;
   }
 
 //---------------------------------------------------------------------------------------
@@ -599,7 +625,7 @@ void FSkookumScriptGeneratorBase::save_text_file(const FString & file_path, cons
 bool FSkookumScriptGeneratorBase::save_text_file_if_changed(const FString & file_path, const FString & new_file_contents)
   {
   FString original_file_local;
-  FFileHelper::LoadFileToString(original_file_local, *file_path);
+  load_text_file(file_path, original_file_local);
 
   const bool has_changed = original_file_local.Len() == 0 || FCString::Strcmp(*original_file_local, *new_file_contents);
   if (has_changed)
@@ -607,9 +633,16 @@ bool FSkookumScriptGeneratorBase::save_text_file_if_changed(const FString & file
     // save the updated version to a tmp file so that the user can see what will be changing
     const FString temp_file_path = file_path + TEXT(".tmp");
 
+    // On Windows, insert CRs before LFs
+    #if PLATFORM_WINDOWS
+      FString platform_new_file_contents = new_file_contents.Replace(TEXT("\n"), TEXT("\r\n"));
+    #else
+      const FString & platform_new_file_contents = new_file_contents;
+    #endif
+
     // delete any existing temp file
     IFileManager::Get().Delete(*temp_file_path, false, true);
-    if (!FFileHelper::SaveStringToFile(new_file_contents, *temp_file_path, ms_script_file_encoding))
+    if (!FFileHelper::SaveStringToFile(platform_new_file_contents, *temp_file_path, ms_script_file_encoding))
       {
       report_error(FString::Printf(TEXT("Failed to save file: '%s'"), *temp_file_path));
       }
@@ -1065,7 +1098,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_property_type_name(UProperty * 
         }
       else
         {
-        signature_body = TEXT("\r\n  (\r\n  ") + signature_body + TEXT("\r\n  )");
+        signature_body = TEXT("\n  (\n  ") + signature_body + TEXT("\n  )");
         }
       }
     type_name = type_name_p + signature_body;
@@ -1440,20 +1473,20 @@ FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UObject * typ
 
     if (asset_p)
       {
-      meta_body += ms_asset_name_key + asset_p->GetName() + TEXT("\r\n");
+      meta_body += ms_asset_name_key + asset_p->GetName() + TEXT("\n");
       UPackage * package_p = Cast<UPackage>(asset_p->GetOutermost());
       if (package_p)
         {
-        meta_body += ms_package_name_key + package_p->GetName() + TEXT("\"\r\n");
+        meta_body += ms_package_name_key + package_p->GetName() + TEXT("\"\n");
         // The package path has inconsistent content and can cause bogus file changes to the generated script files, therefore disabled here for now 
-        //meta_body += ms_package_path_key + package_p->FileName.ToString() + TEXT("\"\r\n");
+        //meta_body += ms_package_path_key + package_p->FileName.ToString() + TEXT("\"\n");
         }
-      meta_body += TEXT("\r\n");
+      meta_body += TEXT("\n");
       }
   #endif
 
   // Also add annotations
-  meta_body += FString::Printf(TEXT("annotations: &reflected_%s &name(\"%s\")\r\n"), is_reflected_data ? TEXT("data") : TEXT("cpp"), *type_p->GetName());
+  meta_body += FString::Printf(TEXT("annotations: &reflected_%s &name(\"%s\")\n"), is_reflected_data ? TEXT("data") : TEXT("cpp"), *type_p->GetName());
 
   return meta_body;
   }
@@ -1501,18 +1534,18 @@ FString FSkookumScriptGeneratorBase::generate_class_instance_data_file_body(UStr
       #if WITH_EDITOR || HACK_HEADER_GENERATOR
         comment = var_p->GetToolTipText().ToString().Replace(TEXT("\n"), TEXT(" "));
       #endif
-      data_body += FString::Printf(TEXT("%s // %s\r\n"), *data_definition, *comment);
+      data_body += FString::Printf(TEXT("%s // %s\n"), *data_definition, *comment);
       }
     else if (var_p->GetFName() != ms_skookum_script_instance_property_name) // Completely hide SkookumScriptInstanceProperties
       {
-      data_body += FString::Printf(TEXT("/* %s // Currently unsupported */\r\n"), *data_definition);
+      data_body += FString::Printf(TEXT("/* %s // Currently unsupported */\n"), *data_definition);
       }
     }
 
   // Prepend empty line if anything there
   if (!data_body.IsEmpty())
     {
-    data_body = TEXT("\r\n") + data_body;
+    data_body = TEXT("\n") + data_body;
     }
 
   return data_body;
@@ -1522,14 +1555,14 @@ FString FSkookumScriptGeneratorBase::generate_class_instance_data_file_body(UStr
 
 FString FSkookumScriptGeneratorBase::generate_enum_class_data_body(UEnum * enum_p)
   {
-  FString data_body = TEXT("\r\n");
+  FString data_body = TEXT("\n");
   FString enum_type_name = get_skookum_class_name(enum_p);
 
   // Class data members
   for (int32 enum_index = 0; enum_index < enum_p->NumEnums() - 1; ++enum_index)
     {
     FString skookified_val_name = get_skookified_enum_val_name_by_index(enum_p, enum_index);
-    data_body += FString::Printf(TEXT("%s !%s\r\n"), *enum_type_name, *skookified_val_name);
+    data_body += FString::Printf(TEXT("%s !%s\n"), *enum_type_name, *skookified_val_name);
     }
 
   return data_body;
@@ -1540,7 +1573,7 @@ FString FSkookumScriptGeneratorBase::generate_enum_class_data_body(UEnum * enum_
 FString FSkookumScriptGeneratorBase::generate_enum_class_constructor_body(UEnum * enum_p)
   {
   FString enum_type_name = get_skookum_class_name(enum_p);
-  FString constructor_body = FString::Printf(TEXT("// %s\r\n// EnumPath: %s\r\n\r\n()\r\n\r\n  [\r\n"), *enum_type_name, *enum_p->GetPathName());
+  FString constructor_body = FString::Printf(TEXT("// %s\n// EnumPath: %s\n\n()\n\n  [\n"), *enum_type_name, *enum_p->GetPathName());
 
   // Class constructor
   int32 max_name_length = 0;
@@ -1558,12 +1591,12 @@ FString FSkookumScriptGeneratorBase::generate_enum_class_constructor_body(UEnum 
       else
         {
         int32 enum_val = enum_p->GetValueByIndex(enum_index);
-        constructor_body += FString::Printf(TEXT("  %s %s!int(%d)\r\n"), *(skookified_val_name + TEXT(":")).RightPad(max_name_length + 1), *enum_type_name, enum_val);
+        constructor_body += FString::Printf(TEXT("  %s %s!int(%d)\n"), *(skookified_val_name + TEXT(":")).RightPad(max_name_length + 1), *enum_type_name, enum_val);
         }
       }
     }
 
-  constructor_body += TEXT("  ]\r\n");
+  constructor_body += TEXT("  ]\n");
 
   return constructor_body;
   }
@@ -1576,16 +1609,16 @@ FString FSkookumScriptGeneratorBase::generate_method_script_file_body(UFunction 
   FString method_body = get_comment_block(function_p);
 
   // Generate aka annotations
-  method_body += FString::Printf(TEXT("&aka(\"%s\")\r\n"), *function_p->GetName());
+  method_body += FString::Printf(TEXT("&aka(\"%s\")\n"), *function_p->GetName());
   if (function_p->HasMetaData(ms_meta_data_key_display_name))
     {
     FString display_name = function_p->GetMetaData(ms_meta_data_key_display_name);
     if (display_name != function_p->GetName())
       {
-      method_body += FString::Printf(TEXT("&aka(\"%s\")\r\n"), *display_name);
+      method_body += FString::Printf(TEXT("&aka(\"%s\")\n"), *display_name);
       }
     }
-  method_body += TEXT("\r\n");
+  method_body += TEXT("\n");
 
   // Generate parameter list
   FString return_type_name;
@@ -1595,9 +1628,9 @@ FString FSkookumScriptGeneratorBase::generate_method_script_file_body(UFunction 
   // Place return type on new line if present and more than one parameter
   if (num_inputs > 1 && !return_type_name.IsEmpty())
     {
-    method_body += TEXT("\r\n");
+    method_body += TEXT("\n");
     }
-  method_body += TEXT(") ") + return_type_name + TEXT("\r\n");
+  method_body += TEXT(") ") + return_type_name + TEXT("\n");
 
   return method_body;
   }
@@ -1607,7 +1640,7 @@ FString FSkookumScriptGeneratorBase::generate_method_script_file_body(UFunction 
 void FSkookumScriptGeneratorBase::generate_class_meta_file(UField * type_p, const FString & class_path, const FString & skookum_class_name)
   {
   const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
-  FString body = type_p ? generate_class_meta_file_body(type_p) : TEXT("// ") + skookum_class_name + TEXT("\r\n");
+  FString body = type_p ? generate_class_meta_file_body(type_p) : TEXT("// ") + skookum_class_name + TEXT("\n");
   save_text_file_if_changed(*meta_file_path, body);
   }
 
