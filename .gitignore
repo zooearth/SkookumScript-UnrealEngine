@@ -45,6 +45,6 @@ force-lib-build.txt
 /SkookumIDE/Scripts/workspace?.sk
 /SkookumIDE/Scripts/workbench*.sk
 /SkookumIDE/Engine/Saved/**
-/SkookumIDE/Engine/Programs/SkookumIDE/Intermediate/**
-/SkookumIDE/Engine/Programs/SkookumIDE/Saved/**
+/SkookumIDE/Engine/Programs/*/Intermediate/**
+/SkookumIDE/Engine/Programs/*/Saved/**
 /hooks/**
