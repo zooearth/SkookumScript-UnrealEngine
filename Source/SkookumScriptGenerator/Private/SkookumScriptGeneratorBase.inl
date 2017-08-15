@@ -92,8 +92,10 @@ const FString FSkookumScriptGeneratorHelper::ms_reserved_keywords[] =
   };
 
 #if WITH_EDITOR || HACK_HEADER_GENERATOR
-  const FName FSkookumScriptGeneratorHelper::ms_meta_data_key_blueprint_type(TEXT("BlueprintType"));
+  const FName FSkookumScriptGeneratorHelper::ms_meta_data_key_blueprint_type("BlueprintType");
 #endif
+
+const FName FSkookumScriptGeneratorHelper::ms_skookum_script_instance_property_name("SkookumScriptInstanceProperty");
 
 //---------------------------------------------------------------------------------------
 
@@ -176,7 +178,7 @@ FSkookumScriptGeneratorHelper::eSkTypeID FSkookumScriptGeneratorHelper::get_skoo
   if (struct_name == name_Color)                    return SkTypeID_Color;
   if (struct_name == name_LinearColor)              return SkTypeID_Color;
 
-  return Cast<UClass>(struct_p) ? SkTypeID_UClass : SkTypeID_UStruct;
+  return struct_p->IsA<UClass>() ? SkTypeID_UClass : SkTypeID_UStruct;
   }
 
 //---------------------------------------------------------------------------------------
@@ -429,8 +431,8 @@ const FName         FSkookumScriptGeneratorBase::ms_meta_data_key_display_name  
 
 const FString       FSkookumScriptGeneratorBase::ms_asset_name_key          (TEXT("// UE4 Asset Name: "));
 const FString       FSkookumScriptGeneratorBase::ms_package_name_key        (TEXT("// UE4 Package Name: \""));
-const FString       FSkookumScriptGeneratorBase::ms_package_path_key        (TEXT("// UE4 Package Path: \""));
-TCHAR const * const FSkookumScriptGeneratorBase::ms_editable_ini_settings_p (TEXT("Editable=false\r\nCanMakeEditable=true\r\n"));
+//const FString       FSkookumScriptGeneratorBase::ms_package_path_key        (TEXT("// UE4 Package Path: \""));
+TCHAR const * const FSkookumScriptGeneratorBase::ms_editable_ini_settings_p (TEXT("Editable=false\nCanMakeEditable=true\n"));
 TCHAR const * const FSkookumScriptGeneratorBase::ms_overlay_name_bp_p       (TEXT("Project-Generated-BP"));
 TCHAR const * const FSkookumScriptGeneratorBase::ms_overlay_name_bp_old_p   (TEXT("Project-Generated"));
 TCHAR const * const FSkookumScriptGeneratorBase::ms_overlay_name_cpp_p      (TEXT("Project-Generated-C++"));
@@ -455,7 +457,7 @@ const FName FSkookumScriptGeneratorBase::ms_name_kismet_system_library          
 const FName FSkookumScriptGeneratorBase::ms_name_kismet_text_library                   ("KismetTextLibrary");
 const FName FSkookumScriptGeneratorBase::ms_name_visual_logger_kismet_library          ("VisualLoggerKismetLibrary");
 
-const FFileHelper::EEncodingOptions::Type FSkookumScriptGeneratorBase::ms_script_file_encoding = FFileHelper::EEncodingOptions::ForceAnsi;
+const FFileHelper::EEncodingOptions::Type FSkookumScriptGeneratorBase::ms_script_file_encoding = FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM;
 
 //---------------------------------------------------------------------------------------
 
@@ -480,24 +482,26 @@ FString FSkookumScriptGeneratorBase::get_or_create_project_file(const FString & 
       {
       // If in neither folder, create new project in temporary location
       // $Revisit MBreyer - read ini file from default_project_path and patch it up to carry over customizations
-      FString proj_ini = FString::Printf(TEXT("[Project]\r\nProjectName=%s\r\nStrictParse=true\r\nUseBuiltinActor=false\r\nCustomActorClass=Actor\r\nStartupMind=Master\r\n%s"), project_name_p, ms_editable_ini_settings_p);
-      proj_ini += TEXT("[Output]\r\nCompileManifest=false\r\nCompileTo=../Content/SkookumScript/Classes.sk-bin\r\n");
-      proj_ini += TEXT("[Script Overlays]\r\nOverlay1=*Core|Core\r\nOverlay2=-*Core-Sandbox|Core-Sandbox\r\nOverlay3=*VectorMath|VectorMath\r\nOverlay4=*Engine-Generated|Engine-Generated|A\r\nOverlay5=*Engine|Engine\r\nOverlay6=*");
+      FString proj_ini = FString::Printf(TEXT("[Project]\nProjectName=%s\nStrictParse=true\nUseBuiltinActor=false\nCustomActorClass=Actor\nStartupMind=Master\n%s"), project_name_p, ms_editable_ini_settings_p);
+      proj_ini += TEXT("[Output]\nCompileManifest=false\nCompileTo=../Content/SkookumScript/Classes.sk-bin\n");
+      proj_ini += TEXT("[Script Overlays]\nOverlay1=*Core|Core\nOverlay2=-*Core-Sandbox|Core-Sandbox\nOverlay3=*VectorMath|VectorMath\nOverlay4=*Engine-Generated|Engine-Generated|A\nOverlay5=*Engine|Engine\nOverlay6=*");
       proj_ini += ms_overlay_name_bp_p;
       proj_ini += TEXT("|");
       proj_ini += ms_overlay_name_bp_p;
-      proj_ini += TEXT("|1\r\nOverlay7=*");
+      proj_ini += TEXT("|C\nOverlay7=*");
       proj_ini += ms_overlay_name_cpp_p;
       proj_ini += TEXT("|");
       proj_ini += ms_overlay_name_cpp_p;
-      proj_ini += TEXT("|A\r\n");
-      if (FFileHelper::SaveStringToFile(proj_ini, *project_file_path, FFileHelper::EEncodingOptions::ForceAnsi))
+      proj_ini += TEXT("|A\n");
+      if (save_text_file(project_file_path, proj_ini))
         {
         IFileManager::Get().MakeDirectory(*(temp_root_path / TEXT("Content/SkookumScript")), true);
-        IFileManager::Get().MakeDirectory(*(temp_scripts_path / ms_overlay_name_bp_p / TEXT("Object")), true);
+        IFileManager::Get().MakeDirectory(*(temp_scripts_path / ms_overlay_name_bp_p), true);
         FString overlay_sk = TEXT("$$ .\n");
-        if (FFileHelper::SaveStringToFile(overlay_sk, *(temp_scripts_path / ms_overlay_name_cpp_p / TEXT("!Overlay.sk")), FFileHelper::EEncodingOptions::ForceAnsi))
+        FString overlay_archive_file_path = temp_scripts_path / ms_overlay_name_cpp_p / TEXT("!Overlay.sk");
+        if (save_text_file(overlay_archive_file_path, overlay_sk))
           {
+          // Overlay archive file not under source control
           created = true;
           }
         }
@@ -527,7 +531,7 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
   // Try to figure the path depth from ini file
   m_overlay_path_depth = 1; // Set to sensible default in case we don't find it in the ini file
   FString ini_file_text;
-  if (FFileHelper::LoadFileToString(ini_file_text, *project_ini_file_path))
+  if (load_text_file(project_ini_file_path, ini_file_text))
     {
     // Find the substring overlay_name|*|
     FString search_text = overlay_name + TEXT("|");
@@ -556,9 +560,15 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
       // Look what's behind the last bar
       const TCHAR * depth_text_p = &ini_file_text[pos + 1];
 
-      if (*depth_text_p == 'A')
+      if (*depth_text_p == 'A' || *depth_text_p == 'a')
         {
         m_overlay_path_depth = PathDepth_archived;
+        return true;
+        }
+
+      if (*depth_text_p == 'C' || *depth_text_p == 'c')
+        {
+        m_overlay_path_depth = PathDepth_archived_per_class;
         return true;
         }
 
@@ -576,12 +586,38 @@ bool FSkookumScriptGeneratorBase::compute_scripts_path_depth(FString project_ini
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptGeneratorBase::save_text_file(const FString & file_path, const FString & contents)
+bool FSkookumScriptGeneratorBase::load_text_file(const FString & file_path, FString & out_contents) const
   {
-  if (!FFileHelper::SaveStringToFile(contents, *file_path, ms_script_file_encoding))
+  // Load the file body
+  if (!FFileHelper::LoadFileToString(out_contents, *file_path))
+    {
+    return false;
+    }
+
+  // Remove any CRs from the loaded file
+  out_contents.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
+
+  return true;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptGeneratorBase::save_text_file(const FString & file_path, const FString & contents) const
+  {
+  // On Windows, insert CRs before LFs
+  #if PLATFORM_WINDOWS
+    FString platform_contents = contents.Replace(TEXT("\n"), TEXT("\r\n"));
+  #else
+    const FString & platform_contents = contents;
+  #endif
+
+  if (!FFileHelper::SaveStringToFile(platform_contents, *file_path, ms_script_file_encoding, &IFileManager::Get(), FILEWRITE_EvenIfReadOnly))
     {
     report_error(FString::Printf(TEXT("Could not save file: %s"), *file_path));
+    return false;
     }
+
+  return true;
   }
 
 //---------------------------------------------------------------------------------------
@@ -589,7 +625,7 @@ void FSkookumScriptGeneratorBase::save_text_file(const FString & file_path, cons
 bool FSkookumScriptGeneratorBase::save_text_file_if_changed(const FString & file_path, const FString & new_file_contents)
   {
   FString original_file_local;
-  FFileHelper::LoadFileToString(original_file_local, *file_path);
+  load_text_file(file_path, original_file_local);
 
   const bool has_changed = original_file_local.Len() == 0 || FCString::Strcmp(*original_file_local, *new_file_contents);
   if (has_changed)
@@ -597,9 +633,16 @@ bool FSkookumScriptGeneratorBase::save_text_file_if_changed(const FString & file
     // save the updated version to a tmp file so that the user can see what will be changing
     const FString temp_file_path = file_path + TEXT(".tmp");
 
+    // On Windows, insert CRs before LFs
+    #if PLATFORM_WINDOWS
+      FString platform_new_file_contents = new_file_contents.Replace(TEXT("\n"), TEXT("\r\n"));
+    #else
+      const FString & platform_new_file_contents = new_file_contents;
+    #endif
+
     // delete any existing temp file
     IFileManager::Get().Delete(*temp_file_path, false, true);
-    if (!FFileHelper::SaveStringToFile(new_file_contents, *temp_file_path, ms_script_file_encoding))
+    if (!FFileHelper::SaveStringToFile(platform_new_file_contents, *temp_file_path, ms_script_file_encoding))
       {
       report_error(FString::Printf(TEXT("Failed to save file: '%s'"), *temp_file_path));
       }
@@ -614,7 +657,7 @@ bool FSkookumScriptGeneratorBase::save_text_file_if_changed(const FString & file
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptGeneratorBase::flush_saved_text_files(tSourceControlCheckoutFunc checkout_f)
+void FSkookumScriptGeneratorBase::flush_saved_text_files()
   {
   // Rename temp files
   for (auto & temp_file_path : m_temp_file_paths)
@@ -626,10 +669,7 @@ void FSkookumScriptGeneratorBase::flush_saved_text_files(tSourceControlCheckoutF
       report_error(FString::Printf(TEXT("Couldn't write file '%s'"), *file_path));
       }
     // If source control function provided, make sure file is checked out from source control
-    if (checkout_f)
-      {
-      (*checkout_f)(file_path);
-      }
+    source_control_checkout_or_add(file_path);
     }
 
   m_temp_file_paths.Reset();
@@ -782,8 +822,8 @@ FString FSkookumScriptGeneratorBase::skookify_data_name(FName name, FName owner_
 
       // Is it [A-Za-z0-9]?
       if ((c >= TCHAR('0') && c <= TCHAR('9'))
-        || (c >= TCHAR('A') && c <= TCHAR('Z'))
-        || (c >= TCHAR('a') && c <= TCHAR('z')))
+       || (c >= TCHAR('A') && c <= TCHAR('Z'))
+       || (c >= TCHAR('a') && c <= TCHAR('z')))
         {
         // Yes, append it
         bool is_upper = FChar::IsUpper(c) || FChar::IsDigit(c);
@@ -895,7 +935,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_data_name(UProperty * property_
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::get_skookum_parent_name(UField * type_p, int32 include_priority, uint32 referenced_flags, UStruct ** out_parent_pp)
+FString FSkookumScriptGeneratorBase::get_skookum_parent_name(UObject * type_p, int32 include_priority, uint32 referenced_flags, UStruct ** out_parent_pp)
   {
   UStruct * struct_or_class_p = Cast<UStruct>(type_p);
   if (struct_or_class_p)
@@ -911,7 +951,25 @@ FString FSkookumScriptGeneratorBase::get_skookum_parent_name(UField * type_p, in
     on_type_referenced(parent_p, include_priority + 1, referenced_flags);
 
     return get_skookum_class_name(parent_p);
-    }
+    }  
+
+  #if WITH_EDITOR
+    UBlueprint * blueprint_p = Cast<UBlueprint>(type_p);
+    if (blueprint_p)
+      {
+      UObject * parent_p = blueprint_p->ParentClass;
+
+      // Mark parent as needed
+      UField * parent_field_p = get_field(parent_p);
+      if (parent_field_p)
+        {
+        on_type_referenced(parent_field_p, include_priority + 1, referenced_flags);
+        }
+      if (out_parent_pp) *out_parent_pp = Cast<UStruct>(parent_field_p);
+
+      return get_skookum_class_name(parent_p);
+      }
+  #endif
 
   if (out_parent_pp) *out_parent_pp = nullptr;
   return TEXT("Enum");
@@ -979,7 +1037,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_class_path(UObject * type_p, in
     }
   if (super_class_stack.Num())
     {
-    class_name = super_class_stack[0].m_name + TEXT(".") + class_name;
+    class_name = class_name + TEXT(".") + super_class_stack[0].m_name;
     }
   return class_path / class_name;
   }
@@ -1040,7 +1098,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_property_type_name(UProperty * 
         }
       else
         {
-        signature_body = TEXT("\r\n  (\r\n  ") + signature_body + TEXT("\r\n  )");
+        signature_body = TEXT("\n  (\n  ") + signature_body + TEXT("\n  )");
         }
       }
     type_name = type_name_p + signature_body;
@@ -1168,7 +1226,7 @@ FString FSkookumScriptGeneratorBase::get_skookum_default_initializer(UFunction *
         {
         case SkTypeID_Integer:         break; // Leave as-is
         case SkTypeID_Real:            break; // Leave as-is
-        case SkTypeID_Boolean:         default_value = default_value.ToLower(); break;
+        case SkTypeID_Boolean:         default_value = FChar::IsDigit(default_value[0]) ? (default_value[0] == '1' ? TEXT("true") : TEXT("false")) : *default_value.ToLower(); break;
         case SkTypeID_String:          default_value = TEXT("\"") + default_value + TEXT("\""); break;
         case SkTypeID_Name:            default_value = (default_value == TEXT("None") ? TEXT("Name!none") : TEXT("Name!(\"") + default_value + TEXT("\")")); break;
         case SkTypeID_Enum:            default_value = get_skookum_class_name(get_enum(param_p)) + TEXT(".") + get_skookified_default_enum_val_name_by_id(get_enum(param_p), default_value); break;
@@ -1205,70 +1263,95 @@ uint32 FSkookumScriptGeneratorBase::get_skookum_symbol_id(const FString & string
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::get_comment_block(UField * field_p)
+FString FSkookumScriptGeneratorBase::get_comment_block(UObject * type_p)
   {
-  #if WITH_EDITOR || HACK_HEADER_GENERATOR
-    // Get tool tip from meta data
-    FString comment_block = field_p->GetToolTipText().ToString();
-    // Convert to comment block
-    if (!comment_block.IsEmpty())
-      {
-      // "Comment out" the comment block
-      comment_block = TEXT("// ") + comment_block;
-      comment_block.ReplaceInline(TEXT("\n"), TEXT("\n// "));
-      comment_block += TEXT("\n");
-      // Replace parameter names with their skookified versions
-      for (int32 pos = 0;;)
-        {
-        pos = comment_block.Find(TEXT("@param"), ESearchCase::IgnoreCase, ESearchDir::FromStart, pos);
-        if (pos < 0) break;
+  FString comment_block;
 
-        pos += 6; // Skip "@param"
-        while (pos < comment_block.Len() && FChar::IsWhitespace(comment_block[pos])) ++pos; // Skip white space
-        int32 identifier_begin = pos;
-        while (pos < comment_block.Len() && FChar::IsIdentifier(comment_block[pos])) ++pos; // Skip identifier
-        int32 identifier_length = pos - identifier_begin;
-        if (identifier_length > 0)
+  // Comment specifying the original name of this object
+  FString this_kind =
+    type_p->IsA<UFunction>() ? TEXT("method") :
+    (type_p->IsA<UClass>() ? TEXT("class") :
+    (type_p->IsA<UStruct>() ? TEXT("struct") :
+    (type_p->IsA<UProperty>() ? TEXT("property") :
+    (type_p->IsA<UEnum>() ? TEXT("enum") :
+    TEXT("type")))));
+  FString ue_name_comment = FString::Printf(TEXT("// UE4 name of this %s: %s\n"), *this_kind, *type_p->GetName());
+
+  #if WITH_EDITOR || HACK_HEADER_GENERATOR
+    UField * field_p = get_field(type_p);
+    if (field_p)
+      {
+      // Get tool tip from meta data
+      comment_block = field_p->GetToolTipText().ToString();
+      // Convert to comment block
+      if (!comment_block.IsEmpty())
+        {
+        // "Comment out" the comment block
+        comment_block = TEXT("// ") + comment_block;
+        comment_block.ReplaceInline(TEXT("\n"), TEXT("\n// "));
+        comment_block += TEXT("\n");
+        // Replace parameter names with their skookified versions
+        for (int32 pos = 0;;)
           {
-          // Replace parameter name with skookified version
-          FString param_name = skookify_param_name(comment_block.Mid(identifier_begin, identifier_length), false);
-          comment_block.RemoveAt(identifier_begin, identifier_length, false);
-          comment_block.InsertAt(identifier_begin, param_name);
-          pos += param_name.Len() - identifier_length;
+          pos = comment_block.Find(TEXT("@param"), ESearchCase::IgnoreCase, ESearchDir::FromStart, pos);
+          if (pos < 0) break;
+
+          pos += 6; // Skip "@param"
+          while (pos < comment_block.Len() && FChar::IsWhitespace(comment_block[pos])) ++pos; // Skip white space
+          int32 identifier_begin = pos;
+          while (pos < comment_block.Len() && FChar::IsIdentifier(comment_block[pos])) ++pos; // Skip identifier
+          int32 identifier_length = pos - identifier_begin;
+          if (identifier_length > 0)
+            {
+            // Replace parameter name with skookified version
+            FString param_name = skookify_param_name(comment_block.Mid(identifier_begin, identifier_length), false);
+            comment_block.RemoveAt(identifier_begin, identifier_length, false);
+            comment_block.InsertAt(identifier_begin, param_name);
+            pos += param_name.Len() - identifier_length;
+            }
           }
         }
+
+      // Add UE4 name of this object
+      comment_block += TEXT("//\n") + ue_name_comment;
+
+      // Add display name of this object
+      if (field_p->HasMetaData(ms_meta_data_key_display_name))
+        {
+        FString display_name = field_p->GetMetaData(ms_meta_data_key_display_name);
+        comment_block += FString::Printf(TEXT("// Blueprint display name: %s\n"), *display_name);
+        }
+
+      // Add Blueprint category
+      if (field_p->HasMetaData(ms_meta_data_key_function_category))
+        {
+        FString category_name = field_p->GetMetaData(ms_meta_data_key_function_category);
+        comment_block += FString::Printf(TEXT("// Blueprint category: %s\n"), *category_name);
+        }
       }
-
-    // Add original name of this object
-    FString this_kind =
-      field_p->IsA<UFunction>() ? TEXT("method") :
-      (field_p->IsA<UClass>() ? TEXT("class") :
-      (field_p->IsA<UStruct>() ? TEXT("struct") :
-      (field_p->IsA<UProperty>() ? TEXT("property") :
-      (get_enum(field_p) ? TEXT("enum") :
-      TEXT("field")))));
-    comment_block += FString::Printf(TEXT("//\n// UE4 name of this %s: %s\n"), *this_kind, *field_p->GetName());
-
-    // Add display name of this object
-    if (field_p->HasMetaData(ms_meta_data_key_display_name))
-      {
-      FString display_name = field_p->GetMetaData(ms_meta_data_key_display_name);
-      comment_block += FString::Printf(TEXT("// Blueprint display name: %s\n"), *display_name);
-      }
-
-    // Add Blueprint category
-    if (field_p->HasMetaData(ms_meta_data_key_function_category))
-      {
-      FString category_name = field_p->GetMetaData(ms_meta_data_key_function_category);
-      comment_block += FString::Printf(TEXT("// Blueprint category: %s\n"), *category_name);
-      }
-
-    return comment_block + TEXT("\n");
-  #else
-    return FString();
+    else
   #endif
+      {
+      // Add UE4 name of this object
+      comment_block += ue_name_comment;
+      }
+
+  return comment_block + TEXT("\n");
   }
 
+//---------------------------------------------------------------------------------------
+// Find its UField if type is not a UField
+UField * FSkookumScriptGeneratorBase::get_field(UObject * type_p)
+  {
+  #if WITH_EDITOR
+    UBlueprint * blueprint_p = Cast<UBlueprint>(type_p);
+    if (blueprint_p)
+      {
+      return blueprint_p->GeneratedClass;
+      }    
+  #endif
+  return Cast<UField>(type_p);
+  }
 
 //---------------------------------------------------------------------------------------
 
@@ -1350,7 +1433,7 @@ FString FSkookumScriptGeneratorBase::generate_routine_script_parameters(UFunctio
 
 //---------------------------------------------------------------------------------------
 
-FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type_p)
+FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UObject * type_p)
   {
   // Begin with comment bock explaining the class
   FString meta_body = get_comment_block(type_p);
@@ -1361,26 +1444,28 @@ FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type
   #if WITH_EDITOR
     UObject * asset_p = nullptr;
 
-    UClass * class_p = Cast<UClass>(type_p);
-    if (class_p)
+    if (UBlueprint * blueprint_p = Cast<UBlueprint>(type_p))
       {
-      UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(class_p);
-      if (blueprint_p)
+      is_reflected_data = true;
+      asset_p = blueprint_p;
+      }
+
+    if (UClass * class_p = Cast<UClass>(type_p))
+      {
+      if (UBlueprint * blueprint_p = UBlueprint::GetBlueprintFromClass(class_p))
         {
         is_reflected_data = true;
         asset_p = blueprint_p;
         }
       }
 
-    UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(type_p);
-    if (struct_p)
+    if (UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(type_p))
       {
       is_reflected_data = true;
       asset_p = struct_p;
       }
 
-    UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(type_p);
-    if (enum_p)
+    if (UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(type_p))
       {
       is_reflected_data = true;
       asset_p = enum_p;
@@ -1388,19 +1473,20 @@ FString FSkookumScriptGeneratorBase::generate_class_meta_file_body(UField * type
 
     if (asset_p)
       {
-      meta_body += ms_asset_name_key + asset_p->GetName() + TEXT("\r\n");
+      meta_body += ms_asset_name_key + asset_p->GetName() + TEXT("\n");
       UPackage * package_p = Cast<UPackage>(asset_p->GetOutermost());
       if (package_p)
         {
-        meta_body += ms_package_name_key + package_p->GetName() + TEXT("\"\r\n");
-        meta_body += ms_package_path_key + package_p->FileName.ToString() + TEXT("\"\r\n");
+        meta_body += ms_package_name_key + package_p->GetName() + TEXT("\"\n");
+        // The package path has inconsistent content and can cause bogus file changes to the generated script files, therefore disabled here for now 
+        //meta_body += ms_package_path_key + package_p->FileName.ToString() + TEXT("\"\n");
         }
-      meta_body += TEXT("\r\n");
+      meta_body += TEXT("\n");
       }
   #endif
 
   // Also add annotations
-  meta_body += FString::Printf(TEXT("annotations: &reflected_%s &name(\"%s\")\r\n"), is_reflected_data ? TEXT("data") : TEXT("cpp"), *type_p->GetName());
+  meta_body += FString::Printf(TEXT("annotations: &reflected_%s &name(\"%s\")\n"), is_reflected_data ? TEXT("data") : TEXT("cpp"), *type_p->GetName());
 
   return meta_body;
   }
@@ -1448,18 +1534,18 @@ FString FSkookumScriptGeneratorBase::generate_class_instance_data_file_body(UStr
       #if WITH_EDITOR || HACK_HEADER_GENERATOR
         comment = var_p->GetToolTipText().ToString().Replace(TEXT("\n"), TEXT(" "));
       #endif
-      data_body += FString::Printf(TEXT("%s // %s\r\n"), *data_definition, *comment);
+      data_body += FString::Printf(TEXT("%s // %s\n"), *data_definition, *comment);
       }
-    else
+    else if (var_p->GetFName() != ms_skookum_script_instance_property_name) // Completely hide SkookumScriptInstanceProperties
       {
-      data_body += FString::Printf(TEXT("/* %s // Currently unsupported */\r\n"), *data_definition);
+      data_body += FString::Printf(TEXT("/* %s // Currently unsupported */\n"), *data_definition);
       }
     }
 
   // Prepend empty line if anything there
   if (!data_body.IsEmpty())
     {
-    data_body = TEXT("\r\n") + data_body;
+    data_body = TEXT("\n") + data_body;
     }
 
   return data_body;
@@ -1469,14 +1555,14 @@ FString FSkookumScriptGeneratorBase::generate_class_instance_data_file_body(UStr
 
 FString FSkookumScriptGeneratorBase::generate_enum_class_data_body(UEnum * enum_p)
   {
-  FString data_body = TEXT("\r\n");
+  FString data_body = TEXT("\n");
   FString enum_type_name = get_skookum_class_name(enum_p);
 
   // Class data members
   for (int32 enum_index = 0; enum_index < enum_p->NumEnums() - 1; ++enum_index)
     {
     FString skookified_val_name = get_skookified_enum_val_name_by_index(enum_p, enum_index);
-    data_body += FString::Printf(TEXT("%s !%s\r\n"), *enum_type_name, *skookified_val_name);
+    data_body += FString::Printf(TEXT("%s !%s\n"), *enum_type_name, *skookified_val_name);
     }
 
   return data_body;
@@ -1487,7 +1573,7 @@ FString FSkookumScriptGeneratorBase::generate_enum_class_data_body(UEnum * enum_
 FString FSkookumScriptGeneratorBase::generate_enum_class_constructor_body(UEnum * enum_p)
   {
   FString enum_type_name = get_skookum_class_name(enum_p);
-  FString constructor_body = FString::Printf(TEXT("// %s\r\n// EnumPath: %s\r\n\r\n()\r\n\r\n  [\r\n"), *enum_type_name, *enum_p->GetPathName());
+  FString constructor_body = FString::Printf(TEXT("// %s\n// EnumPath: %s\n\n()\n\n  [\n"), *enum_type_name, *enum_p->GetPathName());
 
   // Class constructor
   int32 max_name_length = 0;
@@ -1505,12 +1591,12 @@ FString FSkookumScriptGeneratorBase::generate_enum_class_constructor_body(UEnum 
       else
         {
         int32 enum_val = enum_p->GetValueByIndex(enum_index);
-        constructor_body += FString::Printf(TEXT("  %s %s!int(%d)\r\n"), *(skookified_val_name + TEXT(":")).RightPad(max_name_length + 1), *enum_type_name, enum_val);
+        constructor_body += FString::Printf(TEXT("  %s %s!int(%d)\n"), *(skookified_val_name + TEXT(":")).RightPad(max_name_length + 1), *enum_type_name, enum_val);
         }
       }
     }
 
-  constructor_body += TEXT("  ]\r\n");
+  constructor_body += TEXT("  ]\n");
 
   return constructor_body;
   }
@@ -1523,16 +1609,16 @@ FString FSkookumScriptGeneratorBase::generate_method_script_file_body(UFunction 
   FString method_body = get_comment_block(function_p);
 
   // Generate aka annotations
-  method_body += FString::Printf(TEXT("&aka(\"%s\")\r\n"), *function_p->GetName());
+  method_body += FString::Printf(TEXT("&aka(\"%s\")\n"), *function_p->GetName());
   if (function_p->HasMetaData(ms_meta_data_key_display_name))
     {
     FString display_name = function_p->GetMetaData(ms_meta_data_key_display_name);
     if (display_name != function_p->GetName())
       {
-      method_body += FString::Printf(TEXT("&aka(\"%s\")\r\n"), *display_name);
+      method_body += FString::Printf(TEXT("&aka(\"%s\")\n"), *display_name);
       }
     }
-  method_body += TEXT("\r\n");
+  method_body += TEXT("\n");
 
   // Generate parameter list
   FString return_type_name;
@@ -1542,9 +1628,9 @@ FString FSkookumScriptGeneratorBase::generate_method_script_file_body(UFunction 
   // Place return type on new line if present and more than one parameter
   if (num_inputs > 1 && !return_type_name.IsEmpty())
     {
-    method_body += TEXT("\r\n");
+    method_body += TEXT("\n");
     }
-  method_body += TEXT(") ") + return_type_name + TEXT("\r\n");
+  method_body += TEXT(") ") + return_type_name + TEXT("\n");
 
   return method_body;
   }
@@ -1554,11 +1640,8 @@ FString FSkookumScriptGeneratorBase::generate_method_script_file_body(UFunction 
 void FSkookumScriptGeneratorBase::generate_class_meta_file(UField * type_p, const FString & class_path, const FString & skookum_class_name)
   {
   const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
-  FString body = type_p ? generate_class_meta_file_body(type_p) : TEXT("// ") + skookum_class_name + TEXT("\r\n");
-  if (!FFileHelper::SaveStringToFile(body, *meta_file_path, ms_script_file_encoding))
-    {
-    report_error(FString::Printf(TEXT("Could not save file: %s"), *meta_file_path));
-    }
+  FString body = type_p ? generate_class_meta_file_body(type_p) : TEXT("// ") + skookum_class_name + TEXT("\n");
+  save_text_file_if_changed(*meta_file_path, body);
   }
 
 //---------------------------------------------------------------------------------------
@@ -1622,6 +1705,17 @@ FSkookumScriptGeneratorBase::GenerationTargetBase::initialize(const FString & ro
 
     GConfig->GetArray(TEXT("SkookumScriptGenerator"), TEXT("SkipClasses"), skip_classes, GEngineIni);
     }
+  else
+    {
+    // No ini file found at all
+    if (!m_ini_file_stamp.GetTicks())
+      {
+      return State_valid_unchanged;
+      }
+    m_ini_file_stamp = FDateTime(0);
+    }
+
+  // Found ini data - parse it
 
   // Inherit rename rules so renaming is consistent
   if (inherit_from_p)
@@ -1757,8 +1851,10 @@ FString FSkookumScriptGeneratorBase::GenerationTargetBase::find_class_rename_rep
     for (tClassRenameMap::TConstKeyIterator it(m_class_rename_map, name); it; ++it)
       {
       // Then check the match candidates for an actual match
+      const FName & key = it.Key();
       const ClassRenameEntry & match = it.Value();
-      if (package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name)
+      if (key.GetDisplayIndex() == name.GetDisplayIndex()
+       && (package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name))
         { 
         return match.m_replacement;
         }
@@ -1780,8 +1876,10 @@ FString FSkookumScriptGeneratorBase::GenerationTargetBase::find_data_rename_repl
     for (tDataRenameMap::TConstKeyIterator it(m_data_rename_map, name); it; ++it)
       {
       // Then check the match candidates for an actual match
+      const FName & key = it.Key();
       const DataRenameEntry & match = it.Value();
-      if ((package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name)
+      if (key.GetDisplayIndex() == name.GetDisplayIndex()
+       && (package_name.IsNone() || match.m_package_name.IsNone() || match.m_package_name == package_name)
        && (owner_name.IsNone() || match.m_owner_name.IsNone() || match.m_owner_name == owner_name))
         { 
         return match.m_replacement;

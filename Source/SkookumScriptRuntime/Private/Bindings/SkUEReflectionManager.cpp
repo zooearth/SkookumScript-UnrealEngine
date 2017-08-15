@@ -609,22 +609,21 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
           new (param_info_array_p + i) ReflectedProperty();
           }
 
-        // Now build UFunction
+        // Now build or reflect UFunction
         UFunction * ue_function_p = nullptr;
+        bool is_ue_function_built = !!(reflected_function_p->m_sk_invokable_p->get_annotation_flags() & SkAnnotation_ue4_blueprint);
         // Only for UClasses
         if (reflected_function_p->m_sk_invokable_p->get_scope()->is_entity_class())
           {
-          if (reflected_function_p->m_type == ReflectedFunctionType_event 
-           && (reflected_function_p->m_sk_invokable_p->get_scope()->get_annotation_flags() & SkAnnotation_reflected_data)
-           && !(reflected_function_p->m_sk_invokable_p->get_annotation_flags() & SkAnnotation_ue4_blueprint))
-            {
-            // It's a Blueprint function or a custom event, look it up
-            ue_function_p = reflect_ue_function(reflected_function_p->m_sk_invokable_p, param_info_array_p);
-            }
-          else
+          if (is_ue_function_built)
             {
             // If function not there yet, build it
             ue_function_p = build_ue_function(ue_static_class_p, reflected_function_p->m_sk_invokable_p, reflected_function_p->m_type, function_index, param_info_array_p, is_final);
+            }
+          else
+            {
+            // It's a Blueprint function or a custom event, look it up
+            ue_function_p = reflect_ue_function(reflected_function_p->m_sk_invokable_p, param_info_array_p);
             }
           }
 
@@ -634,6 +633,7 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
           reflected_function_p->m_ue_function_p = ue_function_p;
           reflected_function_p->m_ue_params_size = ue_function_p->ParmsSize;
           reflected_function_p->m_has_out_params = ue_function_p->HasAllFunctionFlags(FUNC_HasOutParms);
+          reflected_function_p->m_is_ue_function_built = is_ue_function_built;
 
           if (reflected_function_p->m_type == ReflectedFunctionType_call)
             {
@@ -684,7 +684,7 @@ bool SkUEReflectionManager::expose_reflected_function(uint32_t function_index, t
           #endif
 
           // Invoke update callback if any
-          if (on_function_updated_f)
+          if (on_function_updated_f && is_ue_function_built)
             {
             on_function_updated_f->invoke(ue_function_p, reflected_function_p->m_type == ReflectedFunctionType_event);
             }
@@ -719,7 +719,7 @@ bool SkUEReflectionManager::sync_all_to_ue(tSkUEOnFunctionUpdatedFunc * on_funct
         UClass * ue_class_p = SkUEClassBindingHelper::get_ue_class_from_sk_class(sk_class_p);
         if (ue_class_p)
           {
-          reflected_class_p->m_ue_static_class_p = ue_class_p;
+          reflected_class_p->m_ue_static_class_p = SkUEClassBindingHelper::get_static_ue_class_from_sk_class_super(sk_class_p);
           anything_changed |= add_instance_property_to_class(ue_class_p, sk_class_p);
           }
         }
@@ -1245,7 +1245,8 @@ void SkUEReflectionManager::delete_reflected_function(uint32_t function_index)
   if (reflected_function_p)
     {
     //SK_ASSERTX(reflected_function_p->m_ue_function_p.IsValid(), a_str_format("UFunction %s was deleted outside of SkUEReflectionManager and left dangling links behind in its owner UClass (%s).", reflected_function_p->get_name_cstr(), reflected_function_p->m_sk_invokable_p->get_scope()->get_name_cstr()));
-    if (reflected_function_p->m_ue_function_p.IsValid())
+    if (reflected_function_p->m_is_ue_function_built // Only destroy the UFunction if this plugin built it in the first place
+     && reflected_function_p->m_ue_function_p.IsValid())
       {
       UFunction * ue_function_p = reflected_function_p->m_ue_function_p.Get();
       UClass * ue_class_p = ue_function_p->GetOwnerClass();

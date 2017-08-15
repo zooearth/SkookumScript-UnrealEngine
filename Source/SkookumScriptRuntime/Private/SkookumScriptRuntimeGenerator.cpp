@@ -27,9 +27,13 @@
 #include "Interfaces/IPluginManager.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Engine/UserDefinedStruct.h"
+#include "ISourceControlModule.h"
+#include "ISourceControlProvider.h"
 
 #include "Bindings/SkUEReflectionManager.hpp"
+#include "Bindings/SkUEUtils.hpp"
 
+#include <AgogCore/ASymbol.hpp>
 #include <SkookumScript/SkDebug.hpp>
 
 //=======================================================================================
@@ -46,8 +50,51 @@ FSkookumScriptRuntimeGenerator::FSkookumScriptRuntimeGenerator(ISkookumScriptRun
   // Set up project and overlay paths
   initialize_paths();
 
+  // LEGACY: Update old projects to new format
+  if (have_project() && m_overlay_path_depth != PathDepth_archived_per_class)
+    {
+    // Update project ini file to new format
+    FString project_file_body;
+    load_text_file(m_project_file_path, project_file_body);
+    const TCHAR * const overlay_names_p[2] = { ms_overlay_name_bp_p, ms_overlay_name_bp_old_p };
+    const TCHAR * const end_chars_p[3] = { TEXT(""), TEXT("\\"), TEXT("/") };
+    int32 replace_count = 0;
+    for (int32 oldnew_idx = 0; oldnew_idx < A_COUNT_OF(overlay_names_p) && !replace_count; ++oldnew_idx)
+      {
+      const TCHAR * overlay_name_p = overlay_names_p[oldnew_idx];
+      for (int32 path_end_idx = 0; path_end_idx < A_COUNT_OF(end_chars_p) && !replace_count; ++path_end_idx)
+        {
+        FString search_string_base = FString(overlay_name_p) + end_chars_p[path_end_idx];
+        replace_count += project_file_body.ReplaceInline(*(search_string_base + TEXT("|1")), *(search_string_base + TEXT("|C")), ESearchCase::CaseSensitive);
+        }
+      }
+    if (replace_count)
+      {
+      save_text_file(m_project_file_path, project_file_body);
+      source_control_checkout_or_add(m_project_file_path);
+      m_overlay_path_depth = PathDepth_archived_per_class;
+      // Delete old files
+      delete_all_class_script_files();
+      // Let user know
+      FText title = FText::FromString(TEXT("Project file updated"));
+      FMessageDialog::Open(
+        EAppMsgType::Ok,
+        FText::Format(FText::FromString(
+          TEXT("Beginning with release 3.0.5279, the overlay '{0}' is stored in a new optimized file format.\n")
+          TEXT("Your project file '{1}' was automatically migrated to the new format. All old files in the overlay '{0}' were deleted.\n")
+          TEXT("As a result, you may temporarily experience script compile errors, and the plugin may temporarily be unable to load the compiled binaries.\n")
+          TEXT("If you get a message from UE4Editor that the compiled binaries could not be generated, simply select 'Continue' to continue loading the project. ")
+          TEXT("The contents of the overlay '{0}' will eventually get regenerated and the compile errors will resolve automatically.")),
+          FText::FromString(replace_count ? ms_overlay_name_bp_p : ms_overlay_name_bp_old_p), FText::FromString(m_project_file_path)),
+        &title);
+      }
+    }
+
   // Initialize GenerationTargetBases
   initialize_generation_targets();
+
+  // Do an initial sync from disk
+  sync_all_class_script_files_from_disk();
   }
 
 //---------------------------------------------------------------------------------------
@@ -58,9 +105,9 @@ FSkookumScriptRuntimeGenerator::~FSkookumScriptRuntimeGenerator()
 
 //---------------------------------------------------------------------------------------
 
-bool FSkookumScriptRuntimeGenerator::reload_skookumscript_ini()
+bool FSkookumScriptRuntimeGenerator::have_project() const
   {
-  return initialize_generation_targets();
+  return FApp::GetGameName() && FApp::GetGameName()[0] && FPlatformString::Strcmp(FApp::GetGameName(), TEXT("None")) != 0;
   }
 
 //---------------------------------------------------------------------------------------
@@ -86,68 +133,11 @@ int32 FSkookumScriptRuntimeGenerator::get_overlay_path_depth() const
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::delete_all_class_script_files()
-  {
-  // Clear contents of overlay scripts folder
-  FString directory_to_delete(m_overlay_path / TEXT("Object"));
-  IFileManager::Get().DeleteDirectory(*directory_to_delete, false, true);
-  IFileManager::Get().MakeDirectory(*directory_to_delete, true);
-
-  // Reset super classes
-  m_used_classes.Empty();
-  }
-
-//---------------------------------------------------------------------------------------
-// Generate SkookumScript class script files for all known blueprint assets
-void FSkookumScriptRuntimeGenerator::generate_all_class_script_files(bool generate_data, bool check_if_reparented)
-  {
-  if (!m_overlay_path.IsEmpty())
-    {
-    // Re-generate classes for all Blueprints
-    TArray<UObject*> blueprint_array;
-    GetObjectsOfClass(UBlueprint::StaticClass(), blueprint_array);
-    for (UObject * obj_p : blueprint_array)
-      {
-      UClass * ue_class_p = static_cast<UBlueprint *>(obj_p)->GeneratedClass;
-      if (ue_class_p)
-        {
-        generate_class_script_files(ue_class_p, generate_data, true, check_if_reparented);
-        }
-      }
-
-    // Re-generate classes for all user defined structs
-    TArray<UObject*> struct_array;
-    GetObjectsOfClass(UUserDefinedStruct::StaticClass(), struct_array);
-    for (UObject * obj_p : struct_array)
-      {
-      generate_class_script_files(static_cast<UUserDefinedStruct *>(obj_p), generate_data, true, check_if_reparented);
-      }
-
-    // Re-generate classes for all user defined enums
-    TArray<UObject*> enum_array;
-    GetObjectsOfClass(UUserDefinedEnum::StaticClass(), enum_array);
-    for (UObject * obj_p : enum_array)
-      {
-      generate_class_script_files(static_cast<UUserDefinedEnum *>(obj_p), generate_data, true, check_if_reparented);
-      }
-
-    // Re-generate the ECollisionChannel enum class in the Project-generated overlay as it gets customized by the game project
-    //UEnum * ecc_enum_p = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
-    //generate_class_script_files(ecc_enum_p, true, false, false);
-
-    // Also generate any dependent classes
-    generate_used_class_script_files();
-    }
-  }
-
-//---------------------------------------------------------------------------------------
-
 FString FSkookumScriptRuntimeGenerator::make_project_editable()
   {
   FString error_msg;
 
-  FString game_name(FApp::GetGameName());
-  if (game_name.IsEmpty())
+  if (!have_project())
     {
     error_msg = TEXT("Tried to make project editable but engine has no project loaded!");
     }
@@ -164,7 +154,8 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
     else
       {
       // No editable project found - check temporary location (in `Intermediate` folder)
-      FString temp_root_path(FPaths::GameIntermediateDir() / TEXT("SkookumScript"));
+      // We don't use FPaths::GameIntermediateDir() here as that might point to the %APPDATA% folder
+      FString temp_root_path(FPaths::GameDir() / TEXT("Intermediate/SkookumScript"));
       FString temp_scripts_path(temp_root_path / TEXT("Scripts"));
       FString temp_project_file_path = temp_scripts_path / TEXT("Skookum-project.ini");
       if (!FPaths::FileExists(temp_project_file_path))
@@ -201,9 +192,9 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
             FDirectoryPath binary_path;
             binary_path.Path = binary_path_name_p;
             packaging_settings_p->DirectoriesToAlwaysStageAsUFS.Add(binary_path);
-            FString config_file_name = FPaths::GameConfigDir() / TEXT("DefaultGame.ini");
-            m_runtime_interface_p->check_out_file(config_file_name);
-            packaging_settings_p->SaveConfig(CPF_Config, *config_file_name);
+            FString config_file_path = FPaths::GameConfigDir() / TEXT("DefaultGame.ini");
+            source_control_checkout_or_add(config_file_path);
+            packaging_settings_p->SaveConfig(CPF_Config, *config_file_path);
             }
 
           // Create Project overlay folder
@@ -211,10 +202,12 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
 
           // Change project to be editable
           FString proj_ini;
-          verify(FFileHelper::LoadFileToString(proj_ini, *editable_project_file_path));
-          proj_ini = proj_ini.Replace(ms_editable_ini_settings_p, TEXT("")); // Remove editable settings
-          proj_ini += TEXT("Overlay8=Project|Project\r\n"); // Create Project overlay definition
-          verify(FFileHelper::SaveStringToFile(proj_ini, *editable_project_file_path, FFileHelper::EEncodingOptions::ForceAnsi));
+          if (load_text_file(editable_project_file_path, proj_ini))
+            {
+            proj_ini = proj_ini.Replace(ms_editable_ini_settings_p, TEXT("")); // Remove editable settings
+            proj_ini += TEXT("Overlay8=Project|Project\n"); // Create Project overlay definition
+            save_text_file(editable_project_file_path, proj_ini);
+            }
 
           // Now in new mode
           m_project_mode = SkProjectMode_editable;
@@ -222,6 +215,20 @@ FString FSkookumScriptRuntimeGenerator::make_project_editable()
           m_project_file_path = FPaths::ConvertRelativePathToFull(editable_project_file_path);
           // Also update overlay path and depth
           set_overlay_path();
+
+          // Add project file and class archive files to source control
+          source_control_checkout_or_add(m_project_file_path);
+          TArray<FString> all_class_file_names;
+          all_class_file_names.Reserve(512);
+          IFileManager::Get().FindFiles(all_class_file_names, *(m_overlay_path / TEXT("*.sk")), true, false);
+          for (const FString & class_file_name : all_class_file_names)
+            {
+            source_control_checkout_or_add(m_overlay_path / class_file_name);
+            }
+
+          // Update the class file cache
+          m_class_files.empty();
+          sync_all_class_script_files_from_disk();
           }
         }
       }
@@ -239,7 +246,7 @@ UBlueprint * FSkookumScriptRuntimeGenerator::load_blueprint_asset(const FString 
   FString meta_file_path = full_class_path / TEXT("!Class.sk-meta");
   FString meta_file_text;
   *sk_class_deleted_p = false;
-  if (FFileHelper::LoadFileToString(meta_file_text, *meta_file_path))
+  if (load_text_file(meta_file_path, meta_file_text))
     {
     // Found meta file - try to extract asset path contained in it
     int32 package_path_begin_pos = meta_file_text.Find(ms_package_name_key);
@@ -396,7 +403,7 @@ void FSkookumScriptRuntimeGenerator::on_type_referenced(UField * type_p, int32 i
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::report_error(const FString & message)
+void FSkookumScriptRuntimeGenerator::report_error(const FString & message) const
   {
   FText title = FText::FromString(TEXT("Error during SkookumScript script file generation!"));
   FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(message), &title);
@@ -404,11 +411,248 @@ void FSkookumScriptRuntimeGenerator::report_error(const FString & message)
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p, bool generate_data, bool skip_non_game_classes, bool check_if_reparented)
+bool FSkookumScriptRuntimeGenerator::source_control_checkout_or_add(const FString & file_path) const
+  {
+  // In read-only mode, do nothing
+  if (m_project_mode == SkProjectMode_read_only)
+    {
+    return true;
+    }
+
+  // Call UE4 implementation to do the work
+  if (SourceControlHelpers::CheckOutFile(file_path))
+    {
+    // If successful, also check out all the queued file paths
+    for (const FString & queued_file_path : m_queued_files_to_checkout)
+      {
+      SourceControlHelpers::CheckOutFile(queued_file_path);
+      }
+    m_queued_files_to_checkout.Empty();
+    return true;
+    }
+
+  // Cannot check out now - remember for later checkout
+  m_queued_files_to_checkout.AddUnique(file_path);
+  return false;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptRuntimeGenerator::source_control_delete(const FString & file_path) const
+  {
+  // Deal with source control only in editable mode 
+  if (m_project_mode == SkProjectMode_editable)
+    {
+    // There seems to be no UE4 implementation of this that is ready to use, so we implement it here
+    ISourceControlProvider & provider = ISourceControlModule::Get().GetProvider();
+
+    // first check for source control check out
+    if (ISourceControlModule::Get().IsEnabled())
+      {
+      FSourceControlStatePtr source_control_state_p = provider.GetState(file_path, EStateCacheUsage::ForceUpdate);
+      if (source_control_state_p.IsValid())
+        {
+        if (source_control_state_p->IsSourceControlled())
+          {
+          if (source_control_state_p->CanCheckout())
+            {
+            ECommandResult::Type result = provider.Execute(ISourceControlOperation::Create<FDelete>(), file_path);
+            if (result != ECommandResult::Succeeded)
+              {
+              report_error(FString::Printf(TEXT("Could not mark file `%s` for delete.\n"), *file_path));
+              }
+            }
+          else if (source_control_state_p->IsAdded())
+            {
+            ECommandResult::Type result = provider.Execute(ISourceControlOperation::Create<FRevert>(), file_path);
+            if (result != ECommandResult::Succeeded)
+              {
+              report_error(FString::Printf(TEXT("Could not revert file `%s`.\n"), *file_path));
+              }
+            }
+          else if (source_control_state_p->IsCheckedOut())
+            {
+            ECommandResult::Type result = provider.Execute(ISourceControlOperation::Create<FRevert>(), file_path);
+            if (result != ECommandResult::Succeeded)
+              {
+              report_error(FString::Printf(TEXT("Could not revert file `%s`.\n"), *file_path));
+              }
+            else
+              {
+              result = provider.Execute(ISourceControlOperation::Create<FDelete>(), file_path);
+              if (result != ECommandResult::Succeeded)
+                {
+                report_error(FString::Printf(TEXT("Could not mark file `%s` for delete.\n"), *file_path));
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+  // Now delete file (if still exists)
+  return IFileManager::Get().Delete(*file_path, false, true);
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptRuntimeGenerator::reload_skookumscript_ini()
+  {
+  return initialize_generation_targets();
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntimeGenerator::sync_all_class_script_files_from_disk()
+  {
+  // Bail if nothing to do
+  if (m_overlay_path.IsEmpty()) return;
+
+  // Find all files and update cache
+  TArray<FString> all_class_file_names;
+  all_class_file_names.Reserve(512);
+  IFileManager::Get().FindFiles(all_class_file_names, *(m_overlay_path / TEXT("*.sk")), true, false);
+  for (const FString & class_file_name : all_class_file_names)
+    {
+    // Parse file name and get time stamp of file
+    FString class_file_path = m_overlay_path / class_file_name;
+    CachedClassFile file(class_file_path, false);
+
+    // See if we already got a cached entry
+    uint32_t insert_pos;
+    CachedClassFile * cached_file_p = m_class_files.get(file.get_name(), AMatch_first_found, &insert_pos);
+    if (cached_file_p)
+      {
+      // Touch it
+      cached_file_p->m_was_synced = true;
+
+      // Did parent change?
+      if (file.m_sk_super_name != cached_file_p->m_sk_super_name)
+        {
+        // Yes, then consider the file on disk authoritative and delete other existing file
+        FString old_file_path = m_overlay_path / cached_file_p->get_file_name();
+        source_control_delete(old_file_path);
+        // Change superclass to new one
+        cached_file_p->m_sk_super_name = file.m_sk_super_name;
+        // And load (potentially) different file body
+        if (!cached_file_p->load(class_file_path, &file.m_file_time_stamp))
+          {
+          report_error(FString::Printf(TEXT("Couldn't load class file '%s'"), *class_file_path));
+          }
+        }
+      // Did file change on disk?
+      else if (file.m_file_time_stamp > cached_file_p->m_file_time_stamp)
+        {
+        // Yes, the consider the file on disk authoritative and load it
+        if (!cached_file_p->load(class_file_path, &file.m_file_time_stamp))
+          {
+          report_error(FString::Printf(TEXT("Couldn't load class file '%s'"), *class_file_path));
+          }
+        }
+      }
+    else
+      {
+      // Not cached yet, load and insert it now
+      if (!file.load(class_file_path, &file.m_file_time_stamp))
+        {
+        report_error(FString::Printf(TEXT("Couldn't load class file '%s'"), *class_file_path));
+        }
+      file.m_was_synced = true;
+      m_class_files.insert(file, insert_pos);
+      }
+    }
+
+  // Remove all cached files that were not found on disk
+  for (uint32_t idx = 0; idx < m_class_files.get_length(); ++idx)
+    {
+    CachedClassFile & cached_file = m_class_files[idx];
+    if (cached_file.m_was_synced)
+      {
+      cached_file.m_was_synced = false;
+      }
+    else
+      {
+      m_class_files.remove(idx--);
+      }
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntimeGenerator::delete_all_class_script_files()
+  {
+  // Bail if nothing to do
+  if (m_overlay_path.IsEmpty()) return;
+
+  // Clear contents of overlay scripts folder
+  TArray<FString> all_class_file_names;
+  all_class_file_names.Reserve(512);
+  IFileManager::Get().FindFiles(all_class_file_names, *(m_overlay_path / TEXT("*.sk")), true, false);
+  for (const FString & class_file_name : all_class_file_names)
+    {
+    source_control_delete(m_overlay_path / class_file_name);
+    }
+
+  // Clear cache
+  m_class_files.empty();
+
+  // Reset used classes
+  m_used_classes.Empty();
+
+  // LEGACY: Also remove all files generated by previous versions of the plugin
+  all_class_file_names.Empty();
+  IFileManager::Get().FindFilesRecursive(all_class_file_names, *(m_overlay_path / TEXT("Object")), TEXT("*.*"), true, false);
+  for (const FString & class_file_path : all_class_file_names)
+    {
+    source_control_delete(class_file_path);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+// Generate SkookumScript class script files for all known blueprint assets
+void FSkookumScriptRuntimeGenerator::update_all_class_script_files(bool allow_members)
+  {
+  // Bail if nothing to do
+  if (m_overlay_path.IsEmpty()) return;
+
+  // Re-generate classes for all Blueprints
+  for (TObjectIterator<UBlueprint> blueprint_it; blueprint_it; ++blueprint_it)
+    {
+    UClass * ue_class_p = blueprint_it->GeneratedClass;
+    if (ue_class_p)
+      {
+      update_class_script_file(ue_class_p, false, allow_members);
+      }
+    }
+
+  // Re-generate classes for all user defined structs
+  for (TObjectIterator<UUserDefinedStruct> struct_it; struct_it; ++struct_it)
+    {
+    update_class_script_file(*struct_it, false, allow_members);
+    }
+
+  // Re-generate classes for all user defined enums
+  for (TObjectIterator<UUserDefinedEnum> enum_it; enum_it; ++enum_it)
+    {
+    update_class_script_file(*enum_it, false, allow_members);
+    }
+
+  // Re-generate the ECollisionChannel enum class in the Project-generated overlay as it gets customized by the game project
+  //UEnum * ecc_enum_p = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+  //generate_class_script_files(ecc_enum_p, true, false, false);
+
+  // Also generate any dependent classes
+  update_used_class_script_files(allow_members);
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntimeGenerator::update_class_script_file(UField * type_p, bool allow_non_game_classes, bool allow_members)
   {
   SK_ASSERTX(!m_overlay_path.IsEmpty(), "Overlay path for script generation not set!");
 
-  // Do not generate any script files in commandlet mode, or if explicitly skipped
+  // Do not generate any script files in commandlet mode
   if (IsRunningCommandlet())
     {
     return;
@@ -416,7 +660,17 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p
 
   // Only generate script files for game assets if requested
   UPackage * package_p = Cast<UPackage>(type_p->GetOutermost());
-  if (skip_non_game_classes && (!package_p || (!package_p->FileName.ToString().StartsWith(TEXT("/Game/")) && !package_p->GetName().StartsWith(TEXT("/Game/")))))
+  if (!allow_non_game_classes && (!package_p || (!package_p->FileName.ToString().StartsWith(TEXT("/Game/")) && !package_p->GetName().StartsWith(TEXT("/Game/")))))
+    {
+    return;
+    }
+
+  // Do not generate anything if class is temporary, deleted or CDO
+  if (type_p->GetName().StartsWith(TEXT("REINST_"))
+   || type_p->GetName().StartsWith(TEXT("SKEL_"))
+   || type_p->GetName().StartsWith(TEXT("TRASH_"))
+   || type_p->GetName().StartsWith(TEXT("GC_"))
+   || type_p->GetName().StartsWith(TEXT("Default__")))
     {
     return;
     }
@@ -425,65 +679,37 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p
   try
 #endif
     {
-    FString class_name;
-    const FString class_path = get_skookum_class_path(type_p, 0, 0, &class_name);
+    // Determine Sk class and superclass name
+    FString sk_class_name = get_skookum_class_name(type_p);
+    FString sk_super_name = get_skookum_parent_name(type_p, 0, 0);
 
-    // Make sure there is no other folder with the same name around
-    if (check_if_reparented)
-      {
-      TArray<FString> found_folders;
-      // 1) Try to find any folder with the exact class_name
-      IFileManager::Get().FindFilesRecursive(found_folders, *m_overlay_path, *class_name, false, true);
-      if (found_folders.Num() == 0)
-        {
-        // 2) Try to find any folder with the pattern parent_name.class_name
-        FString pattern = TEXT("*.") + class_name;
-        IFileManager::Get().FindFilesRecursive(found_folders, *m_overlay_path, *pattern, false, true);
-        }
-      // Found anything?
-      for (FString & folder_path : found_folders)
-        {
-        // Is it the same as the one we are in already?
-        if (IFileManager::Get().ConvertToRelativePath(*folder_path) != IFileManager::Get().ConvertToRelativePath(*class_path))
-          {
-          // No, delete
-          IFileManager::Get().DeleteDirectory(*folder_path, false, true);
-          }
-        }
-      }
+    // Create body of class archive file
+    // First, meta body
+    FString body = generate_class_meta_file_body(type_p) + TEXT("\n");
 
-    // Create class meta file
-    const FString meta_file_path = class_path / TEXT("!Class.sk-meta");
-    ISkookumScriptRuntimeInterface::eChangeType change_type = FPaths::FileExists(meta_file_path) ? ISkookumScriptRuntimeInterface::ChangeType_modified : ISkookumScriptRuntimeInterface::ChangeType_created;
-    FString meta_body = generate_class_meta_file_body(type_p);
-    bool anything_changed = save_text_file_if_changed(*meta_file_path, meta_body);
-
-    // Create members
-    if (generate_data && !m_targets[ClassScope_project].is_type_skipped(type_p->GetFName()))
+    // Then, members, but only for BP types
+    bool is_bp_type = type_p->IsA<UBlueprintGeneratedClass>() || type_p->IsA<UUserDefinedStruct>() || type_p->IsA<UUserDefinedEnum>();
+    if (is_bp_type && allow_members && !m_targets[ClassScope_project].is_type_skipped(type_p->GetFName()))
       {
       // Is it a class or struct?
       UStruct * struct_or_class_p = Cast<UStruct>(type_p);
       if (struct_or_class_p)
         {
         // Generate instance data member declarations
-        FString data_body = generate_class_instance_data_file_body(struct_or_class_p, 0, Referenced_by_game_module);
-        FString data_file_path = class_path / TEXT("!Data.sk");
-        if (save_text_file_if_changed(*data_file_path, data_body))
-          {
-          anything_changed = true;
-          }
+        body += TEXT("$$ @\n");
+        body += generate_class_instance_data_file_body(struct_or_class_p, 0, Referenced_by_game_module) + TEXT("\n");
 
         // Generate ctor/dtor/assignment method scripts for user defined structs
         if (struct_or_class_p->IsA<UUserDefinedStruct>())
           {
-          // Using logical OR here so that all four functions always get called
-          if (save_text_file_if_changed(*(class_path / TEXT("!().sk")), FString::Printf(TEXT("() %s\r\n"), *class_name))
-            | save_text_file_if_changed(*(class_path / TEXT("!copy().sk")), FString::Printf(TEXT("(%s other) %s\r\n"), *class_name, *class_name))
-            | save_text_file_if_changed(*(class_path / TEXT("assign().sk")), FString::Printf(TEXT("(%s other) %s\r\n"), *class_name, *class_name))
-            | save_text_file_if_changed(*(class_path / TEXT("!!().sk")), FString::Printf(TEXT("() %s\r\n"), *class_name)))
-            {
-            anything_changed = true;
-            }
+          body += TEXT("$$ @!\n");
+          body += FString::Printf(TEXT("() %s\n\n"), *sk_class_name);
+          body += TEXT("$$ @!copy\n");
+          body += FString::Printf(TEXT("(%s other) %s\n\n"), *sk_class_name, *sk_class_name);
+          body += TEXT("$$ @assign\n");
+          body += FString::Printf(TEXT("(%s other) %s\n\n"), *sk_class_name, *sk_class_name);
+          body += TEXT("$$ @!!\n");
+          body += FString::Printf(TEXT("() %s\n\n"), *sk_class_name);
           }
 
         // Generate methods for custom events and Blueprint functions
@@ -497,26 +723,8 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p
             if (can_export_blueprint_function(function_p))
               {
               FString script_method_name = skookify_method_name(function_p->GetName());
-              FString method_body = generate_method_script_file_body(function_p, script_method_name);
-              FString method_file_name = get_skookum_method_file_name(script_method_name, function_p->HasAnyFunctionFlags(FUNC_Static));
-              method_file_names.Add(method_file_name);
-              FString method_file_path = class_path / method_file_name;
-              if (save_text_file_if_changed(*method_file_path, method_body))
-                {
-                anything_changed = true;
-                }
-              }
-            }
-
-          // Delete methods we haven't exported
-          TArray<FString> existing_method_file_paths;
-          IFileManager::Get().FindFilesRecursive(existing_method_file_paths, *class_path, TEXT("*().sk"), true, false);
-          for (const FString & method_file_path : existing_method_file_paths)
-            {
-            FString method_name = FPaths::GetCleanFilename(method_file_path);
-            if (!method_file_names.Contains(method_name))
-              {
-              IFileManager::Get().Delete(*method_file_path, false, true);
+              body += FString::Printf(TEXT("$$ %s%s\n"), function_p->HasAnyFunctionFlags(FUNC_Static) ? TEXT("@@") : TEXT("@"), *script_method_name);
+              body += generate_method_script_file_body(function_p, script_method_name) + TEXT("\n");
               }
             }
           }
@@ -527,29 +735,69 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p
       if (enum_p)
         {
         // Generate class data member declarations
-        FString data_body = generate_enum_class_data_body(enum_p);
-        FString data_file_path = class_path / TEXT("!DataC.sk");
-        if (save_text_file_if_changed(*data_file_path, data_body))
-          {
-          anything_changed = true;
-          }
+        body += TEXT("$$ @@\n");
+        body += generate_enum_class_data_body(enum_p) + TEXT("\n");
 
         // Generate class constructor to initialize the data members
-        FString constructor_body = generate_enum_class_constructor_body(enum_p);
-        FString constructor_file_path = class_path / TEXT("!()C.sk");
-        if (save_text_file_if_changed(*constructor_file_path, constructor_body))
-          {
-          anything_changed = true;
-          }
+        body += TEXT("$$ @@!\n");
+        body += generate_enum_class_constructor_body(enum_p) + TEXT("\n");
         }
+      }
+
+    body += TEXT("$$ .\n");
+
+    // Now get or create cached file entry
+    CachedClassFile * cached_file_p = get_or_create_cached_class_file(ASymbol::create(FStringToAString(sk_class_name)));
+    bool is_existing = (cached_file_p->m_file_time_stamp.GetTicks() > 0u);
+    ASymbol super_name = ASymbol::create(FStringToAString(sk_super_name));
+
+    // Check if superclass changed
+    bool anything_changed = false;
+    if (cached_file_p->m_sk_super_name != super_name)
+      {
+      // Delete old file
+      if (!cached_file_p->m_sk_super_name.is_null())
+        {
+        FString old_file_path = m_overlay_path / cached_file_p->get_file_name();
+        source_control_delete(old_file_path);
+        }
+
+      // Write new file and update time stamp
+      cached_file_p->m_sk_super_name = super_name;
+      cached_file_p->m_body = body;
+      FString new_file_path = m_overlay_path / cached_file_p->get_file_name();
+      if (cached_file_p->save(new_file_path))
+        {
+        source_control_checkout_or_add(new_file_path);
+        }
+      else
+        {
+        report_error(FString::Printf(TEXT("Couldn't save class file '%s'"), *new_file_path));
+        }
+
+      anything_changed = true;
+      }
+    else if (body != cached_file_p->m_body)
+      {
+      // Write file and update time stamp
+      cached_file_p->m_body = body;
+      FString new_file_path = m_overlay_path / cached_file_p->get_file_name();
+      if (cached_file_p->save(new_file_path))
+        {
+        source_control_checkout_or_add(new_file_path);
+        }
+      else
+        {
+        report_error(FString::Printf(TEXT("Couldn't save class file '%s'"), *new_file_path));
+        }
+
+      anything_changed = true;
       }
 
     if (anything_changed)
       {
-      //tSourceControlCheckoutFunc checkout_f = ISourceControlModule::Get().IsEnabled() ? &SourceControlHelpers::CheckOutFile : nullptr;
-      tSourceControlCheckoutFunc checkout_f = nullptr; // Leaving this disabled for now as it might be bothersome
-      flush_saved_text_files(checkout_f);
-      m_runtime_interface_p->on_class_scripts_changed_by_generator(class_name, change_type);
+      ISkookumScriptRuntimeInterface::eChangeType change_type = is_existing ? ISkookumScriptRuntimeInterface::ChangeType_modified : ISkookumScriptRuntimeInterface::ChangeType_created;
+      m_runtime_interface_p->on_class_scripts_changed_by_generator(sk_class_name, change_type);
       }
     }
 #if !PLATFORM_EXCEPTIONS_DISABLED
@@ -562,121 +810,151 @@ void FSkookumScriptRuntimeGenerator::generate_class_script_files(UField * type_p
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::generate_used_class_script_files()
-  {
+void FSkookumScriptRuntimeGenerator::update_used_class_script_files(bool allow_members)
+{
   // Loop through all previously used classes and create stubs for them
-  for (tUsedClasses::TConstIterator iter(m_used_classes); iter; ++iter)
+  tUsedClasses used_classes_copy;
+  while (m_used_classes.Num() > 0)
     {
-    UClass * class_p = Cast<UClass>(*iter);
-    if (class_p)
+    used_classes_copy = MoveTemp(m_used_classes);
+    for (tUsedClasses::TConstIterator iter(used_classes_copy); iter; ++iter)
       {
-      generate_class_script_files(class_p, false, false, true);
-      }
-    }
-
-  m_used_classes.Empty();
-  }
-
-//---------------------------------------------------------------------------------------
-
-void FSkookumScriptRuntimeGenerator::rename_class_script_files(UObject * type_p, const FString & old_class_name)
-  {
-  // Rename this class
-  FString new_class_name = get_skookum_class_name(type_p);
-  rename_class_script_files(type_p, old_class_name, new_class_name);
-
-  // Also attempt to rename all child classes as they may have the name of the parent in its folder name
-  for (TObjectIterator<UClass> it; it; ++it)
-    {
-    if (it->GetSuperClass() == type_p)
-      {
-      rename_class_script_files(*it, old_class_name, new_class_name);
+      update_class_script_file(*iter, true, allow_members);
       }
     }
   }
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::rename_class_script_files(UObject * type_p, const FString & old_class_name, const FString & new_class_name)
+void FSkookumScriptRuntimeGenerator::create_root_class_script_file(const TCHAR * sk_class_name_p)
   {
-#if !PLATFORM_EXCEPTIONS_DISABLED
-  try
-#endif
+  // Get or create cached file entry
+  CachedClassFile * cached_file_p = get_or_create_cached_class_file(ASymbol::create(AString(sk_class_name_p)));
+  bool is_existing = (cached_file_p->m_file_time_stamp.GetTicks() > 0u);
+  bool anything_changed = false;
+  FString body = FString::Printf(TEXT("// %s\n$$ .\n"), sk_class_name_p);
+  if (body != cached_file_p->m_body)
     {
-    FString this_class_name;
-    const FString this_class_path = get_skookum_class_path(type_p, 0, 0, &this_class_name);
-    // Construct old path form new path
-    FString replace_from = new_class_name;
-    FString replace_to = skookify_class_name(FName(*old_class_name), NAME_None);
-    // If we are replacing a parent name, append a dot to avoid accidentally modifying the class name itself
-    if (this_class_name != new_class_name)
+    // Write file and update time stamp
+    cached_file_p->m_body = body;
+    cached_file_p->m_sk_super_name = ASymbol::create("Object"); // Don't use ASymbol_Object here as it might not be initialized yet
+    FString new_file_path = m_overlay_path / cached_file_p->get_file_name();
+    if (cached_file_p->save(new_file_path))
       {
-      replace_from += TEXT(".");
-      replace_to += TEXT(".");
+      source_control_checkout_or_add(new_file_path);
       }
-    FString old_class_path = this_class_path.Replace(*replace_from, *replace_to);
-    if (this_class_path != old_class_path)
+    else
       {
-      // Does old class folder exist?
-      if (FPaths::DirectoryExists(old_class_path))
+      report_error(FString::Printf(TEXT("Couldn't save class file '%s'"), *new_file_path));
+      }
+
+    anything_changed = true;
+    }
+
+  if (anything_changed)
+    {
+    ISkookumScriptRuntimeInterface::eChangeType change_type = is_existing ? ISkookumScriptRuntimeInterface::ChangeType_modified : ISkookumScriptRuntimeInterface::ChangeType_created;
+    m_runtime_interface_p->on_class_scripts_changed_by_generator(sk_class_name_p, change_type);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntimeGenerator::rename_class_script_file(UObject * type_p, const FString & old_ue_class_name)
+  {
+  // Determine class and superclass names
+  FString new_sk_class_name = get_skookum_class_name(type_p);
+  FName old_ue_name = FName(*old_ue_class_name);
+  FName package_name = type_p->GetOutermost()->GetFName(); // Assume it stays in the same package
+  FString old_sk_class_name = type_p->IsA<UEnum>() ? skookify_enum_name(old_ue_name, package_name) : skookify_class_name(old_ue_name, package_name);
+
+  ASymbol old_sk_name = ASymbol::create(FStringToAString(old_sk_class_name));
+
+  // 1) Find cached class and update it
+  uint32_t idx;
+  const CachedClassFile * cached_file_p = m_class_files.get(old_sk_name, AMatch_first_found, &idx);
+  if (cached_file_p)
+    {
+    // Rename the file
+    FString old_file_name = cached_file_p->get_file_name();
+    FString new_file_name = old_file_name.Replace(*(old_sk_class_name + TEXT(".")), *(new_sk_class_name + TEXT(".")));
+    FString old_file_path = m_overlay_path / old_file_name;
+    FString new_file_path = m_overlay_path / new_file_name;
+    if (IFileManager::Get().Move(*new_file_path, *old_file_path, true, true))
+      {
+      if (new_file_name != old_file_name)
         {
-        // Old folder exists - decide how to change its name
-        // Does new class folder already exist?
-        if (FPaths::DirectoryExists(this_class_path))
-          {
-          // Yes, delete so we can rename the old folder
-          IFileManager::Get().DeleteDirectory(*this_class_path, false, true);
-          }
-        // Now rename old to new
-        if (!IFileManager::Get().Move(*this_class_path, *old_class_path, true, true))
-          {
-          report_error(FString::Printf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_class_path, *this_class_path));
-          }
+        source_control_delete(old_file_path);
+        }
+      source_control_checkout_or_add(new_file_path);
+      }
+    else
+      {
+      report_error(FString::Printf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_file_name, *new_file_name));
+      }
+    // And forget its cached entry
+    m_class_files.remove(idx);
 
-        // Regenerate the meta file to correctly reflect the Blueprint it originated from
-        UField * type_to_generate_p = Cast<UField>(type_p);
-        #if WITH_EDITOR
-          if (!type_to_generate_p)
-            {
-            // If it's not a field, must be a blueprint
-            type_to_generate_p = Cast<UField>(CastChecked<UBlueprint>(type_p)->GeneratedClass);
-            SK_MAD_ASSERTX(type_to_generate_p, a_str_format("rename_class_script_files() called with uncompiled Blueprint '%S'!", *type_p->GetName()));
-            }
-        #endif
-        if (type_to_generate_p)
-          {
-          generate_class_script_files(type_to_generate_p, false, false, false);
-          }
+    // Regenerate the file if possible
+    if (UField * field_p = get_field(type_p))
+      {
+      update_class_script_file(field_p, true, true);
+      }
+    }
 
-        // Inform the runtime module of the change
-        m_runtime_interface_p->on_class_scripts_changed_by_generator(old_class_name, ISkookumScriptRuntimeInterface::ChangeType_deleted);
-        m_runtime_interface_p->on_class_scripts_changed_by_generator(new_class_name, ISkookumScriptRuntimeInterface::ChangeType_created);
+  // 2) Find all cached classes that have this class as a superclass and update them
+  for (const CachedClassFile & cached_file : m_class_files)
+    {
+    if (cached_file.m_sk_super_name == old_sk_name)
+      {
+      // Rename the file - no need to regenerate
+      FString old_file_name = cached_file_p->get_file_name();
+      FString new_file_name = old_file_name.Replace(*(TEXT(".") + old_sk_class_name), *(TEXT(".") + new_sk_class_name));
+      FString old_file_path = m_overlay_path / old_file_name;
+      FString new_file_path = m_overlay_path / new_file_name;
+      if (IFileManager::Get().Move(*new_file_path, *old_file_path, true, true))
+        {
+        if (new_file_name != old_file_name)
+          {
+          source_control_delete(old_file_path);
+          }
+        source_control_checkout_or_add(new_file_path);
         }
       else
         {
-        // Old folder does not exist - check that new folder exists, assuming the class has already been renamed
-        checkf(FPaths::DirectoryExists(this_class_path), TEXT("Couldn't rename class from '%s' to '%s'. Neither old nor new class folder exist."), *old_class_path, *this_class_path);
+        report_error(FString::Printf(TEXT("Couldn't rename class from '%s' to '%s'"), *old_file_name, *new_file_name));
         }
       }
     }
-#if !PLATFORM_EXCEPTIONS_DISABLED
-  catch (TCHAR * error_msg_p)
-    {
-    checkf(false, error_msg_p);
-    }
-#endif
+
+  // Inform the runtime module of the change
+  m_runtime_interface_p->on_class_scripts_changed_by_generator(old_sk_class_name, ISkookumScriptRuntimeInterface::ChangeType_deleted);
+  m_runtime_interface_p->on_class_scripts_changed_by_generator(new_sk_class_name, ISkookumScriptRuntimeInterface::ChangeType_created);
   }
 
 //---------------------------------------------------------------------------------------
 
-void FSkookumScriptRuntimeGenerator::delete_class_script_files(UObject * type_p)
+void FSkookumScriptRuntimeGenerator::delete_class_script_file(UObject * type_p)
   {
-  FString class_name;
-  const FString directory_to_delete = get_skookum_class_path(type_p, 0, 0, &class_name);
-  if (FPaths::DirectoryExists(directory_to_delete))
+  // Determine sk class name
+  FString sk_class_name = get_skookum_class_name(type_p);
+
+  // Get cached file entry - assume file does not exist if not found
+  uint32_t idx;
+  CachedClassFile * cached_file_p = m_class_files.get(ASymbol::create(FStringToAString(sk_class_name)), AMatch_first_found, &idx);
+  if (cached_file_p)
     {
-    IFileManager::Get().DeleteDirectory(*directory_to_delete, false, true);
-    m_runtime_interface_p->on_class_scripts_changed_by_generator(class_name, ISkookumScriptRuntimeInterface::ChangeType_deleted);
+    // Delete the file
+    FString class_file_path = m_overlay_path / cached_file_p->get_file_name();
+    if (source_control_delete(class_file_path))
+      {
+      m_runtime_interface_p->on_class_scripts_changed_by_generator(sk_class_name, ISkookumScriptRuntimeInterface::ChangeType_deleted);
+      m_class_files.remove(idx);
+      }
+    else
+      {
+      report_error(FString::Printf(TEXT("Couldn't delete class file '%s'"), *class_file_path));
+      }
     }
   }
 
@@ -693,7 +971,7 @@ void FSkookumScriptRuntimeGenerator::initialize_paths()
 
   // Look for specific SkookumScript project in game/project folder.
   FString project_file_path;
-  if (!FPaths::GameDir().IsEmpty())
+  if (have_project())
     {
     project_file_path = get_or_create_project_file(FPaths::GameDir(), FApp::GetGameName(), &m_project_mode);
     }
@@ -712,7 +990,7 @@ bool FSkookumScriptRuntimeGenerator::initialize_generation_targets()
   {
   GenerationTargetBase::eState target_state = m_targets[ClassScope_engine].initialize(IPluginManager::Get().FindPlugin(TEXT("SkookumScript"))->GetBaseDir(), TEXT("UE4"));
   m_current_target_p = &m_targets[ClassScope_engine];
-  if (!FPaths::GameDir().IsEmpty())
+  if (have_project())
     {
     GenerationTargetBase::eState project_target_state = m_targets[ClassScope_project].initialize(FPaths::GameDir(), FApp::GetGameName(), &m_targets[ClassScope_engine]);
     m_current_target_p = &m_targets[ClassScope_project];
@@ -743,7 +1021,7 @@ void FSkookumScriptRuntimeGenerator::set_overlay_path()
 
 //---------------------------------------------------------------------------------------
 
-bool FSkookumScriptRuntimeGenerator::can_export_blueprint_function(UFunction * function_p) const
+bool FSkookumScriptRuntimeGenerator::can_export_blueprint_function(UFunction * function_p)
   {
   static FName s_user_construction_script_name(TEXT("UserConstructionScript"));
 
@@ -760,13 +1038,126 @@ bool FSkookumScriptRuntimeGenerator::can_export_blueprint_function(UFunction * f
     {
     UProperty * param_p = *param_it;
     if (param_p->HasAllPropertyFlags(CPF_Parm)
-     && !SkUEReflectionManager::can_ue_property_be_reflected(param_p))
+     && (!SkUEReflectionManager::can_ue_property_be_reflected(param_p)
+      || !can_export_property(param_p, 0, 0)))
       {
       return false;
       }
     }
 
   // Passed all tests, so can export!
+  return true;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FSkookumScriptRuntimeGenerator::CachedClassFile * FSkookumScriptRuntimeGenerator::get_or_create_cached_class_file(ASymbol sk_class_name)
+  {
+  // Get or create cached file entry for this class
+  CachedClassFile * cached_file_p = m_class_files.get(sk_class_name);
+  if (!cached_file_p)
+    {
+    uint32_t pos;
+    m_class_files.append(CachedClassFile(sk_class_name), &pos);
+    cached_file_p = &m_class_files[pos];
+    }
+  return cached_file_p;
+  }
+
+//---------------------------------------------------------------------------------------
+
+FSkookumScriptRuntimeGenerator::CachedClassFile::CachedClassFile(const FString & class_file_path, bool load_body)
+  : m_was_synced(false)
+  {
+  // Figure out sk class name and superclass name
+  FString base_file_name = FPaths::GetBaseFilename(class_file_path); // Just file name, without extension
+  int32 split_pos;
+  if (base_file_name.FindChar('.', split_pos))
+    {
+    m_sk_super_name = ASymbol::create(AString(*base_file_name + split_pos + 1, base_file_name.Len() - split_pos - 1));
+    }
+  else
+    {
+    split_pos = base_file_name.Len();
+    }
+  set_name(ASymbol::create(AString(*base_file_name, split_pos)));
+
+  // Load body and set time stamp
+  if (load_body)
+    {
+    load(class_file_path);
+    }
+  }
+
+//---------------------------------------------------------------------------------------
+
+FSkookumScriptRuntimeGenerator::CachedClassFile::CachedClassFile(ASymbol sk_class_name) 
+  : ANamed(sk_class_name)
+  , m_file_time_stamp(0)
+  , m_was_synced(false)
+  {
+
+  }
+
+//---------------------------------------------------------------------------------------
+
+FString FSkookumScriptRuntimeGenerator::CachedClassFile::get_file_name() const
+  {
+  SK_ASSERTX(!m_sk_super_name.is_null(), a_str_format("m_sk_super_name of %s is null!", get_name().as_cstr()));
+
+  if (m_sk_super_name.is_null())
+    {
+    return FString(get_name().as_cstr()) + TEXT(".sk");
+    }
+  return FString(get_name().as_cstr()) + TEXT(".") + FString(m_sk_super_name.as_cstr()) + TEXT(".sk");
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptRuntimeGenerator::CachedClassFile::load(const FString & class_file_path, const FDateTime * file_time_stamp_if_known_p)
+  {
+  // Load the file body
+  if (!FFileHelper::LoadFileToString(m_body, *class_file_path))
+    {
+    return false;
+    }
+
+  // Remove any CRs from the loaded file
+  m_body.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
+
+  // Set time stamp
+  if (file_time_stamp_if_known_p)
+    {
+    m_file_time_stamp = *file_time_stamp_if_known_p;
+    }
+  else
+    {
+    m_file_time_stamp = IFileManager::Get().GetTimeStamp(*class_file_path);
+    }
+
+  return true;
+  }
+
+//---------------------------------------------------------------------------------------
+
+bool FSkookumScriptRuntimeGenerator::CachedClassFile::save(const FString & class_file_path)
+  {
+  // On Windows, insert CRs before LFs
+  #if PLATFORM_WINDOWS
+    FString platform_body = m_body.Replace(TEXT("\n"), TEXT("\r\n"));
+  #else
+    const FString & platform_body = m_body;
+  #endif
+
+  // Save the file body
+  if (!FFileHelper::SaveStringToFile(platform_body, *class_file_path, ms_script_file_encoding, &IFileManager::Get(), FILEWRITE_EvenIfReadOnly))
+    {
+    return false;
+    }
+
+  // Set time stamp
+  m_file_time_stamp = IFileManager::Get().GetTimeStamp(*class_file_path);
+
   return true;
   }
 

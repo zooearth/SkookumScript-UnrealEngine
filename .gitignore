@@ -23,8 +23,11 @@ force-lib-build.txt
 /Binaries/Win64/**
 !/Binaries/Win64/SkookumScript*.dll
 !/Binaries/Win64/AgogCore*.dll
+!/Binaries/Win64/UnrealHeaderTool-SkookumScriptGenerator.dll
+!/Binaries/Win64/UnrealHeaderTool.modules
 /Intermediate/**
 /Agog/**
+/Saved/**
 /Scripts/Engine-Generated/**
 /Source/AgogCore/*2013*.*
 /Source/AgogCore/*2015*.*
@@ -44,6 +47,6 @@ force-lib-build.txt
 /SkookumIDE/Scripts/workspace?.sk
 /SkookumIDE/Scripts/workbench*.sk
 /SkookumIDE/Engine/Saved/**
-/SkookumIDE/Engine/Programs/SkookumIDE/Intermediate/**
-/SkookumIDE/Engine/Programs/SkookumIDE/Saved/**
+/SkookumIDE/Engine/Programs/*/Intermediate/**
+/SkookumIDE/Engine/Programs/*/Saved/**
 /hooks/**
