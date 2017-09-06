@@ -514,6 +514,7 @@ class SK_API SkParser : public AString
       Identify_comment,        // It could be a block of comments which could include a series of single line comments
       Identify_string,         // Simple string
       Identify_symbol,         // Symbol literal
+      Identify_data_member,    // @instance or @@class data member
       Identify_object_id,      // Object ID
       Identify_number,
       Identify_annotation,
