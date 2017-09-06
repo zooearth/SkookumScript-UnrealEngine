@@ -119,11 +119,19 @@ void USkookumScriptClassDataComponent::create_sk_instance()
   // Currently, we support only actors
   SK_ASSERTX(sk_class_p->is_actor_class(), a_str_format("Trying to create a SkookumScriptClassDataComponent of class '%s' which is not an actor.", sk_class_p->get_name_cstr_dbg()));
   SkInstance * instance_p;
-  uint32_t offset = sk_class_p->get_user_data_int();
-  if (offset)
+  uint32_t instance_offset = sk_class_p->get_user_data_int();
+  if (instance_offset)
     {
+    #if !UE_BUILD_SHIPPING
+      if (instance_offset >= (uint32_t)actor_p->GetClass()->PropertiesSize)
+        {
+        SK_ERRORX(a_str_format("Instance offset out of range for actor '%S' of class '%S'!", *actor_p->GetName(), *actor_p->GetClass()->GetName()));
+        goto DontEmbed;
+        }
+    #endif
+
     // If this object stores its own instance, create it here
-    instance_p = USkookumScriptInstanceProperty::construct_instance((uint8_t *)actor_p + offset, actor_p, sk_class_p);
+    instance_p = USkookumScriptInstanceProperty::construct_instance((uint8_t *)actor_p + instance_offset, actor_p, sk_class_p);
     #if WITH_EDITOR
       // Check if this component's class could be also just auto-generated
       SkClass * sk_actor_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(actor_p->GetClass());
@@ -135,6 +143,9 @@ void USkookumScriptClassDataComponent::create_sk_instance()
     }
   else
     {
+  #if !UE_BUILD_SHIPPING
+  DontEmbed:
+  #endif
     // Based on the desired class, create SkInstance or SkDataInstance
     instance_p = sk_class_p->new_instance();
     instance_p->construct<SkUEActor>(actor_p); // Keep track of owner actor
