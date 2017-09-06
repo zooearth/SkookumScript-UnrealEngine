@@ -153,12 +153,16 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual void  on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_ue_enum_name) override;
       virtual void  on_enum_deleted(UUserDefinedEnum * ue_enum_p) override;
 
+      virtual void  on_new_asset(UObject * obj_p) override;
+
     #endif
 
     #if WITH_EDITORONLY_DATA
 
       void OnPreCompile();
       void OnPostCompile();
+      
+      void on_blueprint_compiled(UBlueprint * blueprint_p);
 
     // Overridden from IBlueprintCompiler
 
@@ -230,6 +234,7 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
     #if WITH_EDITORONLY_DATA
       FDelegateHandle       m_on_pre_compile_handle;
       FDelegateHandle       m_on_post_compile_handle;
+      FDelegateHandle       m_on_asset_loaded_handle;
     #endif
 
     FDelegateHandle                 m_game_tick_handle;
@@ -604,6 +609,7 @@ void FSkookumScriptRuntime::StartupModule()
 
     m_on_pre_compile_handle  = FKismetCompilerContext::OnPreCompile.AddRaw(this, &FSkookumScriptRuntime::OnPreCompile);
     m_on_post_compile_handle = FKismetCompilerContext::OnPostCompile.AddRaw(this, &FSkookumScriptRuntime::OnPostCompile);
+    m_on_asset_loaded_handle = FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FSkookumScriptRuntime::on_new_asset);
   #endif
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -783,6 +789,7 @@ void FSkookumScriptRuntime::ShutdownModule()
 
     FKismetCompilerContext::OnPreCompile.Remove(m_on_pre_compile_handle);
     FKismetCompilerContext::OnPostCompile.Remove(m_on_post_compile_handle);
+    FCoreUObjectDelegates::OnAssetLoaded.Remove(m_on_asset_loaded_handle);
   #endif
   }
 
@@ -1414,6 +1421,32 @@ void FSkookumScriptRuntime::on_enum_deleted(UUserDefinedEnum * ue_enum_p)
     }
   }
 
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_new_asset(UObject * obj_p)
+  {
+  UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
+  if (blueprint_p)
+    {
+    // Install callback so we know when it was compiled
+    blueprint_p->OnCompiled().AddRaw(this, &FSkookumScriptRuntime::on_blueprint_compiled);
+
+    on_class_added_or_modified(blueprint_p);
+    }
+
+  UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(obj_p);
+  if (struct_p)
+    {
+    on_struct_added_or_modified(struct_p);
+    }
+
+  UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(obj_p);
+  if (enum_p)
+    {
+    on_enum_added_or_modified(enum_p);
+    }
+  }
+
 #endif // WITH_EDITOR
 
 #if WITH_EDITORONLY_DATA
@@ -1424,12 +1457,31 @@ void FSkookumScriptRuntime::OnPreCompile()
   {
   // Last minute attempt to resolve yet unresolved bindings
   m_runtime.sync_all_reflected_to_ue(true);
+
+  // Make sure all Blueprints are instrumented at this point
+  if (!GIsEditor) // Only necessary in standalone mode
+    {
+    for (TObjectIterator<UBlueprint> blueprint_it; blueprint_it; ++blueprint_it)
+      {
+      if (!blueprint_it->OnCompiled().IsBoundToObject(this))
+        {
+        on_new_asset(*blueprint_it);
+        }
+      }
+    }
   }
 
 //---------------------------------------------------------------------------------------
 
 void FSkookumScriptRuntime::OnPostCompile()
   {
+  }
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_blueprint_compiled(UBlueprint * blueprint_p)
+  {
+  on_class_added_or_modified(blueprint_p);
   }
 
 //---------------------------------------------------------------------------------------

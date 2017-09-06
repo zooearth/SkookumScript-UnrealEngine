@@ -134,6 +134,14 @@ SkInstance * SkUEClassBindingHelper::get_embedded_instance(UObject * obj_p, SkCl
     uint32_t instance_offset = sk_class_p->get_user_data_int();
     if (instance_offset)
       {
+      #if !UE_BUILD_SHIPPING
+        if (instance_offset >= (uint32_t)obj_p->GetClass()->PropertiesSize)
+          {
+          SK_ERRORX(a_str_format("Instance offset out of range for actor '%S' of class '%S'!", *obj_p->GetName(), *obj_p->GetClass()->GetName()));
+          return nullptr;
+          }
+      #endif
+
       SkInstance * instance_p = USkookumScriptInstanceProperty::get_instance((uint8_t *)obj_p + instance_offset);
       if (instance_p)
         {
@@ -179,6 +187,14 @@ SkInstance * SkUEClassBindingHelper::get_embedded_instance(AActor * actor_p, SkC
     uint32_t instance_offset = sk_class_p->get_user_data_int();
     if (instance_offset)
       {
+      #if !UE_BUILD_SHIPPING
+        if (instance_offset >= (uint32_t)actor_p->GetClass()->PropertiesSize)
+          {
+          SK_ERRORX(a_str_format("Instance offset out of range for actor '%S' of class '%S'!", *actor_p->GetName(), *actor_p->GetClass()->GetName()));
+          return nullptr;
+          }
+      #endif
+
       SkInstance * instance_p = USkookumScriptInstanceProperty::get_instance((uint8_t *)actor_p + instance_offset);
       if (instance_p)
         {
