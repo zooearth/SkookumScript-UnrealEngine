@@ -94,6 +94,8 @@ class ISkookumScriptRuntime : public IModuleInterface
       virtual void  on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_enum_name) = 0;
       virtual void  on_enum_deleted(UUserDefinedEnum * ue_enum_p) = 0;
 
+      virtual void  on_new_asset(UObject * obj_p) = 0;
+
     #endif
 
   };

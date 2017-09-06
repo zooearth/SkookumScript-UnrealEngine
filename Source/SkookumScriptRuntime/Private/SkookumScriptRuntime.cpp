@@ -154,9 +154,13 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual void  on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_ue_enum_name) override;
       virtual void  on_enum_deleted(UUserDefinedEnum * ue_enum_p) override;
 
+      virtual void  on_new_asset(UObject * obj_p) override;
+
     #endif
 
     #if WITH_EDITORONLY_DATA
+
+      void on_blueprint_compiled(UBlueprint * blueprint_p);
 
     // Overridden from IBlueprintCompiler
 
@@ -224,6 +228,10 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
     FDelegateHandle         m_on_world_init_pre_handle;
     FDelegateHandle         m_on_world_init_post_handle;
     FDelegateHandle         m_on_world_cleanup_handle;
+
+    #if WITH_EDITORONLY_DATA
+      FDelegateHandle       m_on_asset_loaded_handle;
+    #endif
 
     FDelegateHandle                 m_game_tick_handle;
     TMap<UWorld *, FDelegateHandle> m_editor_tick_handles;
@@ -594,6 +602,8 @@ void FSkookumScriptRuntime::StartupModule()
     // Install this class as a "compiler" so we know when a Blueprint is about to be compiled
     IKismetCompilerInterface & kismet_compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
     kismet_compiler.GetCompilers().Add(this);
+
+    m_on_asset_loaded_handle = FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FSkookumScriptRuntime::on_new_asset);
   #endif
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -770,6 +780,8 @@ void FSkookumScriptRuntime::ShutdownModule()
       {
       kismet_compiler_p->GetCompilers().Remove(this);
       }
+
+    FCoreUObjectDelegates::OnAssetLoaded.Remove(m_on_asset_loaded_handle);
   #endif
   }
 
@@ -1401,9 +1413,42 @@ void FSkookumScriptRuntime::on_enum_deleted(UUserDefinedEnum * ue_enum_p)
     }
   }
 
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_new_asset(UObject * obj_p)
+  {
+  UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
+  if (blueprint_p)
+    {
+    // Install callback so we know when it was compiled
+    blueprint_p->OnCompiled().AddRaw(this, &FSkookumScriptRuntime::on_blueprint_compiled);
+
+    on_class_added_or_modified(blueprint_p);
+    }
+
+  UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(obj_p);
+  if (struct_p)
+    {
+    on_struct_added_or_modified(struct_p);
+    }
+
+  UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(obj_p);
+  if (enum_p)
+    {
+    on_enum_added_or_modified(enum_p);
+    }
+  }
+
 #endif // WITH_EDITOR
 
 #if WITH_EDITORONLY_DATA
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_blueprint_compiled(UBlueprint * blueprint_p)
+  {
+  on_class_added_or_modified(blueprint_p);
+  }
 
 //---------------------------------------------------------------------------------------
 
