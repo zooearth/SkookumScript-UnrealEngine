@@ -85,7 +85,6 @@ protected:
 
   ISkookumScriptRuntime * get_runtime() const { return static_cast<ISkookumScriptRuntime *>(m_runtime_p.Get()); }
 
-  void  on_asset_loaded(UObject * obj_p);
   void  on_object_modified(UObject * obj_p);
   void  on_new_asset_created(UFactory * factory_p);
   void  on_assets_deleted(const TArray<UClass*> & deleted_asset_classes);
@@ -97,13 +96,10 @@ protected:
   void  on_blueprint_compiled(UBlueprint * blueprint_p);
   void  on_map_opened(const FString & file_name, bool as_template);
 
-  void  on_new_asset(UObject * obj_p);
-
   // Data members
 
   TSharedPtr<IModuleInterface>  m_runtime_p;  // TSharedPtr holds on to the module so it can't go away while we need it
 
-  FDelegateHandle               m_on_asset_loaded_handle;
   FDelegateHandle               m_on_object_modified_handle;
   FDelegateHandle               m_on_map_opened_handle;
   FDelegateHandle               m_on_new_asset_created_handle;
@@ -141,7 +137,7 @@ void FSkookumScriptEditor::StartupModule()
   if (!IsRunningCommandlet())
     {
     // Hook up delegates
-    m_on_asset_loaded_handle          = FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FSkookumScriptEditor::on_asset_loaded);
+    //m_on_asset_loaded_handle          = FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FSkookumScriptEditor::on_asset_loaded); // Handled in SkookumScriptRuntime module
     m_on_object_modified_handle       = FCoreUObjectDelegates::OnObjectModified.AddRaw(this, &FSkookumScriptEditor::on_object_modified);
     m_on_map_opened_handle            = FEditorDelegates::OnMapOpened.AddRaw(this, &FSkookumScriptEditor::on_map_opened);
     m_on_new_asset_created_handle     = FEditorDelegates::OnNewAssetCreated.AddRaw(this, &FSkookumScriptEditor::on_new_asset_created);
@@ -157,19 +153,19 @@ void FSkookumScriptEditor::StartupModule()
     // Instrument all already existing blueprints
     for (TObjectIterator<UBlueprint> blueprint_it; blueprint_it; ++blueprint_it)
       {
-      on_new_asset(*blueprint_it);
+      get_runtime()->on_new_asset(*blueprint_it);
       }
 
     // Same for user defined structs
     for (TObjectIterator<UUserDefinedStruct> struct_it; struct_it; ++struct_it)
       {
-      on_new_asset(*struct_it);
+      get_runtime()->on_new_asset(*struct_it);
       }
 
     // Same for user defined enums
     for (TObjectIterator<UUserDefinedEnum> enum_it; enum_it; ++enum_it)
       {
-      on_new_asset(*enum_it);
+      get_runtime()->on_new_asset(*enum_it);
       }
     }
   }
@@ -190,7 +186,7 @@ void FSkookumScriptEditor::ShutdownModule()
   if (!IsRunningCommandlet())
     {
     // Remove delegates
-    FCoreUObjectDelegates::OnAssetLoaded.Remove(m_on_asset_loaded_handle);
+    //FCoreUObjectDelegates::OnAssetLoaded.Remove(m_on_asset_loaded_handle); // Handled in SkookumScriptRuntime module
     FCoreUObjectDelegates::OnObjectModified.Remove(m_on_object_modified_handle);
     FEditorDelegates::OnMapOpened.Remove(m_on_map_opened_handle);
     FEditorDelegates::OnNewAssetCreated.Remove(m_on_new_asset_created_handle);
@@ -401,13 +397,6 @@ void FSkookumScriptEditor::PostChange(const UUserDefinedEnum * enum_p, FEnumEdit
 //=======================================================================================
 
 //---------------------------------------------------------------------------------------
-
-void FSkookumScriptEditor::on_asset_loaded(UObject * obj_p)
-  {
-  on_new_asset(obj_p);
-  }
-
-//---------------------------------------------------------------------------------------
 //
 void FSkookumScriptEditor::on_object_modified(UObject * obj_p)
   {
@@ -496,7 +485,7 @@ void FSkookumScriptEditor::on_asset_renamed(const FAssetData & asset_data, const
 //
 void FSkookumScriptEditor::on_in_memory_asset_created(UObject * obj_p)
   {
-  on_new_asset(obj_p);
+  get_runtime()->on_new_asset(obj_p);
   }
 
 //---------------------------------------------------------------------------------------
@@ -536,30 +525,3 @@ void FSkookumScriptEditor::on_map_opened(const FString & file_name, bool as_temp
   // Let runtime know we are done opening a new map
   get_runtime()->on_editor_map_opened();
   }
-
-//---------------------------------------------------------------------------------------
-
-void FSkookumScriptEditor::on_new_asset(UObject * obj_p)
-  {
-  UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
-  if (blueprint_p)
-    {
-    // Install callback so we know when it was compiled
-    blueprint_p->OnCompiled().AddRaw(this, &FSkookumScriptEditor::on_blueprint_compiled);
-
-    get_runtime()->on_class_added_or_modified(blueprint_p);
-    }
-
-  UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(obj_p);
-  if (struct_p)
-    {
-    get_runtime()->on_struct_added_or_modified(struct_p);
-    }
-
-  UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(obj_p);
-  if (enum_p)
-    {
-    get_runtime()->on_enum_added_or_modified(enum_p);
-    }
-  }
-
