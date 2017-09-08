@@ -70,22 +70,31 @@ void USkookumScriptConstructionComponent::InitializeComponent()
     SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(actor_p->GetClass());
     if (sk_class_p)
       {
-      uint32_t offset = sk_class_p->get_user_data_int();
-      if (!offset)
+      uint32_t instance_offset = sk_class_p->get_user_data_int();
+      if (!instance_offset)
         {
         // If offset has not been computed yet, compute it now
         UProperty * property_p = actor_p->GetClass()->FindPropertyByName(USkookumScriptInstanceProperty::StaticClass()->GetFName());
         SK_ASSERTX(property_p, a_str_format("Class '%s' has no USkookumScriptInstanceProperty needed for actor '%S'!", sk_class_p->get_name_cstr(), *actor_p->GetName()));
         if (property_p)
           {
-          offset = property_p->GetOffset_ForInternal();
-          sk_class_p->set_user_data_int_recursively(offset);
+          instance_offset = property_p->GetOffset_ForInternal();
+
+          #if !UE_BUILD_SHIPPING
+            if (instance_offset >= (uint32_t)actor_p->GetClass()->PropertiesSize)
+              {
+              SK_ERRORX(a_str_format("Instance offset out of range for actor '%S' of class '%S'!", *actor_p->GetName(), *actor_p->GetClass()->GetName()));
+              instance_offset = 0;
+              }
+          #endif
+
+          sk_class_p->set_user_data_int_recursively(instance_offset);
           }
         }
-      SK_ASSERTX(offset, a_str_format("Class '%s' has no embedded instance offset to create an SkInstance for actor '%S'!", sk_class_p->get_name_cstr(), *actor_p->GetName()));
-      if (offset)
+      SK_ASSERTX(instance_offset, a_str_format("Class '%s' has no embedded instance offset to create an SkInstance for actor '%S'!", sk_class_p->get_name_cstr(), *actor_p->GetName()));
+      if (instance_offset)
         {
-        USkookumScriptInstanceProperty::construct_instance((uint8_t *)actor_p + offset, actor_p, sk_class_p);
+        USkookumScriptInstanceProperty::construct_instance((uint8_t *)actor_p + instance_offset, actor_p, sk_class_p);
         }
       }
     }
@@ -107,11 +116,23 @@ void USkookumScriptConstructionComponent::UninitializeComponent()
     SkClass * sk_class_p = SkUEClassBindingHelper::get_sk_class_from_ue_class(actor_p->GetClass());
     if (sk_class_p)
       {
-      uint32_t offset = sk_class_p->get_user_data_int();
-      SK_ASSERTX(offset, a_str_format("Class '%s' has no embedded instance offset to destroy the SkInstance of actor '%S'!", sk_class_p->get_name_cstr(), *actor_p->GetName()));
-      if (offset)
+      uint32_t instance_offset = sk_class_p->get_user_data_int();
+      
+      #if !UE_BUILD_SHIPPING
+        if (instance_offset >= (uint32_t)actor_p->GetClass()->PropertiesSize)
+          {
+          SK_ERRORX(a_str_format("Instance offset out of range for actor '%S' of class '%S'!", *actor_p->GetName(), *actor_p->GetClass()->GetName()));
+          instance_offset = 0;
+          }
+        else
+          {
+          SK_ASSERTX(instance_offset, a_str_format("Class '%s' has no embedded instance offset to destroy the SkInstance of actor '%S'!", sk_class_p->get_name_cstr(), *actor_p->GetName()));
+          }
+      #endif
+
+      if (instance_offset)
         {
-        USkookumScriptInstanceProperty::destroy_instance((uint8_t *)actor_p + offset);
+        USkookumScriptInstanceProperty::destroy_instance((uint8_t *)actor_p + instance_offset);
         }
       }
     }

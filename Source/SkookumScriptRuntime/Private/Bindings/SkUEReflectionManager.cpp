@@ -852,7 +852,7 @@ void SkUEReflectionManager::exec_sk_method(FFrame & stack, void * const result_p
         }
     #endif
     }
-  SkInvokedMethod imethod(nullptr, this_p, method_p, a_stack_allocate(method_p->get_invoked_data_array_size(), SkInstance*));
+  SkInvokedMethod imethod(nullptr, this_p ? this_p : &class_scope_p->get_metaclass(), method_p, a_stack_allocate(method_p->get_invoked_data_array_size(), SkInstance*));
 
   SKDEBUG_ICALL_SET_INTERNAL(&imethod);
   SKDEBUG_HOOK_SCRIPT_ENTRY(reflected_call.get_name());
@@ -872,7 +872,7 @@ void SkUEReflectionManager::exec_sk_method(FFrame & stack, void * const result_p
   #if (SKOOKUM & SK_DEBUG)
     if (!class_scope_p->is_class(*reflected_call.m_sk_invokable_p->get_scope()))
       {
-      SK_ERRORX(a_str_format("Attempted to invoke method '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", reflected_call.m_sk_invokable_p->get_scope()->get_name_cstr(), reflected_call.get_name_cstr(), this_p->get_class()->get_name_cstr(), reflected_call.m_sk_invokable_p->get_scope()->get_name_cstr()));
+      SK_ERRORX(a_str_format("Attempted to invoke method '%s@%s' via a blueprint of type '%s'. You might have forgotten to specify the SkookumScript type of this blueprint as '%s' in its SkookumScriptClassDataComponent.", reflected_call.m_sk_invokable_p->get_scope()->get_name_cstr(), reflected_call.get_name_cstr(), class_scope_p->get_name_cstr(), reflected_call.m_sk_invokable_p->get_scope()->get_name_cstr()));
       }
     else
   #endif
@@ -1474,7 +1474,7 @@ UFunction * SkUEReflectionManager::build_ue_function(UClass * ue_class_p, SkInvo
   // Make UFunction object
   UFunction * ue_function_p = NewObject<UFunction>(ue_class_p, qualified_invokable_fname, RF_Public);
 
-  ue_function_p->FunctionFlags |= FUNC_Public;
+  ue_function_p->FunctionFlags |= (FUNC_Public | FUNC_Const); // Pretend all functions are const since Sk cannot distinguish
   if (sk_invokable_p->is_class_member())
     {
     ue_function_p->FunctionFlags |= FUNC_Static;
