@@ -24,6 +24,14 @@
 //   str1 = str3       // true
 //   str1 = str4       // false
 //
+// #Notes
+//   Comparison to other languages:
+//     C++:                  &obj1 == &obj2
+//     C#:                   object.RefrenceEquals(obj1, obj2)
+//     JavaScript and Swift: obj1 === obj2
+//     Python:               obj1 is obj2
+//     Ruby:                 obj1.equal?(obj2)
+//
 // #See Also    equal?() =, not_equal?() ~=
 // #Author(s)   Conan Reis
 //---------------------------------------------------------------------------------------
