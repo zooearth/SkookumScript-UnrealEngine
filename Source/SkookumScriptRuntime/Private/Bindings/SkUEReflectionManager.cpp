@@ -1326,7 +1326,7 @@ bool SkUEReflectionManager::reflect_ue_params(const SkParameters & sk_params, UF
     if ((param_p->GetPropertyFlags() & (CPF_ReturnParm|CPF_Parm)) == CPF_Parm)
       {
       // Too many parameters?
-      if (num_parameters > param_list.get_length())
+      if (num_parameters >= param_list.get_length())
         {
         return false;
         }
@@ -1751,12 +1751,12 @@ void SkUEReflectionManager::on_unknown_type(const ASymbol & sk_name, SkClassDesc
     UFunction * ue_function_p = Cast<UFunction>(ue_outer_p);
     if (ue_function_p)
       {
-      SK_ERRORX(a_cstr_format("Type '%s' of parameter '%s' of method '%S.%S' being exported to Blueprints can not be mapped to a Blueprint-compatible type.", sk_type_p->get_key_class_name().as_cstr_dbg(), sk_name.as_cstr(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
+      SK_ERRORX(a_cstr_format("Type '%s' of parameter '%s' of method '%S.%S' being reflected to Blueprints can not be mapped to a Blueprint-compatible type.", sk_type_p->get_key_class_name().as_cstr_dbg(), sk_name.as_cstr(), *ue_function_p->GetOwnerClass()->GetName(), *ue_function_p->GetName()));
       }
     UClass * ue_class_p = Cast<UClass>(ue_outer_p);
     if (ue_class_p)
       {
-      SK_ERRORX(a_cstr_format("Type '%s' of data member '%s' of class '%S' being exported to Blueprints can not be mapped to a Blueprint-compatible type.", sk_type_p->get_key_class_name().as_cstr_dbg(), sk_name.as_cstr(), *ue_class_p->GetName()));
+      SK_ERRORX(a_cstr_format("Type '%s' of data member '%s' of class '%S' being reflected to Blueprints can not be mapped to a Blueprint-compatible type.", sk_type_p->get_key_class_name().as_cstr_dbg(), sk_name.as_cstr(), *ue_class_p->GetName()));
       }
   #endif
   }
