@@ -22,6 +22,7 @@
 using System.IO;
 using System.Collections.Generic;
 using UnrealBuildTool;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool.Rules
 {
@@ -69,7 +70,7 @@ namespace UnrealBuildTool.Rules
           }
         );
 
-      if (UEBuildConfiguration.bBuildEditor)
+      if (Target.bBuildEditor)
         {
         PrivateDependencyModuleNames.Add("UnrealEd");
         PrivateDependencyModuleNames.Add("KismetCompiler");

@@ -821,14 +821,14 @@ bool SkUEReflectionManager::is_skookum_reflected_call(UFunction * function_p)
 
 bool SkUEReflectionManager::is_skookum_reflected_event(UFunction * function_p)
   {
-  return function_p->RepOffset == EventMagicRepOffset;
+  return function_p->RPCId == EventMagicRepOffset;
   }
 
 //---------------------------------------------------------------------------------------
 
 void SkUEReflectionManager::exec_sk_method(FFrame & stack, void * const result_p, SkClass * class_scope_p, SkInstance * this_p)
   {
-  const ReflectedCall & reflected_call = static_cast<const ReflectedCall &>(*ms_singleton_p->m_reflected_functions[stack.CurrentNativeFunction->RepOffset]);
+  const ReflectedCall & reflected_call = static_cast<const ReflectedCall &>(*ms_singleton_p->m_reflected_functions[stack.CurrentNativeFunction->RPCId]);
   SK_ASSERTX(reflected_call.m_type == ReflectedFunctionType_call, "ReflectedFunction has bad type!");
   SK_ASSERTX(reflected_call.m_sk_invokable_p->get_invoke_type() == SkInvokable_method, "Must be a method at this point.");
 
@@ -912,7 +912,7 @@ void SkUEReflectionManager::exec_sk_instance_method(FFrame & stack, void * const
 
 void SkUEReflectionManager::exec_sk_coroutine(FFrame & stack, void * const result_p)
   {
-  const ReflectedCall & reflected_call = static_cast<const ReflectedCall &>(*ms_singleton_p->m_reflected_functions[stack.CurrentNativeFunction->RepOffset]);
+  const ReflectedCall & reflected_call = static_cast<const ReflectedCall &>(*ms_singleton_p->m_reflected_functions[stack.CurrentNativeFunction->RPCId]);
   SK_ASSERTX(reflected_call.m_type == ReflectedFunctionType_call, "ReflectedFunction has bad type!");
   SK_ASSERTX(reflected_call.m_sk_invokable_p->get_invoke_type() == SkInvokable_coroutine, "Must be a coroutine at this point.");
 
@@ -1282,15 +1282,20 @@ UFunction * SkUEReflectionManager::find_ue_function(SkInvokableBase * sk_invokab
   if (!ue_class_p) return nullptr;
 
   FString ue_function_name;
+  FString ue_function_name_skookified;
   AString sk_function_name = sk_invokable_p->get_name_str();
   for (TFieldIterator<UFunction> func_it(ue_class_p, EFieldIteratorFlags::ExcludeSuper); func_it; ++func_it)
     {
     UFunction * ue_function_p = *func_it;
     ue_function_p->GetName(ue_function_name);
-    if (FSkookumScriptGeneratorHelper::compare_var_name_skookified(*ue_function_name, sk_function_name.as_cstr()))
+    ue_function_name_skookified = FSkookumScriptGeneratorHelper::skookify_method_name(ue_function_name);
+    int32 i;
+    for (i = 0; i < ue_function_name_skookified.Len(); ++i)
       {
-      return ue_function_p;
+      if (ue_function_name_skookified[i] != sk_function_name[i]) goto NotFound;
       }
+    if (sk_function_name[i] == 0) return ue_function_p;
+  NotFound:;
     }
 
   return nullptr;
@@ -1492,7 +1497,7 @@ UFunction * SkUEReflectionManager::build_ue_function(UClass * ue_class_p, SkInvo
         sk_invokable_p->get_scope()->get_name_cstr(), 
         sk_invokable_p->get_name_cstr()));
     #endif
-    ue_function_p->RepOffset = (uint16_t)binding_index; // Remember binding index here for later lookup
+    ue_function_p->RPCId = (uint16_t)binding_index; // Remember binding index here for later lookup
     }
   else // binding_type == BindingType_Event
     {
@@ -1501,7 +1506,7 @@ UFunction * SkUEReflectionManager::build_ue_function(UClass * ue_class_p, SkInvo
     #if WITH_EDITOR
       ue_function_p->SetMetaData(TEXT("Tooltip"), *FString::Printf(TEXT("Triggered by SkookumScript method\n%S@%S()"), sk_invokable_p->get_scope()->get_name_cstr(), sk_invokable_p->get_name_cstr()));
     #endif    
-    ue_function_p->RepOffset = EventMagicRepOffset; // So we can tell later this is an Sk event
+    ue_function_p->RPCId = EventMagicRepOffset; // So we can tell later this is an Sk event
     }
 
   #if WITH_EDITOR
@@ -1540,8 +1545,9 @@ UFunction * SkUEReflectionManager::build_ue_function(UClass * ue_class_p, SkInvo
     }
 
   // Make method known to its class
-  ue_class_p->LinkChild(ue_function_p);
-  ue_class_p->AddFunctionToFunctionMap(ue_function_p);
+  ue_function_p->Next = ue_class_p->Children;
+  ue_class_p->Children = ue_function_p;
+  ue_class_p->AddFunctionToFunctionMap(ue_function_p, ue_function_p->GetFName());
 
   // Make sure parameter list is properly linked and offsets are set
   ue_function_p->StaticLink(true);
@@ -1560,7 +1566,8 @@ UProperty * SkUEReflectionManager::build_ue_param(const ASymbol & sk_name, SkCla
   if (property_p)
     {
     property_p->PropertyFlags |= CPF_Parm;
-    ue_function_p->LinkChild(property_p);
+    property_p->Next = ue_function_p->Children;
+    ue_function_p->Children = property_p;
     }
 
   return property_p;

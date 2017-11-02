@@ -190,18 +190,6 @@ namespace SkRotationAngles_Impl
     }
 
   //---------------------------------------------------------------------------------------
-  // # Skookum:   -RotationAngles
-  // # Author(s): Zachary Burke
-  static void mthd_op_negated(SkInvokedMethod * scope_p, SkInstance ** result_pp)
-    {
-    // Do nothing if result not desired
-    if (result_pp)
-      {
-      *result_pp = SkRotationAngles::new_instance(-scope_p->this_as<SkRotationAngles>());
-      }
-    }
-
-  //---------------------------------------------------------------------------------------
   // # Skookum:   RotationAngles@Vector3() Vector3
   // # Author(s): Zachary Burke
   static void mthd_Vector3(SkInvokedMethod * scope_p, SkInstance ** result_pp)
@@ -283,7 +271,6 @@ namespace SkRotationAngles_Impl
       { "subtract_assign",    mthd_op_subtract_assign },
       { "multiply",           mthd_op_multiply },
       { "multiply_assign",    mthd_op_multiply_assign },
-      { "negated",            mthd_op_negated },
 
       { "Vector3",            mthd_Vector3 },
       

@@ -286,8 +286,9 @@ void USkookumScriptListener::add_dynamic_function(FName callback_name, UClass * 
       }
 
     // Make method known to its class
-    StaticClass()->LinkChild(function_p);
-    StaticClass()->AddFunctionToFunctionMap(function_p);
+    function_p->Next = StaticClass()->Children;
+    StaticClass()->Children = function_p;
+    StaticClass()->AddFunctionToFunctionMap(function_p, function_p->GetFName());
     }
   }
 

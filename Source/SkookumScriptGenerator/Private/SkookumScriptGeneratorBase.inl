@@ -187,8 +187,8 @@ bool FSkookumScriptGeneratorHelper::is_property_type_supported(UProperty * prope
   {
   if (property_p->HasAnyPropertyFlags(CPF_EditorOnly)
    || property_p->IsA<ULazyObjectProperty>()
-   || property_p->IsA<UAssetObjectProperty>()
-   || property_p->IsA<UAssetClassProperty>())
+   || property_p->IsA<USoftObjectProperty>()
+   || property_p->IsA<USoftClassProperty>())
     {
     return false;
     }
@@ -375,6 +375,139 @@ FString FSkookumScriptGeneratorHelper::skookify_method_name(const FString & name
   return method_name;
   }
 
+
+
+//---------------------------------------------------------------------------------------
+// Perform lexical skookification, without name replacement lookup
+FString FSkookumScriptGeneratorHelper::skookify_data_name_basic(const FString & name, bool append_question_mark, eDataScope scope)
+  {
+  FString skookum_name;
+  skookum_name.Reserve(name.Len() + 16);
+
+  // Change title case to lower case with underscores
+  skookum_name.AppendChars(TEXT("@@"), scope == DataScope_instance ? 1 : 2);
+  bool is_boolean = name.Len() > 2 && name[0] == 'b' && isupper(name[1]);
+  bool was_upper = true;
+  bool was_underscore = false;
+
+  for (int32 i = int32(is_boolean); i < name.Len(); ++i)
+    {
+    TCHAR c = name[i];
+
+    // Skip special characters
+    if (c == TCHAR('?'))
+      {
+      continue;
+      }
+
+    // Is it [A-Za-z0-9]?
+    if ((c >= TCHAR('0') && c <= TCHAR('9'))
+      || (c >= TCHAR('A') && c <= TCHAR('Z'))
+      || (c >= TCHAR('a') && c <= TCHAR('z')))
+      {
+      // Yes, append it
+      bool is_upper = FChar::IsUpper(c) || FChar::IsDigit(c);
+      if (is_upper && !was_upper && !was_underscore)
+        {
+        skookum_name.AppendChar('_');
+        }
+      skookum_name.AppendChar(FChar::ToLower(c));
+      was_upper = is_upper;
+      was_underscore = false;
+      }
+    else
+      {
+      // No, insert underscore, but only one
+      if (!was_underscore)
+        {
+        skookum_name.AppendChar('_');
+        was_underscore = true;
+        }
+      }
+    }
+
+  // Check for reserved keywords and append underscore if found
+  if (scope == DataScope_class && (skookum_name == TEXT("@@world") || skookum_name == TEXT("@@random")))
+    {
+    skookum_name.AppendChar('_');
+    }
+
+  // Check if there's an MD5 checksum appended to the name - if so, chop it off
+  int32 skookum_name_len = skookum_name.Len();
+  if (skookum_name_len > 33)
+    {
+    const TCHAR * skookum_name_p = &skookum_name[skookum_name_len - 33];
+    if (skookum_name_p[0] == TCHAR('_'))
+      {
+      for (int32 i = 1; i <= 32; ++i)
+        {
+        uint32_t c = skookum_name_p[i];
+        if ((c - '0') > 9u && (c - 'a') > 5u) goto no_md5;
+        }
+      // We chop off most digits of the MD5 and leave only the first four, 
+      // assuming that that's distinctive enough for just a few of them at a time
+      skookum_name = skookum_name.Left(skookum_name_len - 28);
+    no_md5:;
+      }
+    }
+
+  if (append_question_mark)
+    {
+    skookum_name.AppendChar(TCHAR('?'));
+    }
+
+  return skookum_name;
+  }
+
+//---------------------------------------------------------------------------------------
+// Perform lexical skookification, without name replacement lookup
+FString FSkookumScriptGeneratorHelper::skookify_class_name_basic(const FString & name)
+  {
+  FString skookum_name;
+  skookum_name.Reserve(name.Len() + 16);
+
+  bool was_underscore = true;
+  for (int32 i = 0; i < name.Len(); ++i)
+    {
+    TCHAR c = name[i];
+
+    // Ensure first character is uppercase
+    if (skookum_name.IsEmpty())
+      {
+      if (islower(c))
+        {
+        c = toupper(c);
+        }
+      else if (!isupper(c))
+        {
+        // If name starts with neither upper nor lowercase letter, prepend "Sk"
+        skookum_name.Append(TEXT("Sk"));
+        }
+      }
+
+    // Is it [A-Za-z0-9]?
+    if ((c >= TCHAR('0') && c <= TCHAR('9'))
+      || (c >= TCHAR('A') && c <= TCHAR('Z'))
+      || (c >= TCHAR('a') && c <= TCHAR('z')))
+      {
+      // Yes, append it
+      skookum_name.AppendChar(c);
+      was_underscore = false;
+      }
+    else
+      {
+      // No, insert underscore, but only one
+      if (!was_underscore)
+        {
+        skookum_name.AppendChar('_');
+        was_underscore = true;
+        }
+      }
+    }
+
+  return skookum_name;
+  }
+
 //---------------------------------------------------------------------------------------
 
 bool FSkookumScriptGeneratorHelper::compare_var_name_skookified(const TCHAR * ue_var_name_p, const ANSICHAR * sk_var_name_p)
@@ -457,7 +590,7 @@ const FName FSkookumScriptGeneratorBase::ms_name_kismet_system_library          
 const FName FSkookumScriptGeneratorBase::ms_name_kismet_text_library                   ("KismetTextLibrary");
 const FName FSkookumScriptGeneratorBase::ms_name_visual_logger_kismet_library          ("VisualLoggerKismetLibrary");
 
-const FFileHelper::EEncodingOptions::Type FSkookumScriptGeneratorBase::ms_script_file_encoding = FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM;
+const FFileHelper::EEncodingOptions FSkookumScriptGeneratorBase::ms_script_file_encoding = FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM;
 
 //---------------------------------------------------------------------------------------
 
@@ -707,48 +840,7 @@ FString FSkookumScriptGeneratorBase::skookify_class_name(FName name, FName packa
   // If none found, make one up that conforms to Sk naming requirements
   if (skookum_name.IsEmpty())
     {
-    FString name_string(name.ToString());
-
-    skookum_name.Reserve(name_string.Len() + 16);
-
-    bool was_underscore = true;
-    for (int32 i = 0; i < name_string.Len(); ++i)
-      {
-      TCHAR c = name_string[i];
-
-      // Ensure first character is uppercase
-      if (skookum_name.IsEmpty())
-        {
-        if (islower(c))
-          {
-          c = toupper(c);
-          }
-        else if (!isupper(c))
-          {
-          // If name starts with neither upper nor lowercase letter, prepend "Sk"
-          skookum_name.Append(TEXT("Sk"));
-          }
-        }
-
-      // Is it [A-Za-z0-9]?
-      if ((c >= TCHAR('0') && c <= TCHAR('9'))
-       || (c >= TCHAR('A') && c <= TCHAR('Z'))
-       || (c >= TCHAR('a') && c <= TCHAR('z')))
-        {
-        // Yes, append it
-        skookum_name.AppendChar(c);
-        was_underscore = false;
-        }
-      else
-        {
-        // No, insert underscore, but only one
-        if (!was_underscore)
-          {
-          skookum_name.AppendChar('_');
-          was_underscore = true;
-          }
-        }
-      }
+    skookum_name = skookify_class_name_basic(name.ToString());
     }
 
   return skookum_name;
@@ -801,80 +893,7 @@ FString FSkookumScriptGeneratorBase::skookify_data_name(FName name, FName owner_
   // If none found, make one up that conforms to Sk naming requirements
   if (skookum_name.IsEmpty())
     {
-    FString name_string(name.ToString());
-
-    // Change title case to lower case with underscores
-    skookum_name.Reserve(name_string.Len() + 16);
-    skookum_name.AppendChars(TEXT("@@"), scope == DataScope_instance ? 1 : 2);
-    bool is_boolean = name_string.Len() > 2 && name_string[0] == 'b' && isupper(name_string[1]);
-    bool was_upper = true;
-    bool was_underscore = false;
-
-    for (int32 i = int32(is_boolean); i < name_string.Len(); ++i)
-      {
-      TCHAR c = name_string[i];
-
-      // Skip special characters
-      if (c == TCHAR('?'))
-        {
-        continue;
-        }
-
-      // Is it [A-Za-z0-9]?
-      if ((c >= TCHAR('0') && c <= TCHAR('9'))
-       || (c >= TCHAR('A') && c <= TCHAR('Z'))
-       || (c >= TCHAR('a') && c <= TCHAR('z')))
-        {
-        // Yes, append it
-        bool is_upper = FChar::IsUpper(c) || FChar::IsDigit(c);
-        if (is_upper && !was_upper && !was_underscore)
-          {
-          skookum_name.AppendChar('_');
-          }
-        skookum_name.AppendChar(FChar::ToLower(c));
-        was_upper = is_upper;
-        was_underscore = false;
-        }
-      else
-        {
-        // No, insert underscore, but only one
-        if (!was_underscore)
-          {
-          skookum_name.AppendChar('_');
-          was_underscore = true;
-          }
-        }
-      }
-
-    // Check for reserved keywords and append underscore if found
-    if (scope == DataScope_class && (skookum_name == TEXT("@@world") || skookum_name == TEXT("@@random")))
-      {
-      skookum_name.AppendChar('_');
-      }
-
-    // Check if there's an MD5 checksum appended to the name - if so, chop it off
-    int32 skookum_name_len = skookum_name.Len();
-    if (skookum_name_len > 33)
-      {
-      const TCHAR * skookum_name_p = &skookum_name[skookum_name_len - 33];
-      if (skookum_name_p[0] == TCHAR('_'))
-        {
-        for (int32 i = 1; i <= 32; ++i)
-          {
-          uint32_t c = skookum_name_p[i];
-          if ((c - '0') > 9u && (c - 'a') > 5u) goto no_md5;
-          }
-        // We chop off most digits of the MD5 and leave only the first four, 
-        // assuming that that's distinctive enough for just a few of them at a time
-        skookum_name = skookum_name.Left(skookum_name_len - 28);
-      no_md5:;
-        }
-      }
-
-    if (append_question_mark)
-      {
-      skookum_name.AppendChar(TCHAR('?'));
-      }
+    skookum_name = skookify_data_name_basic(name.ToString(), append_question_mark, scope);
     }
 
   return skookum_name;
@@ -1559,7 +1578,7 @@ FString FSkookumScriptGeneratorBase::generate_enum_class_data_body(UEnum * enum_
   FString enum_type_name = get_skookum_class_name(enum_p);
 
   // Class data members
-  for (int32 enum_index = 0; enum_index < enum_p->NumEnums() - 1; ++enum_index)
+  for (int32 enum_index = 0; enum_index < enum_p->NumEnums(); ++enum_index)
     {
     FString skookified_val_name = get_skookified_enum_val_name_by_index(enum_p, enum_index);
     data_body += FString::Printf(TEXT("%s !%s\n"), *enum_type_name, *skookified_val_name);
@@ -1581,7 +1600,7 @@ FString FSkookumScriptGeneratorBase::generate_enum_class_constructor_body(UEnum 
   // Pass 1: Generate the data
   for (uint32_t pass = 0; pass < 2; ++pass)
     {
-    for (int32 enum_index = 0; enum_index < enum_p->NumEnums() - 1; ++enum_index)
+    for (int32 enum_index = 0; enum_index < enum_p->NumEnums(); ++enum_index)
       {
       FString skookified_val_name = get_skookified_enum_val_name_by_index(enum_p, enum_index);
       if (pass == 0)
@@ -1741,8 +1760,8 @@ FSkookumScriptGeneratorBase::GenerationTargetBase::initialize(const FString & ro
     if (expr.Split(separator, &filter, &replacement, ESearchCase::CaseSensitive))
       {
       // Trim whitespace surrounding the separator if any
-      filter.TrimTrailing();
-      replacement.Trim();
+      filter.TrimStartAndEndInline();
+      replacement.TrimStartAndEndInline();
       // Do some sanity checking
       if (replacement.Len() > 0 && FChar::IsUpper(replacement[0]))
         {
@@ -1773,8 +1792,8 @@ FSkookumScriptGeneratorBase::GenerationTargetBase::initialize(const FString & ro
     if (expr.Split(separator, &filter, &replacement, ESearchCase::CaseSensitive))
       {
       // Trim whitespace surrounding the separator if any
-      filter.TrimTrailing();
-      replacement.Trim();
+      filter.TrimStartAndEndInline();
+      replacement.TrimStartAndEndInline();
       // Do some sanity checking
       if (replacement.Len() >= 2 && replacement[0] == '@' && replacement[1] != '@')
         {

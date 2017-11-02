@@ -185,13 +185,13 @@ class SKOOKUMSCRIPTRUNTIME_API SkUEClassBindingHelper
         FORCENOINLINE void resize_to(int32 new_max, int32 num_bytes_per_element);
       };
 
-    // HACK to utilize 3 bytes of unused space behind a boolean
-    struct HackedBoolMem
+    // HACK to utilize 4 bytes of unused space behind a uint32
+    struct HackedUint32Mem
       {
-      enum { Magic = 0x5c };
+      enum { Magic = 0x5c3a };
 
-      bool      m_boolean;
-      uint8_t   m_magic;
+      uint32_t  m_uint32;
+      uint16_t  m_magic;
       uint16_t  m_data_idx;
 
       uint32_t  get_data_idx() const             { return m_magic == Magic ? m_data_idx : 0; }
@@ -701,8 +701,9 @@ void SkUEClassBindingHelper::initialize_array_from_list(TArray<_DataType> * out_
 // HACK! This exploits unused memory between member variables
 inline uint32_t SkUEClassBindingHelper::get_sk_class_idx_from_ue_class(UClass * ue_class_p)
   {
-  static_assert(offsetof(UClass, ClassReps) - offsetof(UClass, bCooked) >= sizeof(HackedBoolMem), "Not enough storage space for sk_class_idx!");
-  return reinterpret_cast<const HackedBoolMem *>(&ue_class_p->bCooked)->get_data_idx();
+  //static_assert(offsetof(UClass, ClassWithin) - offsetof(UClass, ClassCastFlags) >= sizeof(HackedUint32Mem), "Not enough storage space for sk_class_idx!");
+  //return reinterpret_cast<const HackedUint32Mem *>(&ue_class_p->ClassCastFlags)->get_data_idx();
+  return 0;
   }
 
 //---------------------------------------------------------------------------------------
@@ -710,7 +711,7 @@ inline uint32_t SkUEClassBindingHelper::get_sk_class_idx_from_ue_class(UClass * 
 // HACK! This exploits unused memory between member variables
 inline void SkUEClassBindingHelper::set_sk_class_idx_on_ue_class(UClass * ue_class_p, uint32_t sk_class_idx)
   {
-  reinterpret_cast<HackedBoolMem *>(&ue_class_p->bCooked)->set_data_idx(sk_class_idx);
+  //reinterpret_cast<HackedUint32Mem *>(&ue_class_p->ClassCastFlags)->set_data_idx(sk_class_idx);
   }
 
 //---------------------------------------------------------------------------------------
