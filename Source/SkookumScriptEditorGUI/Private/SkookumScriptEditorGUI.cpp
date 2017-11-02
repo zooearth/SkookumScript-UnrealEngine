@@ -172,7 +172,6 @@ void FSkookumScriptEditorGUI::ShutdownModule()
 
     if (m_level_extension_manager.IsValid())
       {
-      FSkookumScriptEditorCommands::Unregister();
       m_level_tool_bar_extender->RemoveExtension(m_level_tool_bar_extension.ToSharedRef());
       m_level_extension_manager->RemoveExtender(m_level_tool_bar_extender);
       }
@@ -183,7 +182,6 @@ void FSkookumScriptEditorGUI::ShutdownModule()
 
     if (m_blueprint_extension_manager.IsValid())
       {
-      FSkookumScriptEditorCommands::Unregister();
       m_blueprint_tool_bar_extender->RemoveExtension(m_blueprint_tool_bar_extension.ToSharedRef());
       m_blueprint_extension_manager->RemoveExtender(m_blueprint_tool_bar_extender);
       }
@@ -193,6 +191,7 @@ void FSkookumScriptEditorGUI::ShutdownModule()
       }
 
     FSkookumStyles::Shutdown();
+    FSkookumScriptEditorCommands::Unregister();
     }
   }
 
@@ -238,8 +237,8 @@ void FSkookumScriptEditorGUI::add_skookum_button_to_blueprint_tool_bar(FToolBarB
 
 void FSkookumScriptEditorGUI::on_skookum_button_clicked()
   {
-  FString focus_class_name;
-  FString focus_member_name;
+  FString focus_ue_class_name;
+  FString focus_ue_member_name;
 
   // There must be a better way of finding the active editor...
   TArray<UObject*> obj_array = FAssetEditorManager::Get().GetAllEditedAssets();
@@ -268,7 +267,7 @@ void FSkookumScriptEditorGUI::on_skookum_button_clicked()
     // We found the most recently used Blueprint editor
     FBlueprintEditor * blueprint_editor_p = static_cast<FBlueprintEditor *>(active_editor_p);
     // Get name of associated Blueprint
-    focus_class_name = blueprint_editor_p->GetBlueprintObj()->GetName();
+    focus_ue_class_name = blueprint_editor_p->GetBlueprintObj()->GetName();
     // See if any SkookumScript node is selected, if so, tell the IDE
     const FGraphPanelSelectionSet node_array = blueprint_editor_p->GetSelectedNodes();
     for (auto obj_iter = node_array.CreateConstIterator(); obj_iter; ++obj_iter)
@@ -276,20 +275,20 @@ void FSkookumScriptEditorGUI::on_skookum_button_clicked()
       UK2Node_CallFunction * call_node_p = Cast<UK2Node_CallFunction>(*obj_iter);
       if (call_node_p)
         {
-        focus_member_name = call_node_p->FunctionReference.GetMemberName().ToString();
+        focus_ue_member_name = call_node_p->FunctionReference.GetMemberName().ToString();
         break; // For now, just return the first one
         }
       UK2Node_Event * event_node_p = Cast<UK2Node_Event>(*obj_iter);
       if (event_node_p)
         {
-        focus_member_name = event_node_p->EventReference.GetMemberName().ToString();
+        focus_ue_member_name = event_node_p->EventReference.GetMemberName().ToString();
         break; // For now, just return the first one
         }
       }
     }
 
   // Bring up IDE and navigate to selected class/method/coroutine
-  m_runtime_p->show_ide(focus_class_name, focus_member_name, false, false);
+  m_runtime_p->show_ide(focus_ue_class_name, focus_ue_member_name, false, false);
 
   // Request recompilation if there have previously been errors
   m_runtime_p->freshen_compiled_binaries_if_have_errors();
