@@ -1284,15 +1284,20 @@ UFunction * SkUEReflectionManager::find_ue_function(SkInvokableBase * sk_invokab
   if (!ue_class_p) return nullptr;
 
   FString ue_function_name;
+  FString ue_function_name_skookified;
   AString sk_function_name = sk_invokable_p->get_name_str();
   for (TFieldIterator<UFunction> func_it(ue_class_p, EFieldIteratorFlags::ExcludeSuper); func_it; ++func_it)
     {
     UFunction * ue_function_p = *func_it;
     ue_function_p->GetName(ue_function_name);
-    if (FSkookumScriptGeneratorHelper::compare_var_name_skookified(*ue_function_name, sk_function_name.as_cstr()))
+    ue_function_name_skookified = FSkookumScriptGeneratorHelper::skookify_method_name(ue_function_name);
+    int32 i;
+    for (i = 0; i < ue_function_name_skookified.Len(); ++i)
       {
-      return ue_function_p;
+      if (ue_function_name_skookified[i] != sk_function_name[i]) goto NotFound;
       }
+    if (sk_function_name[i] == 0) return ue_function_p;
+  NotFound:;
     }
 
   return nullptr;
