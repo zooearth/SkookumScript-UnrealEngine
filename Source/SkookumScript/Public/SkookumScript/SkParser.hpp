@@ -419,7 +419,7 @@ class SK_API SkParser : public AString
       Result_err_unexpected_implicit_this,    // Operator calls may not be used with an implicit 'this' - otherwise it is more error prone and even when used correctly it is more difficult to understand
       Result_err_unexpected_parameters_result, // A coroutine parameter list must not specify a primary return type - the return type InvokedCoroutine is always inferred.
       Result_err_unexpected_parameter_rargs,  // The parameter list did not expect an extra semi-colon ';'!  Return parameters already started.
-      Result_err_unexpected_parameter_binary, // Binary operator must have exactly one parameter
+      Result_err_unexpected_parameter_binary, // * Binary operator must have exactly one parameter
       Result_err_unexpected_query_identifier, // Query/predicate methods are not permitted in instantiation invocations.
       Result_err_unexpected_reserved,         // A reserved word/token may not change its binding - including identifiers (this, this_class, this_code, or nil), literals (true or false), primitives (loop), and statements (exit)
       Result_err_unexpected_return_args,      // Invocation argument list indicated that return arguments were to be used, but routine does not have return parameters.
@@ -441,7 +441,7 @@ class SK_API SkParser : public AString
       Result_err_context_annotation_unknown,  // Unknown annotation found
       Result_err_context_annotation_invalid,  // Annotation is not allowed in this context
       Result_err_context_annotation_duplicate,// Duplicate annotation provided
-      Result_err_context_case_compare,        // The case comparison expression must resolve to a class type that has an equals operator '='.
+      Result_err_context_case_compare,        // * The case comparison expression must resolve to a class type that has an equals operator '='.
       Result_err_context_conversion_params,   // A conversion method may not have any parameters [this may change in the future].
       Result_err_context_duped_data,          // * This data member name is a duplicate of one already existing in this class
       Result_err_context_duped_data_super,    // * This data member name is a duplicate of one already existing in a superclass of this class
@@ -475,7 +475,7 @@ class SK_API SkParser : public AString
       // Type errors
       Result_err_typecheck_return_type,       // * The primary return class type of the code block was not compatible with the return class type of the method (as specified by its parameters).
       Result_err_typecheck_rparam_type,       // * A return parameter was not bound to an object of the expected class type before the end of the code block (as specified by its parameters).
-      Result_err_typecheck_case,              // The result class type of a case test expression must be compatible as an operand to the equals operator '=' of the comparison expression.
+      Result_err_typecheck_case,              // * The result class type of a case test expression must be compatible as an operand to the equals operator '=' of the comparison expression.
       Result_err_typecheck_cast,              // The result class of the expression being cast is not a superclass or subclass the class being cast to so the cast is not valid.
       Result_err_typecheck_closure_generics,  // Generic types are not supported in closure parameter lists and might never be - too many levels of indirection to wrap your head around
       Result_err_typecheck_conversion,        // The result type of a conversion method must be of the same type as or a subclass of the method name.
