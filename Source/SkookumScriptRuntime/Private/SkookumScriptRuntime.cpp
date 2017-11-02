@@ -130,7 +130,7 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual bool  is_connected_to_ide() const override;
       virtual void  on_application_focus_changed(bool is_active) override;
       virtual void  on_editor_map_opened() override;
-      virtual void  show_ide(const FString & focus_class_name, const FString & focus_member_name, bool is_data_member, bool is_class_member) override;
+      virtual void  show_ide(const FString & focus_ue_class_name, const FString & focus_ue_member_name, bool is_data_member, bool is_class_member) override;
       virtual void  freshen_compiled_binaries_if_have_errors() override;
 
       virtual bool  has_skookum_default_constructor(UClass * class_p) const override;
@@ -152,9 +152,13 @@ class FSkookumScriptRuntime : public ISkookumScriptRuntime
       virtual void  on_enum_renamed(UUserDefinedEnum * ue_enum_p, const FString & old_ue_enum_name) override;
       virtual void  on_enum_deleted(UUserDefinedEnum * ue_enum_p) override;
 
+      virtual void  on_new_asset(UObject * obj_p) override;
+
     #endif
 
     #if WITH_EDITORONLY_DATA
+
+      void on_blueprint_compiled(UBlueprint * blueprint_p);
 
     // Overridden from IBlueprintCompiler
 
@@ -1178,22 +1182,29 @@ void FSkookumScriptRuntime::on_editor_map_opened()
 
 //---------------------------------------------------------------------------------------
 // 
-void FSkookumScriptRuntime::show_ide(const FString & focus_class_name, const FString & focus_member_name, bool is_data_member, bool is_class_member)
+void FSkookumScriptRuntime::show_ide(const FString & focus_ue_class_name, const FString & focus_ue_member_name, bool is_data_member, bool is_class_member)
   {
   #ifdef SKOOKUM_REMOTE_UNREAL
     // Remove qualifier from member name if present
-    FString focus_class_name_ide = focus_class_name;
-    FString focus_member_name_ide = focus_member_name;
+    FString focus_sk_class_name;
+    FString focus_sk_member_name;
     int32 at_pos = 0;
-    if (focus_member_name_ide.FindChar('@', at_pos))
+    if (focus_ue_member_name.FindChar('@', at_pos))
       {
-      focus_class_name_ide = focus_member_name_ide.Left(at_pos).TrimTrailing();
-      focus_member_name_ide = focus_member_name_ide.Mid(at_pos + 1).Trim();
+      focus_sk_class_name = focus_ue_member_name.Left(at_pos).TrimTrailing();
+      focus_sk_member_name = focus_ue_member_name.Mid(at_pos + 1).Trim();
+      }
+    else
+      {
+      focus_sk_class_name = FSkookumScriptGeneratorHelper::skookify_class_name_basic(focus_ue_class_name);
+      focus_sk_member_name = is_data_member
+        ? FSkookumScriptGeneratorHelper::skookify_data_name_basic(focus_ue_member_name, false, is_class_member ? FSkookumScriptGeneratorHelper::DataScope_class : FSkookumScriptGeneratorHelper::DataScope_instance)
+        : FSkookumScriptGeneratorHelper::skookify_method_name(focus_ue_member_name);
       }
 
     // Convert to symbols and send off
-    ASymbol focus_class_name_sym(ASymbol::create_existing(FStringToAString(focus_class_name_ide)));
-    ASymbol focus_member_name_sym(ASymbol::create_existing(FStringToAString(focus_member_name_ide)));
+    ASymbol focus_class_name_sym(ASymbol::create_existing(FStringToAString(focus_sk_class_name)));
+    ASymbol focus_member_name_sym(ASymbol::create_existing(FStringToAString(focus_sk_member_name)));
     m_remote_client.cmd_show(AFlag_on, focus_class_name_sym, focus_member_name_sym, is_data_member, is_class_member);
   #endif
   }
@@ -1399,9 +1410,42 @@ void FSkookumScriptRuntime::on_enum_deleted(UUserDefinedEnum * ue_enum_p)
     }
   }
 
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_new_asset(UObject * obj_p)
+  {
+  UBlueprint * blueprint_p = Cast<UBlueprint>(obj_p);
+  if (blueprint_p)
+    {
+    // Install callback so we know when it was compiled
+    blueprint_p->OnCompiled().AddRaw(this, &FSkookumScriptRuntime::on_blueprint_compiled);
+
+    on_class_added_or_modified(blueprint_p);
+    }
+
+  UUserDefinedStruct * struct_p = Cast<UUserDefinedStruct>(obj_p);
+  if (struct_p)
+    {
+    on_struct_added_or_modified(struct_p);
+    }
+
+  UUserDefinedEnum * enum_p = Cast<UUserDefinedEnum>(obj_p);
+  if (enum_p)
+    {
+    on_enum_added_or_modified(enum_p);
+    }
+  }
+
 #endif // WITH_EDITOR
 
 #if WITH_EDITORONLY_DATA
+
+//---------------------------------------------------------------------------------------
+
+void FSkookumScriptRuntime::on_blueprint_compiled(UBlueprint * blueprint_p)
+  {
+  on_class_added_or_modified(blueprint_p);
+  }
 
 //---------------------------------------------------------------------------------------
 

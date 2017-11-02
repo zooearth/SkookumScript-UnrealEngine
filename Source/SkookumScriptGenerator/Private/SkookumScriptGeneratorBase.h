@@ -89,6 +89,8 @@ class FSkookumScriptGeneratorHelper
 
     static FString        skookify_param_name(const FString & name, bool append_question_mark);
     static FString        skookify_method_name(const FString & name, UProperty * return_property_p = nullptr);
+    static FString        skookify_data_name_basic(const FString & name, bool append_question_mark, eDataScope scope);
+    static FString        skookify_class_name_basic(const FString & name);
     static bool           compare_var_name_skookified(const TCHAR * ue_var_name_p, const ANSICHAR * sk_var_name_p);
     static bool           is_skookum_reserved_word(const FString & name);
 
