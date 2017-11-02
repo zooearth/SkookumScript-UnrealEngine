@@ -36,12 +36,47 @@
 #include "../SkookumScriptRuntimeGenerator.h"
 #include "Bindings/SkUEUtils.hpp"
 
+#include <AgogCore/AMethodArg.hpp>
+
 #include "AssertionMacros.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "Misc/AssertionMacros.h"
 #include "Kismet/GameplayStatics.h"
 
-#include <AgogCore/AMethodArg.hpp>
+#if PLATFORM_HAS_BSD_SOCKETS
+  // $HACK - Copied from SocketSubsystemBSDPrivate.h
+  #if PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS
+	#include "AllowWindowsPlatformTypes.h"
+
+	#include <winsock2.h>
+	#include <ws2tcpip.h>
+
+	typedef int32 SOCKLEN;
+
+	#include "HideWindowsPlatformTypes.h"
+#else
+	#include <sys/socket.h>
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_IOCTL
+	#include <sys/ioctl.h>
+#endif
+	#include <netinet/in.h>
+	#include <arpa/inet.h>
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETHOSTNAME
+	#include <netdb.h>
+#endif
+	#include <unistd.h>
+
+	#define ioctlsocket ioctl
+	#define SOCKET_ERROR -1
+	#define INVALID_SOCKET -1
+
+	typedef socklen_t SOCKLEN;
+	typedef int32 SOCKET;
+	typedef sockaddr_in SOCKADDR_IN;
+	typedef struct timeval TIMEVAL;
+  #endif
+#endif  // PLATFORM_HAS_BSD_SOCKETS
+
 
 //=======================================================================================
 // Local Global Structures
@@ -50,6 +85,49 @@
 namespace
 {
   const int32_t SkUERemote_ide_port = 12357;
+
+  #if PLATFORM_HAS_BSD_SOCKETS
+
+    // $HACK - Access to `Socket` member in the private FSocketBSD and FSocketBSDIPv6
+    // which both start with a `Socket` member.
+    class HackedFSocketBSD
+	    : public FSocket
+      {
+      public:
+
+        // Get raw socket
+	      SOCKET GetNativeSocket()            { return Socket; }
+
+        // Ensure it has a virtual table
+        virtual int32 GetPortNo() override  { return -1; }
+
+	      /**
+	       * Enables/disables Nagle algorithm for send coalescing.
+	       *
+	       * @param bUseErrorQueue Whether to enable error queuing or not.
+	       * @return true if the call succeeded, false otherwise.
+	       */
+	      bool SetNagleCoalesce(bool bNagleCoalesce = true)
+          {
+          int bNoDelay = !bNagleCoalesce;
+
+          // Missing in some platforms such as Android
+          #if !defined(TCP_NODELAY)
+            #define TCP_NODELAY 1  
+          #endif
+
+          return ::setsockopt(Socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char *>(&bNoDelay), sizeof(int)) == 0;
+          }
+
+      protected:
+
+	      // Holds the BSD socket object.
+	      SOCKET Socket;
+
+      };
+
+  #endif  // PLATFORM_HAS_BSD_SOCKETS
+
 
 } // End unnamed namespace
 
@@ -314,6 +392,10 @@ void SkUERemote::set_mode(eSkLocale mode)
         m_socket_p = FTcpSocketBuilder(TEXT("SkookumIDE.RemoteConnection"))
           .AsReusable()
           .AsBlocking();
+
+        #if PLATFORM_HAS_BSD_SOCKETS
+          static_cast<HackedFSocketBSD *>(m_socket_p)->SetNagleCoalesce(false);
+        #endif
 
         bool success = false;
 

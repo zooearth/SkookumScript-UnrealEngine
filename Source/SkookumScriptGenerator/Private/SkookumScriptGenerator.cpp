@@ -522,7 +522,7 @@ int32 FSkookumScriptGenerator::generate_class(UStruct * struct_or_class_p, int32
   // Determine if it's just a stub (i.e. Sk built-in struct like Vector3, Transform, SkookumScriptBehaviorComponent etc.)
   eSkTypeID type_id = get_skookum_struct_type(struct_or_class_p);
   bool has_built_in_name = struct_or_class_p->GetName() == TEXT("SkookumScriptBehaviorComponent");
-  generated_class.m_is_hierarchy_stub = (type_id != SkTypeID_UStruct && type_id != SkTypeID_UClass) || has_built_in_name; // || !module_p;
+  generated_class.m_is_hierarchy_stub = (type_id != SkTypeID_UStruct && type_id != SkTypeID_UClass) || has_built_in_name || m_targets[class_scope].is_type_skipped(struct_or_class_p->GetFName()); // || !module_p;
 
   // Generate meta file
   generated_class.m_sk_meta_file_body = generate_class_meta_file_body(struct_or_class_p);
@@ -736,7 +736,7 @@ int32 FSkookumScriptGenerator::generate_enum(UEnum * enum_p, int32 include_prior
   generated_enum.m_sk_name = enum_type_name;
   // If not in a script supported module, consider part of engine by default (if referenced by engine), part of project otherwise
   generated_enum.m_class_scope = module_p ? module_p->m_scope : ((referenced_flags & Referenced_by_engine_module) ? ClassScope_engine : ClassScope_project);
-  generated_enum.m_is_hierarchy_stub = false; // || !module_p;
+  generated_enum.m_is_hierarchy_stub = m_targets[class_scope].is_type_skipped(enum_p->GetFName());
 
   // Generate meta file
   generated_enum.m_sk_meta_file_body = generate_class_meta_file_body(enum_p);
