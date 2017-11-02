@@ -39,7 +39,7 @@
 //=======================================================================================
 
 //---------------------------------------------------------------------------------------
-// Allows you to specify a custom SkookumScript class for this actor, to store SkookumScript data members, and to have a constructor/destructor invoked when an instance of this actor gets created/destroyed
+// Facilitates construction/destruction of an embedded SkInstance
 UCLASS()
 class USkookumScriptConstructionComponent : public UActorComponent
   {
