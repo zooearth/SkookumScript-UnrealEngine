@@ -72,7 +72,7 @@ class ISkookumScriptRuntime : public IModuleInterface
       virtual bool  is_connected_to_ide() const = 0;
       virtual void  on_application_focus_changed(bool is_active) = 0;
       virtual void  on_editor_map_opened() = 0;
-      virtual void  show_ide(const FString & focus_class_name, const FString & focus_member_name, bool is_data_member, bool is_class_member) = 0;
+      virtual void  show_ide(const FString & focus_ue_class_name, const FString & focus_ue_member_name, bool is_data_member, bool is_class_member) = 0;
       virtual void  freshen_compiled_binaries_if_have_errors() = 0;
 
       virtual bool  has_skookum_default_constructor(UClass * class_p) const = 0;
