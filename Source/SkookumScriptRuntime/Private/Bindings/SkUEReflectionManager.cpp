@@ -1854,6 +1854,24 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_struct_val(FFrame & stack, co
   {
   void * dest_p;
   SkInstance * instance_p = SkInstance::new_instance_uninitialized_val(value_type.m_sk_class_p, value_type.m_byte_size, &dest_p);
+
+  // First, initialize struct to default
+  const UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(value_type.m_sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 struct for Sk class '%s'.", value_type.m_sk_class_name.as_cstr()));
+  #ifdef SK_RUNTIME_RECOVER
+    if (!ue_struct_p)
+      {
+      // Can't find struct - use Memzero and hope that works
+      FMemory::Memzero(dest_p, value_type.m_byte_size);
+      }
+    else
+  #endif
+      {
+      // Use proper initializer
+      ue_struct_p->InitializeStruct(dest_p);
+      }
+
+  // Then, gather value from stack
   stack.StepCompiledIn<UStructProperty>(dest_p);
   return instance_p;
   }
@@ -1864,6 +1882,24 @@ SkInstance * SkUEReflectionManager::fetch_k2_param_struct_ref(FFrame & stack, co
   {
   void * dest_p;
   SkInstance * instance_p = SkInstance::new_instance_uninitialized_ref(value_type.m_sk_class_p, value_type.m_byte_size, &dest_p);
+
+  // First, initialize struct to default
+  const UScriptStruct * ue_struct_p = SkUEClassBindingHelper::get_ue_struct_from_sk_class(value_type.m_sk_class_p);
+  SK_ASSERTX(ue_struct_p, a_str_format("Could not find UE4 struct for Sk class '%s'.", value_type.m_sk_class_name.as_cstr()));
+  #ifdef SK_RUNTIME_RECOVER
+    if (!ue_struct_p)
+      {
+      // Can't find struct - use Memzero and hope that works
+      FMemory::Memzero(dest_p, value_type.m_byte_size);
+      }
+    else
+  #endif
+      {
+      // Use proper initializer
+      ue_struct_p->InitializeStruct(dest_p);
+      }
+
+  // Then, gather value from stack
   stack.StepCompiledIn<UStructProperty>(dest_p);
   return instance_p;
   }
