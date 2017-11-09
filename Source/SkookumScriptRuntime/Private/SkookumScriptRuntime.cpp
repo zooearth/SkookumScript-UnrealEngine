@@ -1466,7 +1466,7 @@ void FSkookumScriptRuntime::OnPreCompile()
   m_runtime.sync_all_reflected_to_ue(true);
 
   // Make sure all Blueprints are instrumented at this point
-  if (!GIsEditor) // Only necessary in standalone mode
+  //if (!GIsEditor) // Only necessary in standalone mode
     {
     for (TObjectIterator<UBlueprint> blueprint_it; blueprint_it; ++blueprint_it)
       {
